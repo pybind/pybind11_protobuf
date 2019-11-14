@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package pybind11.test;
+
+message IntMessage {
+  int32 value = 1;
+}
+
+message TestMessage {
+  enum TestEnum {
+    ZERO = 0;
+    ONE = 1;
+    TWO = 2;
+  }
+
+  string string_value = 1;
+  int32 int_value = 2;
+  IntMessage int_message = 3;
+  repeated int32 repeated_int_value = 4;
+  repeated IntMessage repeated_int_message = 5;
+  map<string, int32> string_int_map = 6;
+  map<int32, IntMessage> int_message_map = 7;
+  TestEnum enum_value = 8;
+  repeated TestEnum repeated_enum_value = 9;
+}
