@@ -20,7 +20,8 @@ void MutateTestMessage(int32 value, TestMessage* message) {
   message->set_int_value(value);
 }
 
-bool CheckGenericMessage(const proto2::Message& message, const string& name) {
+bool CheckGenericMessage(const proto2::Message& message,
+                         const std::string& name) {
   return message.GetTypeName() == name;
 }
 

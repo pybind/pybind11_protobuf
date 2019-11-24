@@ -19,32 +19,32 @@
 namespace pybind11 {
 namespace google {
 
-string PyProtoFullName(handle py_proto) {
+std::string PyProtoFullName(handle py_proto) {
   if (hasattr(py_proto, "DESCRIPTOR")) {
     auto descriptor = py_proto.attr("DESCRIPTOR");
     if (hasattr(descriptor, "full_name"))
-      return cast<string>(descriptor.attr("full_name"));
+      return cast<std::string>(descriptor.attr("full_name"));
   }
   throw std::invalid_argument("Passed python object is not a proto.");
 }
 
-void PyProtoCheckType(handle py_proto, const string& expected_type) {
-  const string& type_in = PyProtoFullName(py_proto);
+void PyProtoCheckType(handle py_proto, const std::string& expected_type) {
+  const std::string& type_in = PyProtoFullName(py_proto);
   if (type_in != expected_type)
     // We were passed a proto of the wrong type.
     throw std::invalid_argument("Cannot convert a proto of type " + type_in +
                                 " to type " + expected_type);
 }
 
-string PyProtoSerializeToString(handle py_proto) {
+std::string PyProtoSerializeToString(handle py_proto) {
   if (hasattr(py_proto, "SerializeToString"))
-    return cast<string>(py_proto.attr("SerializeToString")());
+    return cast<std::string>(py_proto.attr("SerializeToString")());
   throw std::invalid_argument("Passed python object is not a proto.");
 }
 
 template <>
 std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto) {
-  string full_type_name = PyProtoFullName(py_proto);
+  std::string full_type_name = PyProtoFullName(py_proto);
   const proto2::Descriptor* descriptor =
       proto2::DescriptorPool::generated_pool()->FindMessageTypeByName(
           full_type_name);

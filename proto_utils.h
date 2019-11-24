@@ -28,12 +28,8 @@ namespace google {
 #define PYBIND11_PROTOBUF_IMPORT_PATH google3.third_party.pybind11_protobuf
 #endif
 
-#define _STRINGIFY(value) #value
-#define STRINGIFY(value) _STRINGIFY(value)
 constexpr char kGoogle3UtilsProtoModule[] =
-    STRINGIFY(PYBIND11_PROTOBUF_IMPORT_PATH) ".proto";
-#undef STRINGIFY
-#undef _STRINGIFY
+    PYBIND11_TOSTRING(PYBIND11_PROTOBUF_IMPORT_PATH) ".proto";
 
 // Imports the proto module.
 inline void ImportProtoModule() { module::import(kGoogle3UtilsProtoModule); }
@@ -47,14 +43,14 @@ inline bool IsWrappedCProto(handle handle) {
 }
 
 // Returns the full name of the given (native or wrapped) python proto.
-string PyProtoFullName(handle py_proto);
+std::string PyProtoFullName(handle py_proto);
 
 // Throws an invalid argument error if the given py_proto is not a proto or
 // does not match the expected name.
-void PyProtoCheckType(handle py_proto, const string& expected_type);
+void PyProtoCheckType(handle py_proto, const std::string& expected_type);
 
 // Returns the serialized version of the given (native or wrapped) python proto.
-string PyProtoSerializeToString(handle py_proto);
+std::string PyProtoSerializeToString(handle py_proto);
 
 // Check that the type of py_proto matches the template argument, then
 // allocate and return a proto of that type.
@@ -121,7 +117,7 @@ auto DispatchFieldDescriptor(const proto2::FieldDescriptor* field_desc,
     case proto2::FieldDescriptor::CPPTYPE_BOOL:
       return Handler<bool>::HandleField(field_desc, args...);
     case proto2::FieldDescriptor::CPPTYPE_STRING:
-      return Handler<string>::HandleField(field_desc, args...);
+      return Handler<std::string>::HandleField(field_desc, args...);
     case proto2::FieldDescriptor::CPPTYPE_MESSAGE:
       return Handler<proto2::Message>::HandleField(field_desc, args...);
     case proto2::FieldDescriptor::CPPTYPE_ENUM:
@@ -212,7 +208,7 @@ class ProtoFieldContainerBase {
 // void Set(int idx, cpp_type value): Sets the value of the field, at the given
 //   index if it is a repeated field (idx is ignored for singular fields).
 // void Add(handle value): Converts and adds the value to a repeated field.
-// string ElementRepr(int idx) const: Convert the given element to a string.
+// std::string ElementRepr(int idx) const: Convert the element to a string.
 //
 // Note: cpp_type may not be exactly the same as the template argument type-
 // it could be a reference or a pointer to that type. Use ProtoFieldAccess<T>
@@ -249,7 +245,9 @@ class ProtoFieldContainer {};
       reflection_->Add##func_type(proto_, field_desc_,                         \
                                   CastArg<cpp_type>(value));                   \
     }                                                                          \
-    string ElementRepr(int idx) const { return std::to_string(Get(idx)); }     \
+    std::string ElementRepr(int idx) const {                                   \
+      return std::to_string(Get(idx));                                         \
+    }                                                                          \
   }
 
 NUMERIC_FIELD_REFLECTION_SPECIALIZATION(Int32, int32);
@@ -263,10 +261,10 @@ NUMERIC_FIELD_REFLECTION_SPECIALIZATION(Bool, bool);
 
 // Specialization for strings.
 template <>
-class ProtoFieldContainer<string> : public ProtoFieldContainerBase {
+class ProtoFieldContainer<std::string> : public ProtoFieldContainerBase {
  public:
   using ProtoFieldContainerBase::ProtoFieldContainerBase;
-  const string& Get(int idx) const {
+  const std::string& Get(int idx) const {
     if (field_desc_->is_repeated()) {
       CheckIndex(idx);
       return reflection_->GetRepeatedStringReference(*proto_, field_desc_, idx,
@@ -286,7 +284,7 @@ class ProtoFieldContainer<string> : public ProtoFieldContainerBase {
     else
       return str(Get(idx)).release();
   }
-  void Set(int idx, const string& value) {
+  void Set(int idx, const std::string& value) {
     if (field_desc_->is_repeated()) {
       CheckIndex(idx);
       reflection_->SetRepeatedString(proto_, field_desc_, idx, value);
@@ -295,9 +293,9 @@ class ProtoFieldContainer<string> : public ProtoFieldContainerBase {
     }
   }
   void Add(handle value) {
-    reflection_->AddString(proto_, field_desc_, CastArg<string>(value));
+    reflection_->AddString(proto_, field_desc_, CastArg<std::string>(value));
   }
-  string ElementRepr(int idx) const {
+  std::string ElementRepr(int idx) const {
     if (field_desc_->type() == proto2::FieldDescriptor::TYPE_BYTES)
       return "<Binary String>";
     else
@@ -305,7 +303,7 @@ class ProtoFieldContainer<string> : public ProtoFieldContainerBase {
   }
 
  private:
-  mutable string scratch;
+  mutable std::string scratch;
 };
 
 // Specialization for messages.
@@ -346,7 +344,9 @@ class ProtoFieldContainer<proto2::Message> : public ProtoFieldContainerBase {
     reflection_->AddAllocatedMessage(proto_, field_desc_, new_msg);
     return new_msg;
   }
-  string ElementRepr(int idx) const { return Get(idx)->ShortDebugString(); }
+  std::string ElementRepr(int idx) const {
+    return Get(idx)->ShortDebugString();
+  }
 };
 
 // Specialization for enums.
@@ -375,7 +375,7 @@ class ProtoFieldContainer<GenericEnum> : public ProtoFieldContainerBase {
   void Add(handle value) {
     reflection_->AddEnumValue(proto_, field_desc_, value.cast<int>());
   }
-  string ElementRepr(int idx) const { return GetDesc(idx)->name(); }
+  std::string ElementRepr(int idx) const { return GetDesc(idx)->name(); }
 };
 
 // A container for a repeated field.
@@ -408,9 +408,9 @@ class RepeatedFieldContainer : public ProtoFieldContainer<T> {
     // Remove the last value
     this->reflection_->RemoveLast(this->proto_, this->field_desc_);
   }
-  string Repr() const {
+  std::string Repr() const {
     if (this->Size() == 0) return "[]";
-    string repr = "[";
+    std::string repr = "[";
     for (int i = 0; i < this->Size(); ++i) repr += this->ElementRepr(i) + ", ";
     repr.pop_back();
     repr.back() = ']';
@@ -453,13 +453,13 @@ struct FindMapPair {
 
 template <typename KeyT, typename ValueT>
 struct MapRepr {
-  static string HandleField(const proto2::FieldDescriptor* key_desc,
-                            proto2::Message* proto,
-                            const proto2::FieldDescriptor* map_desc,
-                            const proto2::FieldDescriptor* value_desc) {
+  static std::string HandleField(const proto2::FieldDescriptor* key_desc,
+                                 proto2::Message* proto,
+                                 const proto2::FieldDescriptor* map_desc,
+                                 const proto2::FieldDescriptor* value_desc) {
     RepeatedFieldContainer<proto2::Message> map_field(proto, map_desc);
     if (map_field.Size() == 0) return "{}";
-    string repr = "{";
+    std::string repr = "{";
     for (int i = 0; i < map_field.Size(); ++i) {
       proto2::Message* kv_pair = map_field.Get(i);
       repr += ProtoFieldContainer<KeyT>(kv_pair, key_desc).ElementRepr(-1);
@@ -497,7 +497,7 @@ class MapFieldContainer : public RepeatedFieldContainer<proto2::Message> {
     return DispatchFieldDescriptor<FindMapPair>(key_desc_, proto_, field_desc_,
                                                 key, false) != nullptr;
   }
-  string Repr() const {
+  std::string Repr() const {
     return DispatchFieldDescriptor<_MapRepr>(key_desc_, proto_, field_desc_,
                                              value_desc_);
   }
@@ -586,7 +586,7 @@ struct AddProtoMapField {
 template <typename T>
 class RepeatedFieldBindings : public class_<RepeatedFieldContainer<T>> {
  public:
-  RepeatedFieldBindings(handle scope, const string& name)
+  RepeatedFieldBindings(handle scope, const std::string& name)
       : class_<RepeatedFieldContainer<T>>(scope, name.c_str()) {
     return_value_policy get_policy = return_value_policy::automatic;
     if (std::is_same<T, proto2::Message>::value)
@@ -610,7 +610,7 @@ class RepeatedFieldBindings : public class_<RepeatedFieldContainer<T>> {
 template <typename T>
 class MapFieldBindings : public class_<MapFieldContainer<T>> {
  public:
-  MapFieldBindings(handle scope, const string& name)
+  MapFieldBindings(handle scope, const std::string& name)
       : class_<MapFieldContainer<T>>(scope, name.c_str()) {
     return_value_policy get_policy = return_value_policy::automatic;
     if (std::is_same<T, proto2::Message>::value)
@@ -662,7 +662,7 @@ class ProtoBindings : public class_<ProtoType, proto2::Message> {
 };
 
 template <template <typename> class Bindings>
-void BindEachFieldType(module& module, const string& name) {
+void BindEachFieldType(module& module, const std::string& name) {
   Bindings<int32>(module, name + "Int32");
   Bindings<int64>(module, name + "Int64");
   Bindings<uint32>(module, name + "UInt32");
@@ -670,7 +670,7 @@ void BindEachFieldType(module& module, const string& name) {
   Bindings<float>(module, name + "Float");
   Bindings<double>(module, name + "Double");
   Bindings<bool>(module, name + "Bool");
-  Bindings<string>(module, name + "String");
+  Bindings<std::string>(module, name + "String");
   Bindings<proto2::Message>(module, name + "Message");
   Bindings<GenericEnum>(module, name + "Enum");
 }
