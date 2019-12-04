@@ -7,7 +7,6 @@
 
 #include "pybind11_protobuf/proto_casters.h"
 #include "pybind11_protobuf/test.proto.h"
-#include "util/task/status.h"
 
 namespace pybind11 {
 namespace test {
