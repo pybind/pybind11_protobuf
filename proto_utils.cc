@@ -19,6 +19,18 @@
 namespace pybind11 {
 namespace google {
 
+// The value of PYBIND11_PROTOBUF_MODULE_PATH will be different depending on
+// whether this is being built inside or outside of google3. The value used
+// inside of google3 is defined here. Outside of google3, change this value by
+// passing "-DPYBIND11_PROTOBUF_MODULE_PATH=..." on the commandline.
+#ifndef PYBIND11_PROTOBUF_MODULE_PATH
+#define PYBIND11_PROTOBUF_MODULE_PATH google3.third_party.pybind11_protobuf
+#endif
+
+void ImportProtoModule() {
+  module::import(PYBIND11_TOSTRING(PYBIND11_PROTOBUF_MODULE_PATH) ".proto");
+}
+
 std::string PyProtoFullName(handle py_proto) {
   if (hasattr(py_proto, "DESCRIPTOR")) {
     auto descriptor = py_proto.attr("DESCRIPTOR");

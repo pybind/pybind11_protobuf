@@ -23,16 +23,8 @@
 namespace pybind11 {
 namespace google {
 
-// Use a macro so this path can be set from the commandline when building.
-#ifndef PYBIND11_PROTOBUF_IMPORT_PATH
-#define PYBIND11_PROTOBUF_IMPORT_PATH google3.third_party.pybind11_protobuf
-#endif
-
-constexpr char kGoogle3UtilsProtoModule[] =
-    PYBIND11_TOSTRING(PYBIND11_PROTOBUF_IMPORT_PATH) ".proto";
-
 // Imports the proto module.
-inline void ImportProtoModule() { module::import(kGoogle3UtilsProtoModule); }
+void ImportProtoModule();
 
 // Name of the property which indicates whether a proto is a wrapped or native.
 constexpr char kIsWrappedCProtoAttr[] = "_is_wrapped_c_proto";
