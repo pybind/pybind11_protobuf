@@ -31,7 +31,8 @@ PYBIND11_MODULE(proto, m) {
       .def_property_readonly("DESCRIPTOR", &proto2::Message::GetDescriptor,
                              return_value_policy::reference)
       .def("__repr__", &proto2::Message::DebugString)
-      .def("SerializeToString", &proto2::Message::SerializeAsString)
+      .def("SerializeToString",
+           [](proto2::Message* msg) { return bytes(msg->SerializeAsString()); })
       .def("ParseFromString", &proto2::Message::ParseFromString, arg("data"))
       .def("MergeFromString", &proto2::Message::MergeFromString, arg("data"))
       .def("ByteSize", &proto2::Message::ByteSizeLong)
