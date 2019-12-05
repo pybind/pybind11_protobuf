@@ -44,6 +44,6 @@ wrapped proto (see proto_test.py for an example).
 Features not yet implemented/ covered:
 
 - Oneof fields.
-- `remove` with repeated message fields and maps.
+- `remove` with repeated message fields and maps (b/145687965).
 - Extensions.
 - Enforcing read-only references.

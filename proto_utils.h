@@ -18,10 +18,13 @@
 #include "net/proto2/public/descriptor.h"
 #include "net/proto2/public/message.h"
 #include "net/proto2/public/reflection.h"
-#include "absl/memory/memory.h"
 
 namespace pybind11 {
 namespace google {
+
+// Alias for checking whether a c++ type is a proto.
+template <typename T>
+inline constexpr bool is_proto_v = std::is_base_of_v<proto2::Message, T>;
 
 // Imports the proto module.
 void ImportProtoModule();
@@ -34,26 +37,38 @@ inline bool IsWrappedCProto(handle handle) {
   return hasattr(handle, kIsWrappedCProtoAttr);
 }
 
-// Returns the full name of the given (native or wrapped) python proto.
-std::string PyProtoFullName(handle py_proto);
+// If py_proto is a native or wrapped python proto, extract and return its name.
+// Otherwise, return std::nullopt.
+std::optional<std::string> PyProtoFullName(handle py_proto);
 
-// Throws an invalid argument error if the given py_proto is not a proto or
-// does not match the expected name.
-void PyProtoCheckType(handle py_proto, const std::string& expected_type);
+// Returns whether py_proto is a proto and matches the expected_type.
+bool PyProtoCheckType(handle py_proto, const std::string& expected_type);
+
+// Returns whether py_proto is a proto and matches the ProtoType.
+template <typename ProtoType>
+bool PyProtoCheckType(handle py_proto) {
+  return PyProtoCheckType(py_proto, ProtoType::descriptor()->full_name());
+}
+
+// Returns whether py_proto is a proto.
+template <>
+inline bool PyProtoCheckType<proto2::Message>(handle py_proto) {
+  return PyProtoFullName(py_proto).has_value();
+}
 
 // Returns the serialized version of the given (native or wrapped) python proto.
 std::string PyProtoSerializeToString(handle py_proto);
 
-// Check that the type of py_proto matches the template argument, then
-// allocate and return a proto of that type.
+// Allocate and return the ProtoType given by the template argument.
+// py_proto is not used in this version, but is used by a specialization below.
 template <typename ProtoType>
-std::unique_ptr<ProtoType> PyProtoAllocateMessage(handle py_proto) {
-  PyProtoCheckType(py_proto, ProtoType::descriptor()->full_name());
-  return absl::make_unique<ProtoType>();
+std::unique_ptr<ProtoType> PyProtoAllocateMessage(handle py_proto = handle()) {
+  return std::make_unique<ProtoType>();
 }
 
 // Specialization for the case that the template argument is a generic message.
-// The type is pulled from the py_proto.
+// The type is pulled from the py_proto, which can be a native python proto,
+// a wrapped C proto, or a string with the full type name.
 template <>
 std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto);
 
@@ -149,18 +164,8 @@ typename ProtoFieldAccess<T>::Type CastArg(handle arg) {
   }
 }
 
-// Registers ProtoType in pybind11 if it is not already registered.
-template <typename ProtoType>
-void RegisterMessageType(const ProtoType* message);
-
-// Specialization for abstract messages. This most commonly happens with
-// sub-messages, which are accessed through the reflection interface.
-// pybind11::class_ can only register classes based a template parameter.
-// Therefore, we will register it to a placeholder and re-registered it under
-// the correct typeid based on RTTI.
-template <>
-void RegisterMessageType(const proto2::Message* message);
-
+// Base class for type-agnostic functionality and data shared between all
+// specializations of the ProtoFieldContainer (see below).
 class ProtoFieldContainerBase {
  public:
   ProtoFieldContainerBase(proto2::Message* proto,
@@ -194,9 +199,8 @@ class ProtoFieldContainerBase {
 // Specializations should implement the following functions:
 // cpp_type Get(int idx) const: Returns the value of the field, at the given
 //   index if it is a repeated field (idx is ignored for singular fields).
-// cpp_type or handle GetPython(int idx) const: Converts the return value of
-//   of Get(idx) to a python handle if that conversion is non-trivial.
-//   If it is trivial, this can just be an alias for Get(idx).
+// object GetPython(int idx) const: Converts the return value of
+//   of Get(idx) to a python object.
 // void Set(int idx, cpp_type value): Sets the value of the field, at the given
 //   index if it is a repeated field (idx is ignored for singular fields).
 // void Add(handle value): Converts and adds the value to a repeated field.
@@ -224,7 +228,7 @@ class ProtoFieldContainer {};
         return reflection_->Get##func_type(*proto_, field_desc_);              \
       }                                                                        \
     }                                                                          \
-    cpp_type GetPython(int idx) const { return Get(idx); }                     \
+    object GetPython(int idx) const { return cast(Get(idx)); }                 \
     void Set(int idx, cpp_type value) {                                        \
       if (field_desc_->is_repeated()) {                                        \
         CheckIndex(idx);                                                       \
@@ -265,16 +269,16 @@ class ProtoFieldContainer<std::string> : public ProtoFieldContainerBase {
       return reflection_->GetStringReference(*proto_, field_desc_, &scratch);
     }
   }
-  handle GetPython(int idx) const {
+  object GetPython(int idx) const {
     // Convert the given value to a python string or bytes object.
     // If byte fields are returned as standard strings, pybind11 will attempt
     // to decode them as utf-8. However, some byte sequences are illegal in
     // utf-8, and will result in an error. To allow any arbitrary byte sequence
     // for a bytes field, we have to convert it to a python bytes type.
     if (field_desc_->type() == proto2::FieldDescriptor::TYPE_BYTES)
-      return bytes(Get(idx)).release();
+      return bytes(Get(idx));
     else
-      return str(Get(idx)).release();
+      return str(Get(idx));
   }
   void Set(int idx, const std::string& value) {
     if (field_desc_->is_repeated()) {
@@ -312,17 +316,23 @@ class ProtoFieldContainer<proto2::Message> : public ProtoFieldContainerBase {
     } else {
       message = reflection_->MutableMessage(proto_, field_desc_);
     }
-    RegisterMessageType(message);
     return message;
   }
-  proto2::Message* GetPython(int idx) const { return Get(idx); }
+  object GetPython(int idx) const {
+    object inst = cast(Get(idx), return_value_policy::reference);
+    object parent = cast(proto_, return_value_policy::reference);
+    // Keep parent alive until inst is no longer referenced.
+    detail::keep_alive_impl(inst, parent);
+    return inst;
+  }
   void Set(int idx, proto2::Message* value) {
     if (value->GetTypeName() != field_desc_->message_type()->full_name())
       throw type_error("Cannot set field from invalid type.");
     Get(idx)->CopyFrom(*value);
   }
   void Add(handle value) {
-    PyProtoCheckType(value, field_desc_->message_type()->full_name());
+    if (!PyProtoCheckType(value, field_desc_->message_type()->full_name()))
+      throw std::runtime_error("Cannot add value: invalid type.");
     reflection_->AddAllocatedMessage(
         proto_, field_desc_,
         PyProtoAllocateAndCopyMessage<proto2::Message>(value).release());
@@ -332,7 +342,6 @@ class ProtoFieldContainer<proto2::Message> : public ProtoFieldContainerBase {
         reflection_
             ->GetMutableRepeatedFieldRef<proto2::Message>(proto_, field_desc_)
             .NewMessage();
-    RegisterMessageType(new_msg);
     reflection_->AddAllocatedMessage(proto_, field_desc_, new_msg);
     return new_msg;
   }
@@ -355,7 +364,7 @@ class ProtoFieldContainer<GenericEnum> : public ProtoFieldContainerBase {
     }
   }
   int Get(int idx) const { return GetDesc(idx)->number(); }
-  int GetPython(int idx) const { return Get(idx); }
+  object GetPython(int idx) const { return cast(Get(idx)); }
   void Set(int idx, int value) {
     if (field_desc_->is_repeated()) {
       CheckIndex(idx);
@@ -365,7 +374,7 @@ class ProtoFieldContainer<GenericEnum> : public ProtoFieldContainerBase {
     }
   }
   void Add(handle value) {
-    reflection_->AddEnumValue(proto_, field_desc_, value.cast<int>());
+    reflection_->AddEnumValue(proto_, field_desc_, CastArg<GenericEnum>(value));
   }
   std::string ElementRepr(int idx) const { return GetDesc(idx)->name(); }
 };
@@ -389,16 +398,22 @@ class RepeatedFieldContainer : public ProtoFieldContainer<T> {
     for (int dst = this->Size() - 1; dst > idx; --dst)
       SwapElements(dst, dst - 1);
   }
-  void Remove(int idx) {
-    // TODO(kenoslund): Get this to work for repeated messages.
+  void Delete(int idx) {
+    // TODO(b/145687965): Get this to work for repeated messages.
     // Current it gives a 'use of uninitialized value' error.
-    if (std::is_same<T, proto2::Message>::value)
+    if (std::is_same_v<T, proto2::Message>)
       throw std::runtime_error("Remove does not work for repeated messages.");
     this->CheckIndex(idx);
     // Slide all existing values up one index.
     for (int dst = idx; dst < this->Size(); ++dst) SwapElements(dst, dst + 1);
     // Remove the last value
     this->reflection_->RemoveLast(this->proto_, this->field_desc_);
+  }
+  // TODO(b/145687883): Support the case that indices is a slice.
+  object GetItem(handle indices) { return this->GetPython(cast<int>(indices)); }
+  void DelItem(handle indices) { Delete(cast<int>(indices)); }
+  void SetItem(handle indices, handle values) {
+    this->Set(cast<int>(indices), CastArg<T>(values));
   }
   std::string Repr() const {
     if (this->Size() == 0) return "[]";
@@ -415,6 +430,8 @@ class RepeatedFieldContainer : public ProtoFieldContainer<T> {
   }
 };
 
+// Struct which can be used with DispatchFieldDescriptor to find (or add)
+// the map pair (key, value) message with the given key.
 template <typename KeyT>
 struct FindMapPair {
   static proto2::Message* HandleField(const proto2::FieldDescriptor* key_desc,
@@ -443,6 +460,8 @@ struct FindMapPair {
   }
 };
 
+// Struct which can be used with DispatchFieldDescriptor to convert the map
+// into a string representation.
 template <typename KeyT, typename ValueT>
 struct MapRepr {
   static std::string HandleField(const proto2::FieldDescriptor* key_desc,
@@ -482,6 +501,9 @@ class MapFieldContainer : public RepeatedFieldContainer<proto2::Message> {
     // protos, not dicts (see http://go/pythonprotobuf#undefined).
     return GetValueContainer(key).Get(-1);
   }
+  object GetPython(handle key) const {
+    return GetValueContainer(key).GetPython(-1);
+  }
   void Set(handle key, typename ProtoFieldAccess<MappedType>::Type value) {
     return GetValueContainer(key).Set(-1, value);
   }
@@ -508,181 +530,64 @@ class MapFieldContainer : public RepeatedFieldContainer<proto2::Message> {
   const proto2::FieldDescriptor* value_desc_;
 };
 
-// Add bindings for a singular field (other than a sub-message).
-template <typename ProtoType, typename FieldType>
-struct AddProtoSingularField {
+// Struct which can be used with DispatchFieldDescriptor to get
+// the value of a singular field.
+template <typename ValueType>
+struct GetProtoSingularField {
+  static object HandleField(const proto2::FieldDescriptor* field_desc,
+                            proto2::Message* proto) {
+    return ProtoFieldContainer<ValueType>(proto, field_desc).GetPython(-1);
+  }
+};
+
+// Struct which can be used with DispatchFieldDescriptor to set
+// the value of a singular field.
+template <typename ValueType>
+struct SetProtoSingularField {
   static void HandleField(const proto2::FieldDescriptor* field_desc,
-                          class_<ProtoType, proto2::Message>* pybind_class_) {
-    pybind_class_->def_property(
-        field_desc->name().c_str(),
-        [field_desc](proto2::Message* proto) {
-          return ProtoFieldContainer<FieldType>(proto, field_desc)
-              .GetPython(-1);
-        },
-        [field_desc](proto2::Message* proto,
-                     const typename ProtoFieldAccess<FieldType>::Type& value) {
-          return ProtoFieldContainer<FieldType>(proto, field_desc)
-              .Set(-1, value);
-        });
+                          proto2::Message* proto, handle value) {
+    ProtoFieldContainer<ValueType>(proto, field_desc)
+        .Set(-1, cast<typename ProtoFieldAccess<ValueType>::Type>(value));
   }
 };
 
-// Add bindings for a singular sub-message field.
-template <typename ProtoType>
-struct AddProtoSingularField<ProtoType, proto2::Message> {
-  static void HandleField(const proto2::FieldDescriptor* field_desc,
-                          class_<ProtoType, proto2::Message>* pybind_class_) {
-    pybind_class_->def_property_readonly(
-        field_desc->name().c_str(),
-        [field_desc](proto2::Message* proto) {
-          return ProtoFieldContainer<proto2::Message>(proto, field_desc)
-              .GetPython(-1);
-        },
-        return_value_policy::reference_internal);
+// Struct which can be used with DispatchFieldDescriptor to get
+// the value of a repeated field.
+template <typename ValueType>
+struct GetProtoRepeatedField {
+  static object HandleField(const proto2::FieldDescriptor* field_desc,
+                            proto2::Message* proto) {
+    object inst = cast(RepeatedFieldContainer<ValueType>(proto, field_desc));
+    object parent = cast(proto, return_value_policy::reference);
+    // Keep parent alive until inst is no longer referenced.
+    detail::keep_alive_impl(inst, parent);
+    return inst;
   }
 };
 
-// Add bindings for a repeated field.
-template <typename ProtoType, typename ValueType>
-struct AddProtoRepeatedField {
-  static void HandleField(const proto2::FieldDescriptor* field_desc,
-                          class_<ProtoType, proto2::Message>* pybind_class_) {
-    pybind_class_->def_property_readonly(
-        field_desc->name().c_str(),
-        [field_desc](proto2::Message* proto) {
-          return RepeatedFieldContainer<ValueType>(proto, field_desc);
-        },
-        return_value_policy::reference_internal);
+// Struct which can be used with DispatchFieldDescriptor to get
+// the value of a map field.
+template <typename ValueType>
+struct GetProtoMapField {
+  static object HandleField(const proto2::FieldDescriptor* value_descriptor,
+                            const proto2::FieldDescriptor* key_descriptor,
+                            const proto2::FieldDescriptor* map_descriptor,
+                            proto2::Message* proto) {
+    object inst = cast(MapFieldContainer<ValueType>(
+        proto, map_descriptor, key_descriptor, value_descriptor));
+    object parent = cast(proto, return_value_policy::reference);
+    // Keep parent alive until inst is no longer referenced.
+    detail::keep_alive_impl(inst, parent);
+    return inst;
   }
 };
 
-// Add bindings for a map field.
-template <typename ProtoType, typename ValueType>
-struct AddProtoMapField {
-  static void HandleField(const proto2::FieldDescriptor* value_descriptor,
-                          const proto2::FieldDescriptor* key_descriptor,
-                          const proto2::FieldDescriptor* map_descriptor,
-                          class_<ProtoType, proto2::Message>* pybind_class_) {
-    pybind_class_->def_property_readonly(
-        map_descriptor->name().c_str(),
-        [map_descriptor, key_descriptor,
-         value_descriptor](proto2::Message* proto) {
-          return MapFieldContainer<ValueType>(proto, map_descriptor,
-                                              key_descriptor, value_descriptor);
-        },
-        return_value_policy::reference_internal);
-  }
-};
+// Implementation of __getattr__ for a proto message.
+object ProtoGetAttr(proto2::Message* message, const std::string& name);
 
-// Class to add python bindings to a RepeatedFieldContainer.
-template <typename T>
-class RepeatedFieldBindings : public class_<RepeatedFieldContainer<T>> {
- public:
-  RepeatedFieldBindings(handle scope, const std::string& name)
-      : class_<RepeatedFieldContainer<T>>(scope, name.c_str()) {
-    return_value_policy get_policy = return_value_policy::automatic;
-    if (std::is_same<T, proto2::Message>::value)
-      get_policy = return_value_policy::reference_internal;
-    else
-      this->def("__setitem__", &RepeatedFieldContainer<T>::Set);
-
-    this->def("__repr__", &RepeatedFieldContainer<T>::Repr);
-    this->def("__len__", &RepeatedFieldContainer<T>::Size);
-    this->def("__getitem__", &RepeatedFieldContainer<T>::Get, get_policy);
-    this->def("MergeFrom", &RepeatedFieldContainer<T>::Extend);
-    this->def("extend", &RepeatedFieldContainer<T>::Extend);
-    this->def("append", &RepeatedFieldContainer<T>::Add);
-    this->def("insert", &RepeatedFieldContainer<T>::Insert);
-    this->def("remove", &RepeatedFieldContainer<T>::Remove);
-    this->def("clear", &RepeatedFieldContainer<T>::Clear);
-  }
-};
-
-// Class to add python bindings to a MapFieldContainer.
-template <typename T>
-class MapFieldBindings : public class_<MapFieldContainer<T>> {
- public:
-  MapFieldBindings(handle scope, const std::string& name)
-      : class_<MapFieldContainer<T>>(scope, name.c_str()) {
-    return_value_policy get_policy = return_value_policy::automatic;
-    if (std::is_same<T, proto2::Message>::value)
-      get_policy = return_value_policy::reference_internal;
-    else
-      this->def("__setitem__", &MapFieldContainer<T>::Set);
-
-    this->def("__repr__", &MapFieldContainer<T>::Repr);
-    this->def("__len__", &MapFieldContainer<T>::Size);
-    this->def("__contains__", &MapFieldContainer<T>::Contains);
-    this->def("__getitem__", &MapFieldContainer<T>::Get, get_policy);
-    this->def("clear", &RepeatedFieldContainer<T>::Clear);
-  }
-};
-
-// Class to add python bindings to a protocol buffer message.
-template <typename ProtoType>
-class ProtoBindings : public class_<ProtoType, proto2::Message> {
- public:
-  explicit ProtoBindings(const proto2::Descriptor* descriptor)
-      : class_<ProtoType, proto2::Message>(nullptr,
-                                           descriptor->name().c_str()) {
-    for (int i = 0; i < descriptor->field_count(); ++i) {
-      auto* field_desc = descriptor->field(i);
-      if (field_desc->is_map()) {
-        auto* map_pair_descriptor = field_desc->message_type();
-        auto* map_value_field_desc =
-            map_pair_descriptor->FindFieldByName("value");
-        auto* map_key_field_desc = map_pair_descriptor->FindFieldByName("key");
-        DispatchFieldDescriptor<_AddProtoMapField>(
-            map_value_field_desc, map_key_field_desc, field_desc, this);
-      } else if (field_desc->is_repeated()) {
-        DispatchFieldDescriptor<_AddProtoRepeatedField>(field_desc, this);
-      } else {
-        DispatchFieldDescriptor<_AddProtoSingularField>(field_desc, this);
-      }
-    }
-  }
-
- protected:
-  template <typename FieldType>
-  using _AddProtoSingularField = AddProtoSingularField<ProtoType, FieldType>;
-
-  template <typename FieldType>
-  using _AddProtoRepeatedField = AddProtoRepeatedField<ProtoType, FieldType>;
-
-  template <typename FieldType>
-  using _AddProtoMapField = AddProtoMapField<ProtoType, FieldType>;
-};
-
-template <template <typename> class Bindings>
-void BindEachFieldType(module& module, const std::string& name) {
-  Bindings<int32>(module, name + "Int32");
-  Bindings<int64>(module, name + "Int64");
-  Bindings<uint32>(module, name + "UInt32");
-  Bindings<uint64>(module, name + "UInt64");
-  Bindings<float>(module, name + "Float");
-  Bindings<double>(module, name + "Double");
-  Bindings<bool>(module, name + "Bool");
-  Bindings<std::string>(module, name + "String");
-  Bindings<proto2::Message>(module, name + "Message");
-  Bindings<GenericEnum>(module, name + "Enum");
-}
-
-// Returns whether we should register the type of the message.
-// We should register it if 1) it is not currently registered or 2) it was
-// registered with an abstract type and now we have a conrete type.
-bool RegistrationNeeded(const proto2::Message* message,
-                        bool have_concrete_type);
-
-// Registers ProtoType in pybind11 if it is not already registered.
-template <typename ProtoType>
-void RegisterMessageType(const ProtoType* message) {
-  ImportProtoModule();
-  if (message->GetDescriptor() != ProtoType::GetDescriptor())
-    throw std::invalid_argument(
-        "Passed message type does not match template type.");
-  if (RegistrationNeeded(message, true))
-    ProtoBindings<ProtoType>{message->GetDescriptor()};
-}
+// Implementation of __setattr__ for a proto message.
+void ProtoSetAttr(proto2::Message* message, const std::string& name,
+                  handle value);
 
 }  // namespace google
 }  // namespace pybind11

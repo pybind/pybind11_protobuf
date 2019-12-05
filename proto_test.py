@@ -2,7 +2,6 @@
 #
 # All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
-
 """Tests for protobuf casters."""
 
 from __future__ import absolute_import
@@ -10,19 +9,32 @@ from __future__ import division
 from __future__ import print_function
 
 from google3.testing.pybase import googletest
+from google3.testing.pybase import parameterized
 from pybind11_protobuf import proto
 from pybind11_protobuf import proto_example
 from pybind11_protobuf import test_pb2
 
 
-class ProtoTest(googletest.TestCase):
+class ProtoTest(parameterized.TestCase):
 
   def test_return_wrapped_message(self):
-    message = proto_example.make_test_message()
-    self.assertEqual(message.DESCRIPTOR.full_name, 'pybind11.test.TestMessage')
-    self.assertTrue(proto.is_wrapped_c_proto(message))
+    message = proto_example.make_int_message()
+    self.assertEqual(message.DESCRIPTOR.full_name, 'pybind11.test.IntMessage')
+
+  def test_is_wrapped_c_proto(self):
+    self.assertTrue(proto.is_wrapped_c_proto(proto_example.make_int_message()))
     self.assertFalse(proto.is_wrapped_c_proto('not a proto'))
-    self.assertFalse(proto.is_wrapped_c_proto(test_pb2.TestMessage()))
+    self.assertFalse(proto.is_wrapped_c_proto(5))
+    self.assertFalse(proto.is_wrapped_c_proto(test_pb2.IntMessage()))
+
+  @parameterized.named_parameters(
+      ('name', 'pybind11.test.IntMessage'),
+      ('native_proto', test_pb2.IntMessage()),
+      ('native_proto_type', test_pb2.IntMessage),
+      ('wrapped_proto', proto_example.make_int_message()))
+  def test_make_wrapped_c_proto_from(self, type_in):
+    message = proto.make_wrapped_c_proto(type_in)
+    self.assertTrue(proto.is_wrapped_c_proto(message))
 
   def test_access_wrapped_message_singluar_fields(self):
     message = proto_example.make_test_message()
@@ -52,7 +64,7 @@ class ProtoTest(googletest.TestCase):
     message.repeated_int_value.insert(1, 2)
     self.assertSequenceEqual(message.repeated_int_value, [8, 2, 7])
 
-    message.repeated_int_value.remove(1)
+    del message.repeated_int_value[1]
     self.assertSequenceEqual(message.repeated_int_value, [8, 7])
 
     message.repeated_int_value.extend([6, 5])
@@ -98,16 +110,17 @@ class ProtoTest(googletest.TestCase):
     message.repeated_int_message.extend([sub_msg, sub_msg])
     check_values([8, 2, 7, 2, 2])
 
+    # TODO(b/145687965): Get element removal to work.
+    with self.assertRaises(RuntimeError):
+      del message.repeated_int_message[1]
+
     message.repeated_int_message.clear()
     self.assertEmpty(message.repeated_int_message)
 
-    self.assertRaises(ValueError, message.repeated_int_message.append,
+    self.assertRaises(RuntimeError, message.repeated_int_message.append,
                       'invalid value')
-    self.assertRaises(ValueError, message.repeated_int_message.append,
+    self.assertRaises(RuntimeError, message.repeated_int_message.append,
                       test_pb2.TestMessage())
-
-    # TODO(kenoslund): Get remove to work.
-    self.assertRaises(RuntimeError, message.repeated_int_message.remove, 1)
 
   def test_access_wrapped_message_map_string_int(self):
     message = proto_example.make_test_message()
@@ -175,49 +188,72 @@ class ProtoTest(googletest.TestCase):
     self.assertEqual(message.repeated_enum_value[1], 1)
     self.assertEqual(str(message.repeated_enum_value), '[TWO, ONE]')
 
-  def test_pass_wrapped_proto(self):
+  def test_access_nonexistent_field(self):
     message = proto_example.make_test_message()
-    message.int_value = 5
-    self.assertTrue(proto_example.check_test_message(message, 5))
+    with self.assertRaises(AttributeError):
+      _ = message.invalid_field  # get
+    with self.assertRaises(AttributeError):
+      message.invalid_field = 5  # set
+
+  def test_invalid_field_assignment(self):
+    # Message, repeated, and map fields cannot be set via assignment.
+    message = proto_example.make_test_message()
+    with self.assertRaises(AttributeError):
+      message.int_message = test_pb2.IntMessage()
+    with self.assertRaises(AttributeError):
+      message.repeated_int_value = []
+    with self.assertRaises(AttributeError):
+      message.repeated_int_message = []
+    with self.assertRaises(AttributeError):
+      message.repeated_enum_value = []
+    with self.assertRaises(AttributeError):
+      message.string_int_map = {}
+    with self.assertRaises(AttributeError):
+      message.int_message_map = {}
+
+  def test_pass_wrapped_proto(self):
+    message = proto_example.make_int_message()
+    message.value = 5
+    self.assertTrue(proto_example.check_int_message(message, 5))
 
   def test_pass_wrapped_proto_wrong_type(self):
-    message = proto_example.make_int_message()
-    self.assertRaises(TypeError, proto_example.check_test_message, message, 5)
+    message = proto_example.make_test_message()
+    self.assertRaises(TypeError, proto_example.check_int_message, message, 5)
 
   def test_pass_native_proto(self):
-    message = test_pb2.TestMessage()
-    message.int_value = 5
-    self.assertTrue(proto_example.check_test_message(message, 5))
+    message = test_pb2.IntMessage()
+    message.value = 5
+    self.assertTrue(proto_example.check_int_message(message, 5))
 
   def test_pass_native_proto_wrong_type(self):
-    message = test_pb2.IntMessage()
-    self.assertRaises(TypeError, proto_example.check_test_message, message, 5)
+    message = test_pb2.TestMessage()
+    self.assertRaises(TypeError, proto_example.check_int_message, message, 5)
 
   def test_pass_not_a_proto(self):
-    self.assertRaises(TypeError, proto_example.check_test_message,
-                      'not_a_proto', 5)
+    self.assertRaises(TypeError, proto_example.check_int_message, 'not_a_proto',
+                      5)
 
   def test_mutate_wrapped_proto(self):
-    message = proto_example.make_test_message()
-    proto_example.mutate_test_message(5, message)
-    self.assertEqual(message.int_value, 5)
+    message = proto_example.make_int_message()
+    proto_example.mutate_int_message(5, message)
+    self.assertEqual(message.value, 5)
 
   def test_mutate_native_proto(self):
     # This is not allowed (enforce by `.noconvert()` on the argument binding).
     message = test_pb2.TestMessage()
-    self.assertRaises(TypeError, proto_example.mutate_test_message, 5, message)
+    self.assertRaises(TypeError, proto_example.mutate_int_message, 5, message)
 
   def test_pass_generic_wrapped_proto(self):
     message = proto_example.make_test_message()
     self.assertTrue(
-        proto_example.check_generic_message(message,
-                                            message.DESCRIPTOR.full_name))
+        proto_example.check_abstract_message(message,
+                                             message.DESCRIPTOR.full_name))
 
   def test_pass_generic_native_proto(self):
     message = test_pb2.TestMessage()
     self.assertTrue(
-        proto_example.check_generic_message(message,
-                                            message.DESCRIPTOR.full_name))
+        proto_example.check_abstract_message(message,
+                                             message.DESCRIPTOR.full_name))
 
   def test_make_any_from_wrapped_proto(self):
     message = proto_example.make_test_message()
@@ -234,6 +270,64 @@ class ProtoTest(googletest.TestCase):
     self.assertEqual(any_proto.type_url,
                      'type.googleapis.com/pybind11.test.TestMessage')
     self.assertEqual(any_proto.value, b'\x10\x05')
+
+  @parameterized.named_parameters(
+      ('int_message_ref', proto_example.get_int_message_ref),
+      ('int_message_raw_ptr', proto_example.get_int_message_raw_ptr),
+      ('abstract_message_ref', proto_example.get_abstract_message_ref),
+      ('abstract_message_raw_ptr', proto_example.get_abstract_message_raw_ptr))
+  def test_static_value(self, get_message_function):
+    message_1 = get_message_function()
+    message_1.value = 5
+    self.assertEqual(message_1.value, 5)
+    message_2 = get_message_function()
+    message_2.value = 6
+    self.assertEqual(message_2.value, 6)
+    # get_message_function always returns a reference to the same static
+    # object, so message_1 and message_2 should always be equal.
+    self.assertEqual(message_1.value, message_2.value)
+    # test passing the message as a concrete type.
+    self.assertTrue(proto_example.check_int_message(message_1, 6))
+    # test passing the message as an abstract type.
+    self.assertTrue(
+        proto_example.check_abstract_message(message_1,
+                                             message_1.DESCRIPTOR.full_name))
+
+  @parameterized.named_parameters(
+      ('int_message_unique_ptr', proto_example.get_int_message_unique_ptr()),
+      ('abstract_message_unique_ptr',
+       proto_example.get_abstract_message_unique_ptr()))
+  def test_get_int_message_unique_ptr(self, message):
+    message.value = 5
+    self.assertEqual(message.value, 5)
+    self.assertTrue(proto_example.check_int_message(message, 5))
+    self.assertTrue(
+        proto_example.check_abstract_message(message,
+                                             message.DESCRIPTOR.full_name))
+
+  def test_keep_alive_message(self):
+    message = proto_example.make_test_message()
+    field = message.int_message
+    # message should be kept alive until field is also deleted.
+    del message
+    field.value = 5
+    self.assertEqual(field.value, 5)
+
+  def test_keep_alive_repeated(self):
+    message = proto_example.make_test_message()
+    field = message.repeated_int_value
+    # message should be kept alive until field is also deleted.
+    del message
+    field.append(5)
+    self.assertEqual(field[0], 5)
+
+  def test_keep_alive_map(self):
+    message = proto_example.make_test_message()
+    field = message.string_int_map
+    # message should be kept alive until field is also deleted.
+    del message
+    field['test'] = 5
+    self.assertEqual(field['test'], 5)
 
 
 if __name__ == '__main__':
