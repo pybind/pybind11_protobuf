@@ -87,8 +87,8 @@ std::unique_ptr<ProtoType> PyProtoAllocateAndCopyMessage(handle py_proto) {
 // Pack an any proto from a proto, regardless of whether it is a native python
 // or wrapped c proto. Using the converter on a native python proto would
 // require serializing-deserializing-serializing again, while this always
-// requires only 1 serialization operation.
-void AnyPackFromPyProto(handle py_proto, ::google::protobuf::Any* any_proto);
+// requires only 1 serialization operation. Returns true on success.
+bool AnyPackFromPyProto(handle py_proto, ::google::protobuf::Any* any_proto);
 
 // A type used with DispatchFieldDescriptor to represent a generic enum value.
 struct GenericEnum;

@@ -77,10 +77,12 @@ std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto) {
   return std::unique_ptr<proto2::Message>(prototype->New());
 }
 
-void AnyPackFromPyProto(handle py_proto, ::google::protobuf::Any* any_proto) {
-  any_proto->set_type_url("type.googleapis.com/" +
-                          PyProtoFullName(py_proto).value());
+bool AnyPackFromPyProto(handle py_proto, ::google::protobuf::Any* any_proto) {
+  auto optional_name = PyProtoFullName(py_proto);
+  if (!optional_name) return false;
+  any_proto->set_type_url("type.googleapis.com/" + optional_name.value());
   any_proto->set_value(PyProtoSerializeToString(py_proto));
+  return true;
 }
 
 // Throws an out_of_range exception if the index is bad.

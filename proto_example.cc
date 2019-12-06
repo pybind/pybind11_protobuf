@@ -5,6 +5,8 @@
 
 #include <pybind11/pybind11.h>
 
+#include <stdexcept>
+
 #include "pybind11_protobuf/proto_casters.h"
 #include "pybind11_protobuf/test.proto.h"
 
@@ -26,7 +28,8 @@ bool CheckAbstractMessage(const proto2::Message& message,
 
 ::google::protobuf::Any MakeAnyMessage(handle py_handle) {
   ::google::protobuf::Any any_proto;
-  google::AnyPackFromPyProto(py_handle, &any_proto);
+  if (!google::AnyPackFromPyProto(py_handle, &any_proto))
+    throw std::invalid_argument("Failed to pack Any proto.");
   return any_proto;
 }
 
