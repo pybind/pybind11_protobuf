@@ -18,7 +18,6 @@
 #include "net/proto2/public/descriptor.h"
 #include "net/proto2/public/message.h"
 #include "net/proto2/public/reflection.h"
-#include "pybind11/detail/common.h"
 
 namespace pybind11 {
 namespace google {
@@ -38,18 +37,17 @@ inline bool IsWrappedCProto(handle handle) {
   return hasattr(handle, kIsWrappedCProtoAttr);
 }
 
-// Implementation of __getattr__ for a proto message.
-object ProtoGetAttr(proto2::Message* message, const std::string& name);
+// Get the field with the given name from the given message as a python object.
+object ProtoGetField(proto2::Message* message, const std::string& name);
 
-// Implementation of __setattr__ for a proto message.
+// Set the field with the given name in the given message from a python object.
 // As in the native API, message, repeated, and map fields cannot be set.
-void ProtoSetAttr(proto2::Message* message, const std::string& name,
-                  handle value);
+void ProtoSetField(proto2::Message* message, const std::string& name,
+                   handle value);
 
-// Initialize the protobuf attributes from the given keyword args.
-// Unlike ProtoGetAttr, this allows setting message and repeated fields.
-// TODO(kenoslund, rwgk): Handle map fields.
-void ProtoInitAttrs(proto2::Message* message, kwargs kwargs_in);
+// Initialize the fields in the given message from the the keyword args.
+// Unlike ProtoSetField, this allows setting message, map and repeated fields.
+void ProtoInitFields(proto2::Message* message, kwargs kwargs_in);
 
 // If py_proto is a native or wrapped python proto, extract and return its name.
 // Otherwise, return std::nullopt.
@@ -79,7 +77,7 @@ template <typename ProtoType>
 std::unique_ptr<ProtoType> PyProtoAllocateMessage(handle py_proto = handle(),
                                                   kwargs kwargs_in = kwargs()) {
   auto message = std::make_unique<ProtoType>();
-  ProtoInitAttrs(message.get(), kwargs_in);
+  ProtoInitFields(message.get(), kwargs_in);
   return message;
 }
 
@@ -126,7 +124,13 @@ template <template <typename> class Handler, typename... Args>
 auto DispatchFieldDescriptor(const proto2::FieldDescriptor* field_desc,
                              Args... args)
     -> decltype(Handler<int32>::HandleField(field_desc, args...)) {
-  switch (field_desc->cpp_type()) {
+  // If this field is a map, the field_desc always describes a message with
+  // 2 fields: key and value. In that case, dispatch based on the value type.
+  // In all other cases, the value type is the same as the field type.
+  const proto2::FieldDescriptor* field_value_desc = field_desc;
+  if (field_desc->is_map())
+    field_value_desc = field_desc->message_type()->FindFieldByName("value");
+  switch (field_value_desc->cpp_type()) {
     case proto2::FieldDescriptor::CPPTYPE_INT32:
       return Handler<int32>::HandleField(field_desc, args...);
     case proto2::FieldDescriptor::CPPTYPE_INT64:
@@ -479,6 +483,7 @@ struct FindMapPair {
     RepeatedFieldContainer<proto2::Message> map_field(proto, map_desc);
     for (int i = 0; i < map_field.Size(); ++i) {
       proto2::Message* kv_pair = map_field.Get(i);
+      // TODO(kenoslund, rwgk): This probably doesn't work if KeyT is a message.
       if (ProtoFieldContainer<KeyT>(kv_pair, key_desc).GetPython(-1).equal(key))
         return kv_pair;
     }
@@ -519,12 +524,10 @@ template <typename MappedType>
 class MapFieldContainer : public RepeatedFieldContainer<proto2::Message> {
  public:
   MapFieldContainer(proto2::Message* proto,
-                    const proto2::FieldDescriptor* map_desc,
-                    const proto2::FieldDescriptor* key_desc,
-                    const proto2::FieldDescriptor* value_desc)
+                    const proto2::FieldDescriptor* map_desc)
       : RepeatedFieldContainer<proto2::Message>(proto, map_desc),
-        key_desc_(key_desc),
-        value_desc_(value_desc) {}
+        key_desc_(map_desc->message_type()->FindFieldByName("key")),
+        value_desc_(map_desc->message_type()->FindFieldByName("value")) {}
   using RepeatedFieldContainer<proto2::Message>::RepeatedFieldContainer;
   // GetPython automatically inserts missing keys, which matches native
   // python protos, not dicts (see http://go/pythonprotobuf#undefined).
@@ -533,6 +536,15 @@ class MapFieldContainer : public RepeatedFieldContainer<proto2::Message> {
   }
   void SetPython(handle key, handle value) {
     GetValueContainer(key).SetPython(-1, value);
+  }
+  void UpdateFromDict(dict values) {
+    for (auto& item : values) SetPython(item.first, item.second);
+  }
+  void UpdateFromKWArgs(kwargs values) { UpdateFromDict(values); }
+  void UpdateFromHandle(handle values) {
+    if (!isinstance<dict>(values))
+      throw std::invalid_argument("Update: Passed value is not a dictionary.");
+    UpdateFromDict(reinterpret_borrow<dict>(values));
   }
   bool Contains(handle key) const {
     return DispatchFieldDescriptor<FindMapPair>(key_desc_, proto_, field_desc_,
@@ -557,66 +569,48 @@ class MapFieldContainer : public RepeatedFieldContainer<proto2::Message> {
   const proto2::FieldDescriptor* value_desc_;
 };
 
-// Struct which can be used with DispatchFieldDescriptor to get
-// the value of a singular field.
+// Struct used with DispatchFieldDescriptor to get the value of a field.
 template <typename ValueType>
-struct GetProtoSingularField {
+struct TemplatedProtoGetField {
   static object HandleField(const proto2::FieldDescriptor* field_desc,
                             proto2::Message* proto) {
-    return ProtoFieldContainer<ValueType>(proto, field_desc).GetPython(-1);
+    object value;
+    bool keep_alive = false;
+    if (field_desc->is_map()) {
+      value = cast(MapFieldContainer<ValueType>(proto, field_desc));
+      keep_alive = true;
+    } else if (field_desc->is_repeated()) {
+      value = cast(RepeatedFieldContainer<ValueType>(proto, field_desc));
+      keep_alive = true;
+    } else {  // Singular field.
+      return ProtoFieldContainer<ValueType>(proto, field_desc).GetPython(-1);
+    }
+
+    if (keep_alive) {
+      // Keep proto alive until value is no longer referenced.
+      object parent = cast(proto, return_value_policy::reference);
+      detail::keep_alive_impl(value, parent);
+    }
+    return value;
   }
 };
 
-// Struct which can be used with DispatchFieldDescriptor to set
-// the value of a singular field.
+// Struct used with DispatchFieldDescriptor to set the value of a field.
 template <typename ValueType>
-struct SetProtoSingularField {
+struct TemplatedProtoSetField {
   static void HandleField(const proto2::FieldDescriptor* field_desc,
                           proto2::Message* proto, handle value) {
-    ProtoFieldContainer<ValueType>(proto, field_desc).SetPython(-1, value);
-  }
-};
-
-// Struct which can be used with DispatchFieldDescriptor to get
-// the value of a repeated field.
-template <typename ValueType>
-struct GetProtoRepeatedField {
-  static object HandleField(const proto2::FieldDescriptor* field_desc,
-                            proto2::Message* proto) {
-    object inst = cast(RepeatedFieldContainer<ValueType>(proto, field_desc));
-    object parent = cast(proto, return_value_policy::reference);
-    // Keep parent alive until inst is no longer referenced.
-    detail::keep_alive_impl(inst, parent);
-    return inst;
-  }
-};
-
-// Struct which can be used with DispatchFieldDescriptor to set
-// the value of a repeated field.
-template <typename ValueType>
-struct SetProtoRepeatedField {
-  static void HandleField(const proto2::FieldDescriptor* field_desc,
-                          proto2::Message* proto, handle value) {
-    RepeatedFieldContainer<ValueType> repeated_field(proto, field_desc);
-    repeated_field.Clear();
-    repeated_field.Extend(value);
-  }
-};
-
-// Struct which can be used with DispatchFieldDescriptor to get
-// the value of a map field.
-template <typename ValueType>
-struct GetProtoMapField {
-  static object HandleField(const proto2::FieldDescriptor* value_descriptor,
-                            const proto2::FieldDescriptor* key_descriptor,
-                            const proto2::FieldDescriptor* map_descriptor,
-                            proto2::Message* proto) {
-    object inst = cast(MapFieldContainer<ValueType>(
-        proto, map_descriptor, key_descriptor, value_descriptor));
-    object parent = cast(proto, return_value_policy::reference);
-    // Keep parent alive until inst is no longer referenced.
-    detail::keep_alive_impl(inst, parent);
-    return inst;
+    if (field_desc->is_map()) {
+      MapFieldContainer<ValueType> map_field(proto, field_desc);
+      map_field.Clear();
+      map_field.UpdateFromHandle(value);
+    } else if (field_desc->is_repeated()) {
+      RepeatedFieldContainer<ValueType> repeated_field(proto, field_desc);
+      repeated_field.Clear();
+      repeated_field.Extend(value);
+    } else {  // Singular field.
+      ProtoFieldContainer<ValueType>(proto, field_desc).SetPython(-1, value);
+    }
   }
 };
 

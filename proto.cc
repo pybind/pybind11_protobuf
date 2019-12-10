@@ -65,12 +65,19 @@ class MapFieldBindings : public class_<MapFieldContainer<T>> {
   MapFieldBindings(handle scope, const std::string& name)
       : class_<MapFieldContainer<T>>(scope, name.c_str()) {
     // Mapped message fields don't support item assignment.
-    if (!std::is_same_v<T, proto2::Message>)
+    if (std::is_same_v<T, proto2::Message>) {
+      this->def("__setitem__", [](void*, int, handle) {
+        throw value_error("Cannot assign to message in a map field.");
+      });
+    } else {
       this->def("__setitem__", &MapFieldContainer<T>::SetPython);
+    }
     this->def("__repr__", &MapFieldContainer<T>::Repr);
     this->def("__len__", &MapFieldContainer<T>::Size);
     this->def("__contains__", &MapFieldContainer<T>::Contains);
     this->def("__getitem__", &MapFieldContainer<T>::GetPython);
+    this->def("update", &MapFieldContainer<T>::UpdateFromDict);
+    this->def("update", &MapFieldContainer<T>::UpdateFromKWArgs);
     this->def("clear", &RepeatedFieldContainer<T>::Clear);
   }
 };
@@ -131,13 +138,16 @@ void DefConstantProperty(
 PYBIND11_MODULE(proto, m) {
   // Return whether the given python object is a wrapped C proto.
   m.def("is_wrapped_c_proto", &IsWrappedCProto, arg("src"));
+
+  // Construct and optionally initialize a wrapped C proto.
   m.def("make_wrapped_c_proto", &PyProtoAllocateMessage<proto2::Message>,
         arg("type"),
         "Returns a wrapped C proto of the given type. The type may be passed "
         "as a string ('package_name.MessageName'), an instance of a native "
         "python proto, or an instance of a wrapped C proto. Fields may be "
         "initialized with keyword arguments, as with the native constructors. "
-        "The C++ proto library must be linked in for this to work.");
+        "The C++ version of the proto library for your message type must be "
+        "linked in for this to work.");
 
   // Add bindings for the descriptor class.
   class_<proto2::Descriptor>(m, "Descriptor")
@@ -180,6 +190,7 @@ PYBIND11_MODULE(proto, m) {
                              &proto2::FieldDescriptor::is_extension)
       .def_property_readonly("label", &proto2::FieldDescriptor::label);
 
+  // Add Type enum values.
   enum_<proto2::FieldDescriptor::Type>(field_descriptor_class, "Type")
       .value("TYPE_DOUBLE", proto2::FieldDescriptor::TYPE_DOUBLE)
       .value("TYPE_FLOAT", proto2::FieldDescriptor::TYPE_FLOAT)
@@ -201,6 +212,7 @@ PYBIND11_MODULE(proto, m) {
       .value("TYPE_SINT64", proto2::FieldDescriptor::TYPE_SINT64)
       .export_values();
 
+  // Add C++ Type enum values.
   enum_<proto2::FieldDescriptor::CppType>(field_descriptor_class, "CppType")
       .value("CPPTYPE_INT32", proto2::FieldDescriptor::CPPTYPE_INT32)
       .value("CPPTYPE_INT64", proto2::FieldDescriptor::CPPTYPE_INT64)
@@ -214,6 +226,7 @@ PYBIND11_MODULE(proto, m) {
       .value("CPPTYPE_MESSAGE", proto2::FieldDescriptor::CPPTYPE_MESSAGE)
       .export_values();
 
+  // Add Label enum values.
   enum_<proto2::FieldDescriptor::Label>(field_descriptor_class, "Label")
       .value("LABEL_OPTIONAL", proto2::FieldDescriptor::LABEL_OPTIONAL)
       .value("LABEL_REQUIRED", proto2::FieldDescriptor::LABEL_REQUIRED)
@@ -229,8 +242,8 @@ PYBIND11_MODULE(proto, m) {
                              return_value_policy::reference)
       .def_property_readonly(kIsWrappedCProtoAttr, [](void*) { return true; })
       .def("__repr__", &proto2::Message::DebugString)
-      .def("__getattr__", &ProtoGetAttr)
-      .def("__setattr__", &ProtoSetAttr)
+      .def("__getattr__", &ProtoGetField)
+      .def("__setattr__", &ProtoSetField)
       .def("SerializeToString",
            [](proto2::Message* msg) { return bytes(msg->SerializeAsString()); })
       .def("ParseFromString", &proto2::Message::ParseFromString, arg("data"))

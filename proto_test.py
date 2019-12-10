@@ -32,7 +32,7 @@ def get_fully_populated_test_message():
       repeated_int_message=[test_pb2.IntMessage(value=8)],
       enum_value=test_pb2.TestMessage.TestEnum.ONE,
       repeated_enum_value=[test_pb2.TestMessage.TestEnum.TWO])
-  # TODO(kenoslund, rwgk): Support maps with keyword init and text_format.
+  # TODO(kenoslund, rwgk): Support maps with text_format.
   return message
 
 
@@ -85,6 +85,9 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     self.assertEqual(message.double_value, 5.5)
     self.assertEqual(message.int_message.value, 6)
 
+    with self.assertRaises(AttributeError):
+      message.int_message = test_pb2.IntMessage()
+
   def test_access_wrapped_message_repeated_int_value(self):
     message = proto_example.make_test_message()
     message.repeated_int_value.append(6)
@@ -116,8 +119,10 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     message.repeated_int_value.clear()
     self.assertEmpty(message.repeated_int_value)
 
-    self.assertRaises(TypeError, message.repeated_int_value.append,
-                      'invalid value')
+    with self.assertRaises(TypeError):
+      message.repeated_int_value.append('invalid value')
+    with self.assertRaises(AttributeError):
+      message.repeated_int_value = [1]
 
   def test_access_wrapped_message_repeated_int_message(self):
     message = proto_example.make_test_message()
@@ -168,10 +173,15 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     message.repeated_int_message.clear()
     self.assertEmpty(message.repeated_int_message)
 
-    self.assertRaises(TypeError, message.repeated_int_message.append,
-                      'invalid value')
-    self.assertRaises(TypeError, message.repeated_int_message.append,
-                      test_pb2.TestMessage())
+    with self.assertRaises(TypeError):
+      message.repeated_int_message.append('invalid value')
+    with self.assertRaises(TypeError):
+      message.repeated_int_message.append(test_pb2.TestMessage())
+    with self.assertRaises(AttributeError):
+      message.repeated_int_message = [test_pb2.IntMessage()]
+    with self.assertRaises(AttributeError):
+      message.repeated_int_message.add()
+      message.repeated_int_message[0] = test_pb2.IntMessage()
 
   def test_access_wrapped_message_map_string_int(self):
     message = proto_example.make_test_message()
@@ -190,6 +200,11 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     native.string_int_map['k2'] = 6
     self.assertEqual(str(message.string_int_map), str(native.string_int_map))
 
+    message.string_int_map.update(k3=7)
+    self.assertEqual(message.string_int_map['k3'], 7)
+    message.string_int_map.update({'k4': 8})
+    self.assertEqual(message.string_int_map['k4'], 8)
+
     message.string_int_map.clear()
     self.assertEmpty(message.string_int_map)
 
@@ -197,6 +212,8 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
       message.string_int_map[5] = 5  # invalid key.
     with self.assertRaises(TypeError):
       message.string_int_map['k'] = 'foo'  # invalid value.
+    with self.assertRaises(AttributeError):
+      message.string_int_map = {'k': 5}
 
   def test_access_wrapped_message_map_int_message(self):
     message = proto_example.make_test_message()
@@ -212,11 +229,19 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
 
     self.assertEqual(str(message.int_message_map), '{5: value: 2, 6: value: 3}')
 
+    message.int_message_map.update({7: test_pb2.IntMessage(value=8)})
+    self.assertEqual(message.int_message_map[7].value, 8)
+
     message.int_message_map.clear()
     self.assertEmpty(message.int_message_map)
 
     with self.assertRaises(TypeError):
       message.int_message_map['foo'].value = 5  # invalid key.
+
+    with self.assertRaises(ValueError):
+      message.int_message_map[1] = test_pb2.IntMessage()
+    with self.assertRaises(AttributeError):
+      message.int_message_map = {1: test_pb2.IntMessage()}
 
   def test_access_wrapped_message_enum(self):
     message = proto_example.make_test_message()
@@ -238,6 +263,9 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     self.assertEqual(message.repeated_enum_value[0], 2)
     self.assertEqual(message.repeated_enum_value[1], 1)
     self.assertEqual(str(message.repeated_enum_value), '[TWO, ONE]')
+
+    with self.assertRaises(AttributeError):
+      message.repeated_enum_value = [1]
 
   def test_access_nonexistent_field(self):
     message = proto_example.make_test_message()
@@ -385,6 +413,17 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     message.value = 5
     message_copy = copy.deepcopy(message)
     self.assertEqual(message_copy.value, 5)
+
+  def test_init_map_field(self):
+    # TODO(kenoslund, rwgk): Add this keyword initialization to
+    # get_fully_populated_test_message once text_format works with maps.
+    # After that, this test can be eliminated.
+    message = proto.make_wrapped_c_proto(
+        'pybind11.test.TestMessage',
+        string_int_map={'k': 5},
+        int_message_map={1: test_pb2.IntMessage(value=6)})
+    self.assertEqual(message.string_int_map['k'], 5)
+    self.assertEqual(message.int_message_map[1].value, 6)
 
   def test_text_format(self):
     self.assertMultiLineEqual(
