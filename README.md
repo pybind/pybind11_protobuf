@@ -41,9 +41,30 @@ Enumerations are passed and returned as integers. You may use the enum values
 from the native python proto module to set and check the enum values in a
 wrapped proto (see proto_test.py for an example).
 
+The bindings are designed to exactly match the [native python proto API]
+(https://developers.google.com/protocol-buffers/docs/reference/python-generated).
+However, there are still some differences. If you discover a difference that
+impacts your use case, please [check if there is a bug for it]
+(https://b.corp.google.com/issues?q=componentid:779382%20status:open)
+and [file a bug if there is none]
+(https://b.corp.google.com/issues/new?component=779382&template=1371463).
+
+Features supported:
+
+- Singular, repeated, and map fields of all types.
+- Serializing, parsing and merging messages.
+- Descriptors, FieldDescriptors, EnumDescriptors and EnumValueDescriptors
+  (partial support).
+- Python functions which can take protos as arguments:
+  - copy.deepcopy
+  - pickle (only to support copy.deepcopy; see go/nopickle).
+  - test_format.MessageToString (partial support; see below)
+  - assertProto2Equal (partial support; see below)
+
 Features not yet implemented/ covered:
 
 - Oneof fields.
 - `remove` with repeated message fields and maps (b/145687965).
+- Slicing of repeated fields (b/145687883).
+- Map fields with test_format.MessageToString and assertProto2Equal.
 - Extensions.
-- Enforcing read-only references.

@@ -17,6 +17,7 @@
 
 #include "net/proto2/public/descriptor.h"
 #include "net/proto2/public/message.h"
+#include "pybind11/detail/common.h"
 
 namespace pybind11 {
 namespace google {
@@ -55,7 +56,8 @@ std::string PyProtoSerializeToString(handle py_proto) {
 }
 
 template <>
-std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto) {
+std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto,
+                                                        kwargs kwargs_in) {
   std::string full_type_name;
   if (isinstance<str>(py_proto)) {
     full_type_name = str(py_proto);
@@ -74,7 +76,9 @@ std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto) {
   if (!prototype)
     throw std::runtime_error(
         "Not able to generate prototype for descriptor of: " + full_type_name);
-  return std::unique_ptr<proto2::Message>(prototype->New());
+  auto message = std::unique_ptr<proto2::Message>(prototype->New());
+  ProtoInitAttrs(message.get(), kwargs_in);
+  return message;
 }
 
 bool AnyPackFromPyProto(handle py_proto, ::google::protobuf::Any* any_proto) {
@@ -94,6 +98,14 @@ void ProtoFieldContainerBase::CheckIndex(int idx, int allowed_size) const {
                                 .c_str());
 }
 
+template <>
+proto2::Message* AddMessage(RepeatedFieldContainer<proto2::Message>* container,
+                            kwargs kwargs_in) {
+  proto2::Message* message = container->AddDefault();
+  ProtoInitAttrs(message, kwargs_in);
+  return message;
+}
+
 const proto2::FieldDescriptor* GetFieldDescriptor(proto2::Message* message,
                                                   const std::string& name) {
   auto* field_desc = message->GetDescriptor()->FindFieldByName(name);
@@ -106,8 +118,8 @@ const proto2::FieldDescriptor* GetFieldDescriptor(proto2::Message* message,
   return field_desc;
 }
 
-object ProtoGetAttr(proto2::Message* message, const std::string& name) {
-  auto* field_desc = GetFieldDescriptor(message, name);
+object ProtoGetAttr(proto2::Message* message,
+                    const proto2::FieldDescriptor* field_desc) {
   if (field_desc->is_map()) {
     auto* map_pair_descriptor = field_desc->message_type();
     auto* map_value_field_desc = map_pair_descriptor->FindFieldByName("value");
@@ -121,6 +133,10 @@ object ProtoGetAttr(proto2::Message* message, const std::string& name) {
   }
 }
 
+object ProtoGetAttr(proto2::Message* message, const std::string& name) {
+  return ProtoGetAttr(message, GetFieldDescriptor(message, name));
+}
+
 void ProtoSetAttr(proto2::Message* message, const std::string& name,
                   handle value) {
   auto* field_desc = GetFieldDescriptor(message, name);
@@ -132,6 +148,49 @@ void ProtoSetAttr(proto2::Message* message, const std::string& name,
     throw error_already_set();
   }
   DispatchFieldDescriptor<SetProtoSingularField>(field_desc, message, value);
+}
+
+void ProtoInitAttrs(proto2::Message* message, kwargs kwargs_in) {
+  for (auto& item : kwargs_in) {
+    auto* field_desc = GetFieldDescriptor(message, str(item.first));
+    handle val = item.second;
+    if (field_desc->is_map()) {
+      // TODO(kenoslund, rwgk): Handle map fields.
+    } else if (field_desc->is_repeated()) {
+      DispatchFieldDescriptor<SetProtoRepeatedField>(field_desc, message, val);
+    } else {
+      DispatchFieldDescriptor<SetProtoSingularField>(field_desc, message, val);
+    }
+  }
+}
+
+std::vector<std::string> FindInitializationErrors(proto2::Message* message) {
+  std::vector<std::string> errors;
+  message->FindInitializationErrors(&errors);
+  return errors;
+}
+
+std::vector<tuple> ListFields(proto2::Message* message) {
+  std::vector<const proto2::FieldDescriptor*> fields;
+  message->GetReflection()->ListFields(*message, &fields);
+  std::vector<tuple> result;
+  result.reserve(fields.size());
+  for (auto* field_desc : fields) {
+    result.push_back(
+        make_tuple(cast(field_desc, return_value_policy::reference),
+                   ProtoGetAttr(message, field_desc)));
+  }
+  return result;
+}
+
+dict EnumValuesByNumber(const proto2::EnumDescriptor* enum_descriptor) {
+  dict result;
+  for (int i = 0; i < enum_descriptor->value_count(); ++i) {
+    auto* value_desc = enum_descriptor->value(i);
+    result[cast(value_desc->number())] =
+        cast(value_desc, return_value_policy::reference);
+  }
+  return result;
 }
 
 }  // namespace google

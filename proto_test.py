@@ -8,14 +8,52 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import copy
+
 from google3.testing.pybase import googletest
 from google3.testing.pybase import parameterized
 from pybind11_protobuf import proto
 from pybind11_protobuf import proto_example
 from pybind11_protobuf import test_pb2
+from google3.net.proto2.contrib.pyutil import compare
+from google3.net.proto2.python.public import text_format
 
 
-class ProtoTest(parameterized.TestCase):
+def get_fully_populated_test_message():
+  """Returns a wrapped TestMessage with all fields set."""
+  # This tests initializing a proto by keyword argument.
+  message = proto.make_wrapped_c_proto(
+      'pybind11.test.TestMessage',
+      string_value='test',
+      int_value=4,
+      double_value=4.5,
+      int_message=test_pb2.IntMessage(value=5),
+      repeated_int_value=[6, 7],
+      repeated_int_message=[test_pb2.IntMessage(value=8)],
+      enum_value=test_pb2.TestMessage.TestEnum.ONE,
+      repeated_enum_value=[test_pb2.TestMessage.TestEnum.TWO])
+  # TODO(kenoslund, rwgk): Support maps with keyword init and text_format.
+  return message
+
+
+# Text format version of the message returned by the function above.
+FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT = """string_value: "test"
+int_value: 4
+int_message {
+  value: 5
+}
+repeated_int_value: 6
+repeated_int_value: 7
+repeated_int_message {
+  value: 8
+}
+enum_value: ONE
+repeated_enum_value: TWO
+double_value: 4.5
+"""
+
+
+class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
 
   def test_return_wrapped_message(self):
     message = proto_example.make_int_message()
@@ -40,9 +78,11 @@ class ProtoTest(parameterized.TestCase):
     message = proto_example.make_test_message()
     message.string_value = 'test'
     message.int_value = 5
+    message.double_value = 5.5
     message.int_message.value = 6
     self.assertEqual(message.string_value, 'test')
     self.assertEqual(message.int_value, 5)
+    self.assertEqual(message.double_value, 5.5)
     self.assertEqual(message.int_message.value, 6)
 
   def test_access_wrapped_message_repeated_int_value(self):
@@ -110,6 +150,17 @@ class ProtoTest(parameterized.TestCase):
     message.repeated_int_message.extend([sub_msg, sub_msg])
     check_values([8, 2, 7, 2, 2])
 
+    new_msg = message.repeated_int_message.add()
+    self.assertEqual(new_msg.value, 0)
+    check_values([8, 2, 7, 2, 2, 0])
+
+    new_msg = message.repeated_int_message.add(value=3)
+    self.assertEqual(new_msg.value, 3)
+    check_values([8, 2, 7, 2, 2, 0, 3])
+
+    with self.assertRaises(AttributeError):
+      message.repeated_int_message.add(invalid_field=3)
+
     # TODO(b/145687965): Get element removal to work.
     with self.assertRaises(RuntimeError):
       del message.repeated_int_message[1]
@@ -117,9 +168,9 @@ class ProtoTest(parameterized.TestCase):
     message.repeated_int_message.clear()
     self.assertEmpty(message.repeated_int_message)
 
-    self.assertRaises(RuntimeError, message.repeated_int_message.append,
+    self.assertRaises(TypeError, message.repeated_int_message.append,
                       'invalid value')
-    self.assertRaises(RuntimeError, message.repeated_int_message.append,
+    self.assertRaises(TypeError, message.repeated_int_message.append,
                       test_pb2.TestMessage())
 
   def test_access_wrapped_message_map_string_int(self):
@@ -328,6 +379,21 @@ class ProtoTest(parameterized.TestCase):
     del message
     field['test'] = 5
     self.assertEqual(field['test'], 5)
+
+  def test_deepcopy(self):
+    message = proto_example.make_int_message()
+    message.value = 5
+    message_copy = copy.deepcopy(message)
+    self.assertEqual(message_copy.value, 5)
+
+  def test_text_format(self):
+    self.assertMultiLineEqual(
+        text_format.MessageToString(get_fully_populated_test_message()),
+        FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT)
+
+  def test_proto_2_equal(self):
+    self.assertProto2Equal(get_fully_populated_test_message(),
+                           get_fully_populated_test_message())
 
 
 if __name__ == '__main__':
