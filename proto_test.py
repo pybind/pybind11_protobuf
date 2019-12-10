@@ -32,7 +32,7 @@ def get_fully_populated_test_message():
       repeated_int_message=[test_pb2.IntMessage(value=8)],
       enum_value=test_pb2.TestMessage.TestEnum.ONE,
       repeated_enum_value=[test_pb2.TestMessage.TestEnum.TWO])
-  # TODO(kenoslund, rwgk): Support maps with text_format.
+  # TODO(b/146002314): Support maps with text_format.
   return message
 
 
@@ -415,7 +415,7 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     self.assertEqual(message_copy.value, 5)
 
   def test_init_map_field(self):
-    # TODO(kenoslund, rwgk): Add this keyword initialization to
+    # TODO(b/146002314): Add this keyword initialization to
     # get_fully_populated_test_message once text_format works with maps.
     # After that, this test can be eliminated.
     message = proto.make_wrapped_c_proto(
@@ -424,6 +424,13 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
         int_message_map={1: test_pb2.IntMessage(value=6)})
     self.assertEqual(message.string_int_map['k'], 5)
     self.assertEqual(message.int_message_map[1].value, 6)
+
+  def test_get_map_entry(self):
+    message = proto_example.make_test_message()
+    # GetEntryClass is used like this in text_format.
+    map_entry = message.string_int_map.GetEntryClass()(key='k', value=5)
+    self.assertEqual(map_entry.key, 'k')
+    self.assertEqual(map_entry.value, 5)
 
   def test_text_format(self):
     self.assertMultiLineEqual(

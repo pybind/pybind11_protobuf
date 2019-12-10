@@ -7,10 +7,12 @@
 #define THIRD_PARTY_PYBIND11_GOOGLE3_UTILS_PROTO_UTILS_H_
 
 #include <pybind11/cast.h>
+#include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
 #include <cstddef>
+#include <memory>
 #include <stdexcept>
 #include <string>
 
@@ -87,6 +89,10 @@ std::unique_ptr<ProtoType> PyProtoAllocateMessage(handle py_proto = handle(),
 template <>
 std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto,
                                                         kwargs kwargs_in);
+
+// Allocate and return a message instance for the given descriptor.
+std::unique_ptr<proto2::Message> PyProtoAllocateMessage(
+    const proto2::Descriptor* descriptor, kwargs kwargs_in);
 
 // Allocate a C++ proto of the same type as py_proto and copy the contents
 // from py_proto. This works whether py_proto is a native or wrapped proto.
@@ -553,6 +559,12 @@ class MapFieldContainer : public RepeatedFieldContainer<proto2::Message> {
   std::string Repr() const {
     return DispatchFieldDescriptor<_MapRepr>(key_desc_, proto_, field_desc_,
                                              value_desc_);
+  }
+  std::function<std::unique_ptr<proto2::Message>(kwargs)>
+  GetEntryClassFactory() {
+    return [descriptor = field_desc_->message_type()](kwargs kwargs_in) {
+      return PyProtoAllocateMessage(descriptor, kwargs_in);
+    };
   }
 
  protected:

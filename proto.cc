@@ -78,7 +78,11 @@ class MapFieldBindings : public class_<MapFieldContainer<T>> {
     this->def("__getitem__", &MapFieldContainer<T>::GetPython);
     this->def("update", &MapFieldContainer<T>::UpdateFromDict);
     this->def("update", &MapFieldContainer<T>::UpdateFromKWArgs);
-    this->def("clear", &RepeatedFieldContainer<T>::Clear);
+    this->def("clear", &MapFieldContainer<T>::Clear);
+    this->def("GetEntryClass", &MapFieldContainer<T>::GetEntryClassFactory,
+              "Returns a factory function which can be called with keyword "
+              "Arguments to create an instance of the map entry class (ie, "
+              "a message with `key` and `value` fields). Used by text_format.");
   }
 };
 

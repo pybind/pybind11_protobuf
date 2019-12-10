@@ -67,11 +67,18 @@ std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto,
           full_type_name);
   if (!descriptor)
     throw std::runtime_error("Proto Descriptor not found: " + full_type_name);
+  return PyProtoAllocateMessage(descriptor, kwargs_in);
+}
+
+std::unique_ptr<proto2::Message> PyProtoAllocateMessage(
+    const proto2::Descriptor* descriptor, kwargs kwargs_in) {
   const proto2::Message* prototype =
       proto2::MessageFactory::generated_factory()->GetPrototype(descriptor);
-  if (!prototype)
+  if (!prototype) {
     throw std::runtime_error(
-        "Not able to generate prototype for descriptor of: " + full_type_name);
+        "Not able to generate prototype for descriptor of: " +
+        descriptor->full_name());
+  }
   auto message = std::unique_ptr<proto2::Message>(prototype->New());
   ProtoInitFields(message.get(), kwargs_in);
   return message;
