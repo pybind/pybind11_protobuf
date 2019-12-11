@@ -58,10 +58,11 @@ Features supported:
 - Construction of a wrapped C proto from its name or equivalent native python
   proto, as well as keyword initialization.
 - Python functions which can take protos as arguments:
-  - copy.deepcopy
+  - `copy.deepcopy`
   - pickle (only to support copy.deepcopy; see go/nopickle).
-  - test_format.MessageToString (partial support; see below)
-  - assertProto2Equal (partial support; see below)
+  - `text_format` module methods `MessageToString`, `Parse` and `Merge`
+     (partial support; see below)
+  - `compare.assertProto2Equal` (partial support; see below)
 
 Features not yet implemented/ covered:
 
@@ -69,7 +70,7 @@ Features not yet implemented/ covered:
 - `remove` with repeated message fields and maps (b/145687965).
 - Slicing of repeated fields (b/145687883).
 - Map fields with a message as its key.
-- Map fields with test_format.MessageToString and assertProto2Equal.
+- Map fields with `test_format` and `assertProto2Equal`.
 - Extensions.
 
 See proto.cc for a complete list of all bound and available methods.

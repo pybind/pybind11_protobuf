@@ -135,8 +135,8 @@ void DefConstantProperty(
     class_<detail::intrinsic_t<Class>>* pyclass, const std::string& name,
     Return (*generator)(Class, Args...),
     return_value_policy policy = return_value_policy::automatic_reference) {
-  DefConstantProperty(
-      pyclass, name, std::function<Return(Class, Args...)>(generator), policy);
+  DefConstantProperty(pyclass, name,
+                      std::function<Return(Class, Args...)>(generator), policy);
 }
 
 PYBIND11_MODULE(proto, m) {
@@ -154,7 +154,9 @@ PYBIND11_MODULE(proto, m) {
         "linked in for this to work.");
 
   // Add bindings for the descriptor class.
-  class_<proto2::Descriptor>(m, "Descriptor")
+  class_<proto2::Descriptor> message_desc_c(m, "Descriptor", dynamic_attr());
+  DefConstantProperty(&message_desc_c, "fields_by_name", &MessageFieldsByName);
+  message_desc_c
       .def_property_readonly("full_name", &proto2::Descriptor::full_name)
       .def_property_readonly("name", &proto2::Descriptor::name)
       .def_property_readonly("has_options",
@@ -167,19 +169,20 @@ PYBIND11_MODULE(proto, m) {
           return_value_policy::reference);
 
   // Add bindings for the enum descriptor class.
-  class_<proto2::EnumDescriptor> enum_desc_t(m, "EnumDescriptor",
+  class_<proto2::EnumDescriptor> enum_desc_c(m, "EnumDescriptor",
                                              dynamic_attr());
-  enum_desc_t.def_property_readonly("name", &proto2::EnumDescriptor::name);
-  DefConstantProperty(&enum_desc_t, "values_by_number", &EnumValuesByNumber);
+  DefConstantProperty(&enum_desc_c, "values_by_number", &EnumValuesByNumber);
+  DefConstantProperty(&enum_desc_c, "values_by_name", &EnumValuesByName);
+  enum_desc_c.def_property_readonly("name", &proto2::EnumDescriptor::name);
 
   // Add bindings for the enum value descriptor class.
-  class_<proto2::EnumValueDescriptor>(m, "EnumDescriptorValue")
-      .def_property_readonly("name", &proto2::EnumValueDescriptor::name);
+  class_<proto2::EnumValueDescriptor>(m, "EnumValueDescriptor")
+      .def_property_readonly("name", &proto2::EnumValueDescriptor::name)
+      .def_property_readonly("number", &proto2::EnumValueDescriptor::number);
 
   // Add bindings for the field descriptor class.
-  class_<proto2::FieldDescriptor> field_descriptor_class(m, "FieldDescriptor");
-  field_descriptor_class
-      .def_property_readonly("name", &proto2::FieldDescriptor::name)
+  class_<proto2::FieldDescriptor> field_desc_c(m, "FieldDescriptor");
+  field_desc_c.def_property_readonly("name", &proto2::FieldDescriptor::name)
       .def_property_readonly("type", &proto2::FieldDescriptor::type)
       .def_property_readonly("cpp_type", &proto2::FieldDescriptor::cpp_type)
       .def_property_readonly("containing_type",
@@ -192,10 +195,12 @@ PYBIND11_MODULE(proto, m) {
                              return_value_policy::reference)
       .def_property_readonly("is_extension",
                              &proto2::FieldDescriptor::is_extension)
-      .def_property_readonly("label", &proto2::FieldDescriptor::label);
+      .def_property_readonly("label", &proto2::FieldDescriptor::label)
+      // Oneof fields are not currently supported.
+      .def_property_readonly("containing_oneof", [](void*) { return false; });
 
   // Add Type enum values.
-  enum_<proto2::FieldDescriptor::Type>(field_descriptor_class, "Type")
+  enum_<proto2::FieldDescriptor::Type>(field_desc_c, "Type")
       .value("TYPE_DOUBLE", proto2::FieldDescriptor::TYPE_DOUBLE)
       .value("TYPE_FLOAT", proto2::FieldDescriptor::TYPE_FLOAT)
       .value("TYPE_INT64", proto2::FieldDescriptor::TYPE_INT64)
@@ -217,7 +222,7 @@ PYBIND11_MODULE(proto, m) {
       .export_values();
 
   // Add C++ Type enum values.
-  enum_<proto2::FieldDescriptor::CppType>(field_descriptor_class, "CppType")
+  enum_<proto2::FieldDescriptor::CppType>(field_desc_c, "CppType")
       .value("CPPTYPE_INT32", proto2::FieldDescriptor::CPPTYPE_INT32)
       .value("CPPTYPE_INT64", proto2::FieldDescriptor::CPPTYPE_INT64)
       .value("CPPTYPE_UINT32", proto2::FieldDescriptor::CPPTYPE_UINT32)
@@ -231,7 +236,7 @@ PYBIND11_MODULE(proto, m) {
       .export_values();
 
   // Add Label enum values.
-  enum_<proto2::FieldDescriptor::Label>(field_descriptor_class, "Label")
+  enum_<proto2::FieldDescriptor::Label>(field_desc_c, "Label")
       .value("LABEL_OPTIONAL", proto2::FieldDescriptor::LABEL_OPTIONAL)
       .value("LABEL_REQUIRED", proto2::FieldDescriptor::LABEL_REQUIRED)
       .value("LABEL_REPEATED", proto2::FieldDescriptor::LABEL_REPEATED)
@@ -256,9 +261,10 @@ PYBIND11_MODULE(proto, m) {
       .def("Clear", &proto2::Message::Clear)
       .def("CopyFrom", &proto2::Message::CopyFrom)
       .def("MergeFrom", &proto2::Message::MergeFrom)
-      .def("FindInitializationErrors", &FindInitializationErrors,
+      .def("FindInitializationErrors", &MessageFindInitializationErrors,
            "Slowly build a list of all required fields that are not set.")
-      .def("ListFields", &ListFields)
+      .def("ListFields", &MessageListFields)
+      .def("HasField", &MessageHasField)
       // Pickle support is provided only because copy.deepcopy uses it.
       // Do not use it directly; use serialize/parse instead (go/nopickle).
       .def(pickle(
@@ -273,7 +279,9 @@ PYBIND11_MODULE(proto, m) {
             // supports string_view casting.
             message->ParseFromString(str(d["serialized"]));
             return message;
-          }));
+          }))
+      .def("SetInParent", [](proto2::Message*) {},
+           "No-op. Provided only for compatability with text_format.");
 
   // Add bindings for the repeated field containers.
   BindEachFieldType<RepeatedFieldBindings>(m, "Repeated");

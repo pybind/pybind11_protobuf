@@ -39,15 +39,15 @@ inline bool IsWrappedCProto(handle handle) {
   return hasattr(handle, kIsWrappedCProtoAttr);
 }
 
-// Get the field with the given name from the given message as a python object.
+// Gets the field with the given name from the given message as a python object.
 object ProtoGetField(proto2::Message* message, const std::string& name);
 
-// Set the field with the given name in the given message from a python object.
+// Sets the field with the given name in the given message from a python object.
 // As in the native API, message, repeated, and map fields cannot be set.
 void ProtoSetField(proto2::Message* message, const std::string& name,
                    handle value);
 
-// Initialize the fields in the given message from the the keyword args.
+// Initializes the fields in the given message from the the keyword args.
 // Unlike ProtoSetField, this allows setting message, map and repeated fields.
 void ProtoInitFields(proto2::Message* message, kwargs kwargs_in);
 
@@ -627,13 +627,21 @@ struct TemplatedProtoSetField {
 };
 
 // Wrapper around proto2::Message::FindInitializationErrors.
-std::vector<std::string> FindInitializationErrors(proto2::Message* message);
+std::vector<std::string> MessageFindInitializationErrors(
+    proto2::Message* message);
 
 // Wrapper around proto2::Message::ListFields.
-std::vector<tuple> ListFields(proto2::Message* message);
+std::vector<tuple> MessageListFields(proto2::Message* message);
 
-// Wrapper to generate the python EnumDescriptor.values_by_number property.
+// Wrapper around proto2::Message::HasField.
+bool MessageHasField(proto2::Message* message, const std::string& field_name);
+
+// Wrapper to generate the python message Descriptor.fields_by_name property.
+dict MessageFieldsByName(const proto2::Descriptor* descriptor);
+
+// Wrapper to generate the python EnumDescriptor.values_by_* properties.
 dict EnumValuesByNumber(const proto2::EnumDescriptor* enum_descriptor);
+dict EnumValuesByName(const proto2::EnumDescriptor* enum_descriptor);
 
 }  // namespace google
 }  // namespace pybind11

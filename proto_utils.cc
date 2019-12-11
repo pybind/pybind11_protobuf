@@ -14,6 +14,7 @@
 
 #include "net/proto2/public/descriptor.h"
 #include "net/proto2/public/message.h"
+#include "pybind11/detail/common.h"
 
 namespace pybind11 {
 namespace google {
@@ -109,13 +110,14 @@ proto2::Message* AddMessage(RepeatedFieldContainer<proto2::Message>* container,
   return message;
 }
 
-const proto2::FieldDescriptor* GetFieldDescriptor(proto2::Message* message,
-                                                  const std::string& name) {
+const proto2::FieldDescriptor* GetFieldDescriptor(
+    proto2::Message* message, const std::string& name,
+    PyObject* error_type = PyExc_AttributeError) {
   auto* field_desc = message->GetDescriptor()->FindFieldByName(name);
   if (!field_desc) {
-    std::string error = "'" + message->GetTypeName() +
-                        "' object has no attribute '" + name + "'";
-    PyErr_SetString(PyExc_AttributeError, error.c_str());
+    std::string error_str = "'" + message->GetTypeName() +
+                            "' object has no attribute '" + name + "'";
+    PyErr_SetString(error_type, error_str.c_str());
     throw error_already_set();
   }
   return field_desc;
@@ -150,13 +152,14 @@ void ProtoInitFields(proto2::Message* message, kwargs kwargs_in) {
   }
 }
 
-std::vector<std::string> FindInitializationErrors(proto2::Message* message) {
+std::vector<std::string> MessageFindInitializationErrors(
+    proto2::Message* message) {
   std::vector<std::string> errors;
   message->FindInitializationErrors(&errors);
   return errors;
 }
 
-std::vector<tuple> ListFields(proto2::Message* message) {
+std::vector<tuple> MessageListFields(proto2::Message* message) {
   std::vector<const proto2::FieldDescriptor*> fields;
   message->GetReflection()->ListFields(*message, &fields);
   std::vector<tuple> result;
@@ -169,11 +172,36 @@ std::vector<tuple> ListFields(proto2::Message* message) {
   return result;
 }
 
+bool MessageHasField(proto2::Message* message, const std::string& field_name) {
+  auto* field_desc = GetFieldDescriptor(message, field_name, PyExc_ValueError);
+  return message->GetReflection()->HasField(*message, field_desc);
+}
+
+dict MessageFieldsByName(const proto2::Descriptor* descriptor) {
+  dict result;
+  for (int i = 0; i < descriptor->field_count(); ++i) {
+    auto* field_desc = descriptor->field(i);
+    result[cast(field_desc->name())] =
+        cast(field_desc, return_value_policy::reference);
+  }
+  return result;
+}
+
 dict EnumValuesByNumber(const proto2::EnumDescriptor* enum_descriptor) {
   dict result;
   for (int i = 0; i < enum_descriptor->value_count(); ++i) {
     auto* value_desc = enum_descriptor->value(i);
     result[cast(value_desc->number())] =
+        cast(value_desc, return_value_policy::reference);
+  }
+  return result;
+}
+
+dict EnumValuesByName(const proto2::EnumDescriptor* enum_descriptor) {
+  dict result;
+  for (int i = 0; i < enum_descriptor->value_count(); ++i) {
+    auto* value_desc = enum_descriptor->value(i);
+    result[cast(value_desc->name())] =
         cast(value_desc, return_value_policy::reference);
   }
   return result;

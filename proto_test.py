@@ -290,6 +290,14 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     with self.assertRaises(AttributeError):
       message.int_message_map = {}
 
+  def test_has_field(self):
+    message = proto_example.make_test_message()
+    self.assertFalse(message.HasField('int_message'))
+    message.int_message.value = 5
+    self.assertTrue(message.HasField('int_message'))
+    with self.assertRaises(ValueError):
+      message.HasField('non_existent_field')
+
   def test_pass_wrapped_proto(self):
     message = proto_example.make_int_message()
     message.value = 5
@@ -432,10 +440,22 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     self.assertEqual(map_entry.key, 'k')
     self.assertEqual(map_entry.value, 5)
 
-  def test_text_format(self):
+  def test_text_format_to_string(self):
     self.assertMultiLineEqual(
         text_format.MessageToString(get_fully_populated_test_message()),
         FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT)
+
+  def test_text_format_parse(self):
+    message = proto_example.make_test_message()
+    text_format.Parse(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT, message)
+    self.assertMultiLineEqual(
+        str(message), FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT)
+
+  def test_text_format_merge(self):
+    message = proto_example.make_test_message()
+    text_format.Merge(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT, message)
+    self.assertMultiLineEqual(
+        str(message), FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT)
 
   def test_proto_2_equal(self):
     self.assertProto2Equal(get_fully_populated_test_message(),
