@@ -5,6 +5,7 @@
 
 #include <pybind11/pybind11.h>
 
+#include <memory>
 #include <stdexcept>
 
 #include "pybind11_protobuf/proto_casters.h"
@@ -44,7 +45,7 @@ IntMessage* GetIntMessageRawPtr() {
 }
 
 std::unique_ptr<IntMessage> GetIntMessageUniquePtr() {
-  return absl::make_unique<IntMessage>();
+  return std::make_unique<IntMessage>();
 }
 
 proto2::Message& GetAbstractMessageRef() {
@@ -58,7 +59,7 @@ proto2::Message* GetAbstractMessageRawPtr() {
 }
 
 std::unique_ptr<proto2::Message> GetAbstractMessageUniquePtr() {
-  return absl::make_unique<IntMessage>();
+  return std::make_unique<IntMessage>();
 }
 
 PYBIND11_MODULE(proto_example, m) {
@@ -83,6 +84,17 @@ PYBIND11_MODULE(proto_example, m) {
   m.def("get_abstract_message_raw_ptr", &GetAbstractMessageRawPtr,
         return_value_policy::reference);
   m.def("get_abstract_message_unique_ptr", &GetAbstractMessageUniquePtr);
+
+  m.def("make_test_message_as_abstract",
+        []() -> std::unique_ptr<proto2::Message> {
+          return std::make_unique<TestMessage>();
+        });
+  m.def("make_int_message_as_abstract",
+        []() -> std::unique_ptr<proto2::Message> {
+          return std::make_unique<IntMessage>();
+        });
+  // Register TestMessage but not IntMessage to demonstrate the effect.
+  google::RegisterProtoMessageType<TestMessage>(m);
 }
 
 }  // namespace test

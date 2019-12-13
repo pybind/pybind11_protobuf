@@ -14,7 +14,6 @@
 
 #include "net/proto2/public/descriptor.h"
 #include "net/proto2/public/message.h"
-#include "pybind11/detail/common.h"
 
 namespace pybind11 {
 namespace google {
@@ -28,7 +27,15 @@ namespace google {
 #endif
 
 void ImportProtoModule() {
-  module::import(PYBIND11_TOSTRING(PYBIND11_PROTOBUF_MODULE_PATH) ".proto");
+  // It's safe to call module::import on an already-imported module, but I'm not
+  // sure how efficient that is. This function is called every time a proto is
+  // returned from C++ to Python, so use a static bool to ensure this is as
+  // fast as possible in the case that the module is already imported.
+  static bool imported = false;
+  if (!imported) {
+    module::import(PYBIND11_TOSTRING(PYBIND11_PROTOBUF_MODULE_PATH) ".proto");
+    imported = true;
+  }
 }
 
 std::optional<std::string> PyProtoFullName(handle py_proto) {
@@ -123,22 +130,26 @@ const proto2::FieldDescriptor* GetFieldDescriptor(
   return field_desc;
 }
 
+object ProtoGetField(proto2::Message* message, const std::string& name) {
+  return ProtoGetField(message, GetFieldDescriptor(message, name));
+}
+
 object ProtoGetField(proto2::Message* message,
                      const proto2::FieldDescriptor* field_desc) {
   return DispatchFieldDescriptor<TemplatedProtoGetField>(field_desc, message);
 }
 
-object ProtoGetField(proto2::Message* message, const std::string& name) {
-  return ProtoGetField(message, GetFieldDescriptor(message, name));
-}
-
 void ProtoSetField(proto2::Message* message, const std::string& name,
                    handle value) {
-  auto* field_desc = GetFieldDescriptor(message, name);
+  ProtoSetField(message, GetFieldDescriptor(message, name), value);
+}
+
+void ProtoSetField(proto2::Message* message,
+                   const proto2::FieldDescriptor* field_desc, handle value) {
   if (field_desc->is_map() || field_desc->is_repeated() ||
       field_desc->type() == proto2::FieldDescriptor::TYPE_MESSAGE) {
-    std::string error = "Assignment not allowed to field \"" + name +
-                        "\" in protocol message object.";
+    std::string error = "Assignment not allowed to field \"" +
+                        field_desc->name() + "\" in protocol message object.";
     PyErr_SetString(PyExc_AttributeError, error.c_str());
     throw error_already_set();
   }

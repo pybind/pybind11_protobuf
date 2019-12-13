@@ -251,8 +251,11 @@ PYBIND11_MODULE(proto, m) {
                              return_value_policy::reference)
       .def_property_readonly(kIsWrappedCProtoAttr, [](void*) { return true; })
       .def("__repr__", &proto2::Message::DebugString)
-      .def("__getattr__", &ProtoGetField)
-      .def("__setattr__", &ProtoSetField)
+      .def("__getattr__",
+           (object(*)(proto2::Message*, const std::string&)) & ProtoGetField)
+      .def("__setattr__",
+           (void (*)(proto2::Message*, const std::string&, handle)) &
+               ProtoSetField)
       .def("SerializeToString",
            [](proto2::Message* msg) { return bytes(msg->SerializeAsString()); })
       .def("ParseFromString", &proto2::Message::ParseFromString, arg("data"))
@@ -267,19 +270,7 @@ PYBIND11_MODULE(proto, m) {
       .def("HasField", &MessageHasField)
       // Pickle support is provided only because copy.deepcopy uses it.
       // Do not use it directly; use serialize/parse instead (go/nopickle).
-      .def(pickle(
-          [](proto2::Message* message) {
-            return dict("serialized"_a = bytes(message->SerializeAsString()),
-                        "type_name"_a = message->GetTypeName());
-          },
-          [](dict d) {
-            auto message =
-                PyProtoAllocateMessage<proto2::Message>(d["type_name"]);
-            // TODO(b/145925674): Use ParseFromStringPiece once str
-            // supports string_view casting.
-            message->ParseFromString(str(d["serialized"]));
-            return message;
-          }))
+      .def(MakePickler<proto2::Message>())
       .def("SetInParent", [](proto2::Message*) {},
            "No-op. Provided only for compatability with text_format.");
 

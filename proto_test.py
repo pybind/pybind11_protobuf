@@ -21,9 +21,9 @@ from google3.net.proto2.python.public import text_format
 
 def get_fully_populated_test_message():
   """Returns a wrapped TestMessage with all fields set."""
-  # This tests initializing a proto by keyword argument.
-  message = proto.make_wrapped_c_proto(
-      'pybind11.test.TestMessage',
+  # This tests duplicating and initializing a proto by keyword argument.
+  # TODO(b/146002314): Support maps with text_format.
+  return proto_example.TestMessage(
       string_value='test',
       int_value=4,
       double_value=4.5,
@@ -32,8 +32,6 @@ def get_fully_populated_test_message():
       repeated_int_message=[test_pb2.IntMessage(value=8)],
       enum_value=test_pb2.TestMessage.TestEnum.ONE,
       repeated_enum_value=[test_pb2.TestMessage.TestEnum.TWO])
-  # TODO(b/146002314): Support maps with text_format.
-  return message
 
 
 # Text format version of the message returned by the function above.
@@ -58,6 +56,8 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
   def test_return_wrapped_message(self):
     message = proto_example.make_int_message()
     self.assertEqual(message.DESCRIPTOR.full_name, 'pybind11.test.IntMessage')
+    self.assertEqual(message.__class__.DESCRIPTOR.full_name,
+                     'pybind11.test.IntMessage')
 
   def test_is_wrapped_c_proto(self):
     self.assertTrue(proto.is_wrapped_c_proto(proto_example.make_int_message()))
@@ -69,10 +69,16 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
       ('name', 'pybind11.test.IntMessage'),
       ('native_proto', test_pb2.IntMessage()),
       ('native_proto_type', test_pb2.IntMessage),
-      ('wrapped_proto', proto_example.make_int_message()))
+      ('wrapped_proto', proto_example.make_int_message()),
+      ('wrapped_proto_type', proto_example.make_int_message().__class__))
   def test_make_wrapped_c_proto_from(self, type_in):
-    message = proto.make_wrapped_c_proto(type_in)
+    message = proto.make_wrapped_c_proto(type_in, value=5)
     self.assertTrue(proto.is_wrapped_c_proto(message))
+    self.assertEqual(message.value, 5)
+
+  def test_make_wrapped_c_proto_invalid_keyword_arg(self):
+    with self.assertRaises(AttributeError):
+      _ = proto.make_wrapped_c_proto(test_pb2.IntMessage, non_existent_field=5)
 
   def test_access_wrapped_message_singluar_fields(self):
     message = proto_example.make_test_message()
@@ -446,19 +452,19 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
         FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT)
 
   def test_text_format_parse(self):
-    message = proto_example.make_test_message()
-    text_format.Parse(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT, message)
+    message = text_format.Parse(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT,
+                                proto_example.make_test_message())
     self.assertMultiLineEqual(
         str(message), FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT)
 
   def test_text_format_merge(self):
-    message = proto_example.make_test_message()
-    text_format.Merge(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT, message)
+    message = text_format.Merge(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT,
+                                proto_example.make_test_message())
     self.assertMultiLineEqual(
         str(message), FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT)
 
   def test_proto_2_equal(self):
-    self.assertProto2Equal(get_fully_populated_test_message(),
+    self.assertProto2Equal(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT,
                            get_fully_populated_test_message())
 
 

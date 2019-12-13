@@ -41,11 +41,15 @@ inline bool IsWrappedCProto(handle handle) {
 
 // Gets the field with the given name from the given message as a python object.
 object ProtoGetField(proto2::Message* message, const std::string& name);
+object ProtoGetField(proto2::Message* message,
+                     const proto2::FieldDescriptor* field_desc);
 
 // Sets the field with the given name in the given message from a python object.
 // As in the native API, message, repeated, and map fields cannot be set.
 void ProtoSetField(proto2::Message* message, const std::string& name,
                    handle value);
+void ProtoSetField(proto2::Message* message,
+                   const proto2::FieldDescriptor* field_desc, handle value);
 
 // Initializes the fields in the given message from the the keyword args.
 // Unlike ProtoSetField, this allows setting message, map and repeated fields.
@@ -642,6 +646,58 @@ dict MessageFieldsByName(const proto2::Descriptor* descriptor);
 // Wrapper to generate the python EnumDescriptor.values_by_* properties.
 dict EnumValuesByNumber(const proto2::EnumDescriptor* enum_descriptor);
 dict EnumValuesByName(const proto2::EnumDescriptor* enum_descriptor);
+
+// Returns the pickle bindings (passed to class_::def) for ProtoType.
+template <typename ProtoType>
+decltype(auto) MakePickler() {
+  return pybind11::pickle(
+      [](ProtoType* message) {
+        return dict("serialized"_a = bytes(message->SerializeAsString()),
+                    "type_name"_a = message->GetTypeName());
+      },
+      [](dict d) {
+        auto message = PyProtoAllocateMessage<ProtoType>(d["type_name"]);
+        // TODO(b/145925674): Use ParseFromStringPiece once str
+        // supports string_view casting.
+        message->ParseFromString(str(d["serialized"]));
+        return message;
+      });
+}
+
+// Register the given concrete ProtoType with pybind11.
+template <typename ProtoType>
+void RegisterProtoMessageType(handle module = nullptr) {
+  // Make sure the proto2::Message bindings are available.
+  google::ImportProtoModule();
+  // Register the type.
+  auto* descriptor = ProtoType::GetDescriptor();
+  const char* registered_name = descriptor->name().c_str();
+  class_<ProtoType, proto2::Message> message_c(module, registered_name);
+  // Add a constructor.
+  message_c.def(init([](kwargs kwargs_in) {
+    return google::PyProtoAllocateMessage<ProtoType>(handle(), kwargs_in);
+  }));
+  // Create a pickler for this type (the base class pickler will fail).
+  message_c.def(google::MakePickler<ProtoType>());
+  // Add the descriptor as a static field.
+  message_c.def_readonly_static("DESCRIPTOR", descriptor);
+  // Add bindings for each field, to avoid the FindFieldByName lookup.
+  for (int i = 0; i < descriptor->field_count(); ++i) {
+    auto* field_desc = descriptor->field(i);
+    message_c.def_property(
+        field_desc->name().c_str(),
+        [field_desc](proto2::Message* message) {
+          return ProtoGetField(message, field_desc);
+        },
+        [field_desc](proto2::Message* message, handle value) {
+          ProtoSetField(message, field_desc, value);
+        });
+  }
+}
+
+// The base class is already registered by the proto module, so this is a no-op.
+template <>
+inline void RegisterProtoMessageType<proto2::Message>(handle) {}
 
 }  // namespace google
 }  // namespace pybind11

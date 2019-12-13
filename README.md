@@ -41,6 +41,8 @@ Enumerations are passed and returned as integers. You may use the enum values
 from the native python proto module to set and check the enum values in a
 wrapped proto (see proto_test.py for an example).
 
+## Reporting bugs
+
 The bindings are designed to exactly match the [native python proto API]
 (https://developers.google.com/protocol-buffers/docs/reference/python-generated).
 However, there are still some differences. If you discover a difference that
@@ -49,7 +51,7 @@ impacts your use case, please [check if there is a bug for it]
 and [file a bug if there is none]
 (https://b.corp.google.com/issues/new?component=779382&template=1371463).
 
-Features supported:
+## Features supported
 
 - Singular, repeated, and map fields of all types.
 - Serializing, parsing and merging messages.
@@ -64,7 +66,7 @@ Features supported:
      (partial support; see below)
   - `compare.assertProto2Equal` (partial support; see below)
 
-Features not yet implemented/ covered:
+## Features not yet implemented/ covered
 
 - Oneof fields.
 - `remove` with repeated message fields and maps (b/145687965).
@@ -74,3 +76,34 @@ Features not yet implemented/ covered:
 - Extensions.
 
 See proto.cc for a complete list of all bound and available methods.
+
+# Returning Abstract Protos
+
+Some features require registering a concrete message type. This is done
+automatically whenever a message is returned from C++ to Python as a concrete
+message type (ie, not as a `proto2::Message` pointer). These features are:
+
+- A constructor in the `__class__` attribute. This allows constructing a new
+  instance of the same message type with `message.__class__(**kwargs)`, which
+  is used in a number of places (for example, by `assertProto2Equal`).
+- `DESCRIPTOR` is a static property rather than instance property.
+- The fields are directly registered as instance properties rather than
+  accessed through `__getattr__` and `__setattr__`. This saves a call to
+  `Descriptor::FindFieldByName` each time the field is accessed.
+
+Pybind11 can use RTTI to get the concrete message type from an abstract message
+(ie, `proto2::Message`) pointer (raw or smart) or reference, and use that to
+look up a previous registration for the concrete message type, but it cannot
+use that to perform the registration. Therefore, if a function returns a
+pointer or reference to an abstract message, the above features will not be
+available unless the concrete message type was previously registered by either:
+
+- A call to a different function which returns the same message type as a
+  concrete type.
+- An explicit call to `google::RegisterProtoType<MessageType>(module);` in your
+  `PYBIND11_MODULE` definition. This also adds a constructor for MessageType to
+  your module (`my_module.MessageType()` in this case). The constructor accepts
+  keyword arguments to initialize fields, like native Python constructors.
+
+Note: when you access a sub-message, it is returned as an abstract message
+(`proto2::Message` pointer) and therefore falls into this category.

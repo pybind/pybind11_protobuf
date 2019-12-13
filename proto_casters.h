@@ -17,19 +17,27 @@
 
 namespace pybind11 {
 
-// Specialize polymorphic_type_hook to cause all proto message types to be cast
-// using the bindings for the base class (proto2::Message).
-template <typename itype>
-struct polymorphic_type_hook<itype,
-                             std::enable_if_t<google::is_proto_v<itype>>> {
-  static const void *get(const itype *src, const std::type_info *&type) {
+// Specialize polymorphic_type_hook for proto message types.
+// If ProtoType is a derived type (ie, not proto2::Message), this registers
+// it and adds a constructor and concrete fields, to avoid the need to call
+// FindFieldByName for every field access.
+template <typename ProtoType>
+struct polymorphic_type_hook<ProtoType,
+                             std::enable_if_t<google::is_proto_v<ProtoType>>> {
+  static const void *get(const ProtoType *src, const std::type_info *&type) {
     // Make sure the proto2::Message bindings are available.
     google::ImportProtoModule();
-    // Use the type info corresponding to the proto2::Message base class.
-    type = &typeid(proto2::Message);
-    // Upcast the src pointer to the proto2::Message base class.
-    return dynamic_cast<const void *>(
-        static_cast<const proto2::Message *>(src));
+
+    // Use RTTI to get the concrete message type.
+    const void *out = polymorphic_type_hook_base<ProtoType>::get(src, type);
+    if (!out) return nullptr;
+
+    // Register ProtoType if is a derived type and has not been registered yet.
+    // This is a no-op if ProtoType == proto2::Message (not a derived type).
+    if (!detail::get_type_info(*type))
+      google::RegisterProtoMessageType<ProtoType>();
+
+    return out;
   }
 };
 
@@ -50,8 +58,7 @@ struct type_caster<ProtoType, std::enable_if_t<google::is_proto_v<ProtoType>>>
  public:
   // Conversion part 1 (Python->C++).
   bool load(handle src, bool convert) {
-    if (!google::PyProtoCheckType<IntrinsicProtoType>(src))
-      return false;
+    if (!google::PyProtoCheckType<IntrinsicProtoType>(src)) return false;
 
     if (google::IsWrappedCProto(src)) {
       // Just remove the wrapper.
