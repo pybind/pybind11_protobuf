@@ -463,6 +463,35 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     field['test'] = 5
     self.assertEqual(field['test'], 5)
 
+  @parameterized.named_parameters(
+      ('wrapped', proto_example.TestMessage()),
+      ('native', test_pb2.TestMessage()))
+  def test_copy_from(self, other):
+    other.int_value = 5
+    message = proto_example.TestMessage(double_value=5.5)
+    message.CopyFrom(other)
+    self.assertEqual(message.int_value, 5)
+    self.assertEqual(message.double_value, 0)  # Should have been overwritten.
+
+  @parameterized.named_parameters(
+      ('wrapped', proto_example.TestMessage()),
+      ('native', test_pb2.TestMessage()))
+  def test_merge_from(self, other):
+    other.int_value = 5
+    message = proto_example.TestMessage(double_value=5.5)
+    message.MergeFrom(other)
+    self.assertEqual(message.int_value, 5)
+    self.assertEqual(message.double_value, 5.5)  # Should have been preserved.
+
+  @parameterized.named_parameters(
+      ('wrapped', proto_example.TestMessage()),
+      ('native', test_pb2.TestMessage()),
+      ('not_a_proto', 'a string'))
+  def test_copy_merge_from_invalid(self, other):
+    message = proto_example.make_int_message()
+    self.assertRaises(TypeError, message.CopyFrom, other)
+    self.assertRaises(TypeError, message.MergeFrom, other)
+
   def test_deepcopy(self):
     message = proto_example.make_int_message()
     message.value = 5

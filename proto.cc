@@ -281,8 +281,8 @@ PYBIND11_MODULE(proto, m) {
       .def("MergeFromString", &proto2::Message::MergeFromString, arg("data"))
       .def("ByteSize", &proto2::Message::ByteSizeLong)
       .def("Clear", &proto2::Message::Clear)
-      .def("CopyFrom", &proto2::Message::CopyFrom)
-      .def("MergeFrom", &proto2::Message::MergeFrom)
+      .def("CopyFrom", &MessageCopyFrom)
+      .def("MergeFrom", &MessageMergeFrom)
       .def("FindInitializationErrors", &MessageFindInitializationErrors,
            "Slowly build a list of all required fields that are not set.")
       .def("ListFields", &MessageListFields)

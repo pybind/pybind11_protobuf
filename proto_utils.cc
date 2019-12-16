@@ -14,6 +14,7 @@
 
 #include "net/proto2/public/descriptor.h"
 #include "net/proto2/public/message.h"
+#include "pybind11/detail/common.h"
 
 namespace pybind11 {
 namespace google {
@@ -51,6 +52,20 @@ bool PyProtoCheckType(handle py_proto, const std::string& expected_type) {
   if (auto optional_name = PyProtoFullName(py_proto))
     return optional_name.value() == expected_type;
   return false;
+}
+
+void PyProtoCheckTypeOrThrow(handle py_proto,
+                             const std::string& expected_type) {
+  auto optional_name = PyProtoFullName(py_proto);
+  if (!optional_name) {
+    auto builtins = module::import("builtins");
+    std::string type_str =
+        str(builtins.attr("repr")(builtins.attr("type")(py_proto)));
+    throw type_error("Expected a proto, got a " + type_str + ".");
+  } else if (optional_name.value() != expected_type) {
+    throw type_error("Passed proto is the wrong type. Expected " +
+                     expected_type + " but got " + optional_name.value() + ".");
+  }
 }
 
 std::string PyProtoSerializeToString(handle py_proto) {
@@ -186,6 +201,18 @@ std::vector<tuple> MessageListFields(proto2::Message* message) {
 bool MessageHasField(proto2::Message* message, const std::string& field_name) {
   auto* field_desc = GetFieldDescriptor(message, field_name, PyExc_ValueError);
   return message->GetReflection()->HasField(*message, field_desc);
+}
+
+void MessageCopyFrom(proto2::Message* msg, handle other) {
+  PyProtoCheckTypeOrThrow(other, msg->GetTypeName());
+  if (!msg->ParseFromString(PyProtoSerializeToString(other)))
+    throw std::runtime_error("Error copying message.");
+}
+
+void MessageMergeFrom(proto2::Message* msg, handle other) {
+  PyProtoCheckTypeOrThrow(other, msg->GetTypeName());
+  if (!msg->MergeFromString(PyProtoSerializeToString(other)))
+    throw std::runtime_error("Error merging message.");
 }
 
 dict MessageFieldsByName(const proto2::Descriptor* descriptor) {

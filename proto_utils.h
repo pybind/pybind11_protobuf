@@ -61,6 +61,8 @@ std::optional<std::string> PyProtoFullName(handle py_proto);
 
 // Returns whether py_proto is a proto and matches the expected_type.
 bool PyProtoCheckType(handle py_proto, const std::string& expected_type);
+// Throws a type error if py_proto is not a proto or the wrong message type.
+void PyProtoCheckTypeOrThrow(handle py_proto, const std::string& expected_type);
 
 // Returns whether py_proto is a proto and matches the ProtoType.
 template <typename ProtoType>
@@ -705,6 +707,10 @@ std::vector<tuple> MessageListFields(proto2::Message* message);
 
 // Wrapper around proto2::Message::HasField.
 bool MessageHasField(proto2::Message* message, const std::string& field_name);
+
+// Wrapper around proto2::Message::Copy/MergeFrom.
+void MessageCopyFrom(proto2::Message* msg, handle other);
+void MessageMergeFrom(proto2::Message* msg, handle other);
 
 // Wrapper to generate the python message Descriptor.fields_by_name property.
 dict MessageFieldsByName(const proto2::Descriptor* descriptor);
