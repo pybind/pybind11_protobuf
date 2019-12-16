@@ -70,12 +70,18 @@ class MapFieldBindings : public class_<MapFieldContainer<T>> {
         throw value_error("Cannot assign to message in a map field.");
       });
     } else {
-      this->def("__setitem__", &MapFieldContainer<T>::SetPython);
+      this->def("__setitem__", &MapFieldContainer<T>::SetItem);
     }
     this->def("__repr__", &MapFieldContainer<T>::Repr);
     this->def("__len__", &MapFieldContainer<T>::Size);
     this->def("__contains__", &MapFieldContainer<T>::Contains);
-    this->def("__getitem__", &MapFieldContainer<T>::GetPython);
+    this->def("__getitem__", &MapFieldContainer<T>::GetItem);
+    this->def("__iter__", &MapFieldContainer<T>::KeyIterator,
+              keep_alive<0, 1>());
+    this->def("keys", &MapFieldContainer<T>::KeyIterator, keep_alive<0, 1>());
+    this->def("values", &MapFieldContainer<T>::ValueIterator,
+              keep_alive<0, 1>());
+    this->def("items", &MapFieldContainer<T>::ItemIterator, keep_alive<0, 1>());
     this->def("update", &MapFieldContainer<T>::UpdateFromDict);
     this->def("update", &MapFieldContainer<T>::UpdateFromKWArgs);
     this->def("clear", &MapFieldContainer<T>::Clear);
@@ -83,6 +89,19 @@ class MapFieldBindings : public class_<MapFieldContainer<T>> {
               "Returns a factory function which can be called with keyword "
               "Arguments to create an instance of the map entry class (ie, "
               "a message with `key` and `value` fields). Used by text_format.");
+  }
+};
+
+// Class to add python bindings to a map field iterator.
+template <typename T>
+class MapFieldIteratorBindings
+    : public class_<typename MapFieldContainer<T>::Iterator> {
+ public:
+  MapFieldIteratorBindings(handle scope, const std::string& name)
+      : class_<typename MapFieldContainer<T>::Iterator>(
+            scope, (name + "Iterator").c_str()) {
+    this->def("__iter__", &MapFieldContainer<T>::Iterator::iter);
+    this->def("__next__", &MapFieldContainer<T>::Iterator::next);
   }
 };
 
@@ -279,6 +298,9 @@ PYBIND11_MODULE(proto, m) {
 
   // Add bindings for the map field containers.
   BindEachFieldType<MapFieldBindings>(m, "Mapped");
+
+  // Add bindings for the map field iterators.
+  BindEachFieldType<MapFieldIteratorBindings>(m, "Mapped");
 }
 
 }  // namespace google

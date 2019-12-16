@@ -62,18 +62,16 @@ and [file a bug if there is none]
 - Python functions which can take protos as arguments:
   - `copy.deepcopy`
   - pickle (only to support copy.deepcopy; see go/nopickle).
-  - `text_format` module methods `MessageToString`, `Parse` and `Merge`
-     (partial support; see below)
-  - `compare.assertProto2Equal` (partial support; see below)
+  - `text_format` module methods `MessageToString`, `Parse` and `Merge`.
+  - `compare.assertProto2Equal`.
 
 ## Features not yet implemented/ covered
 
 - Oneof fields.
+- Extensions.
 - `remove` with repeated message fields and maps (b/145687965).
 - Slicing of repeated fields (b/145687883).
 - Map fields with a message as its key.
-- Map fields with `test_format` and `assertProto2Equal`.
-- Extensions.
 
 See proto.cc for a complete list of all bound and available methods.
 

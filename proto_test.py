@@ -21,8 +21,7 @@ from google3.net.proto2.python.public import text_format
 
 def get_fully_populated_test_message():
   """Returns a wrapped TestMessage with all fields set."""
-  # This tests duplicating and initializing a proto by keyword argument.
-  # TODO(b/146002314): Support maps with text_format.
+  # This tests initializing a proto by keyword argument.
   return proto_example.TestMessage(
       string_value='test',
       int_value=4,
@@ -31,7 +30,9 @@ def get_fully_populated_test_message():
       repeated_int_value=[6, 7],
       repeated_int_message=[test_pb2.IntMessage(value=8)],
       enum_value=test_pb2.TestMessage.TestEnum.ONE,
-      repeated_enum_value=[test_pb2.TestMessage.TestEnum.TWO])
+      repeated_enum_value=[test_pb2.TestMessage.TestEnum.TWO],
+      string_int_map={'k': 5},
+      int_message_map={1: test_pb2.IntMessage(value=6)})
 
 
 # Text format version of the message returned by the function above.
@@ -44,6 +45,16 @@ repeated_int_value: 6
 repeated_int_value: 7
 repeated_int_message {
   value: 8
+}
+string_int_map {
+  key: "k"
+  value: 5
+}
+int_message_map {
+  key: 1
+  value {
+    value: 6
+  }
 }
 enum_value: ONE
 repeated_enum_value: TWO
@@ -140,34 +151,35 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     sub_msg.value = 7
     message.repeated_int_message.append(sub_msg)
 
-    def check_values(values):
+    def check_values(message, values):
+      self.assertLen(message.repeated_int_message, len(values))
       for msg, expected in zip(message.repeated_int_message, values):
         self.assertEqual(msg.value, expected)
 
     self.assertLen(message.repeated_int_message, 2)
     self.assertEqual(message.repeated_int_message[0].value, 6)
     self.assertEqual(message.repeated_int_message[1].value, 7)
-    check_values([6, 7])
+    check_values(message, [6, 7])
 
     self.assertEqual(str(message.repeated_int_message), '[value: 6, value: 7]')
 
     message.repeated_int_message[0].value = 8
-    check_values([8, 7])
+    check_values(message, [8, 7])
 
     sub_msg.value = 2
     message.repeated_int_message.insert(1, sub_msg)
-    check_values([8, 2, 7])
+    check_values(message, [8, 2, 7])
 
     message.repeated_int_message.extend([sub_msg, sub_msg])
-    check_values([8, 2, 7, 2, 2])
+    check_values(message, [8, 2, 7, 2, 2])
 
     new_msg = message.repeated_int_message.add()
     self.assertEqual(new_msg.value, 0)
-    check_values([8, 2, 7, 2, 2, 0])
+    check_values(message, [8, 2, 7, 2, 2, 0])
 
     new_msg = message.repeated_int_message.add(value=3)
     self.assertEqual(new_msg.value, 3)
-    check_values([8, 2, 7, 2, 2, 0, 3])
+    check_values(message, [8, 2, 7, 2, 2, 0, 3])
 
     with self.assertRaises(AttributeError):
       message.repeated_int_message.add(invalid_field=3)
@@ -201,6 +213,20 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     self.assertIn('k2', message.string_int_map)
     self.assertNotIn('k3', message.string_int_map)
 
+    container = message.string_int_map
+    for key, expected in zip(sorted(container), ['k1', 'k2']):
+      self.assertEqual(key, expected)
+
+    for key, expected in zip(sorted(container.keys()), ['k1', 'k2']):
+      self.assertEqual(key, expected)
+
+    for value, expected in zip(sorted(container.values()), [5, 6]):
+      self.assertEqual(value, expected)
+
+    for item, expected in zip(
+        sorted(container.items()), [('k1', 5), ('k2', 6)]):
+      self.assertEqual(item, expected)
+
     native = test_pb2.TestMessage()
     native.string_int_map['k1'] = 5
     native.string_int_map['k2'] = 6
@@ -232,6 +258,21 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     self.assertIn(5, message.int_message_map)
     self.assertIn(6, message.int_message_map)
     self.assertNotIn(7, message.int_message_map)
+
+    container = message.int_message_map
+    for key, expected in zip(sorted(container), [5, 6]):
+      self.assertEqual(key, expected)
+
+    for key, expected in zip(sorted(container.keys()), [5, 6]):
+      self.assertEqual(key, expected)
+
+    msg_values = [msg.value for msg in container.values()]
+    for value, expected in zip(sorted(msg_values), [2, 3]):
+      self.assertEqual(value, expected)
+
+    msg_items = [(item[0], item[1].value) for item in container.items()]
+    for item, expected in zip(sorted(msg_items), [(5, 2), (6, 3)]):
+      self.assertEqual(item, expected)
 
     self.assertEqual(str(message.int_message_map), '{5: value: 2, 6: value: 3}')
 
@@ -428,18 +469,7 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     message_copy = copy.deepcopy(message)
     self.assertEqual(message_copy.value, 5)
 
-  def test_init_map_field(self):
-    # TODO(b/146002314): Add this keyword initialization to
-    # get_fully_populated_test_message once text_format works with maps.
-    # After that, this test can be eliminated.
-    message = proto.make_wrapped_c_proto(
-        'pybind11.test.TestMessage',
-        string_int_map={'k': 5},
-        int_message_map={1: test_pb2.IntMessage(value=6)})
-    self.assertEqual(message.string_int_map['k'], 5)
-    self.assertEqual(message.int_message_map[1].value, 6)
-
-  def test_get_map_entry(self):
+  def test_get_entry_class(self):
     message = proto_example.make_test_message()
     # GetEntryClass is used like this in text_format.
     map_entry = message.string_int_map.GetEntryClass()(key='k', value=5)

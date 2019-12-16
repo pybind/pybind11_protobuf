@@ -181,9 +181,16 @@ T CastOrTypeError(handle arg) {
 // specializations of the ProtoFieldContainer (see below).
 class ProtoFieldContainerBase {
  public:
+  // Accesses the field indicated by `field_desc` in the given `proto`. `parent`
+  // should be passed if and only if `proto` is a map key-value pair message.
+  // In that case, it should point to the message which contains the map field.
+  // (ie, the parent of the key-value pair). In all other cases, `proto` is
+  // also the parent, which is indicated by passing nullptr for `parent`.
   ProtoFieldContainerBase(proto2::Message* proto,
-                          const proto2::FieldDescriptor* field_desc)
+                          const proto2::FieldDescriptor* field_desc,
+                          proto2::Message* parent = nullptr)
       : proto_(proto),
+        parent_(parent ? parent : proto),
         field_desc_(field_desc),
         reflection_(proto->GetReflection()) {}
 
@@ -197,7 +204,18 @@ class ProtoFieldContainerBase {
   // Throws an out_of_range exception if the index is bad.
   void CheckIndex(int idx, int allowed_size = -1) const;
 
+  // Cast `inst` and keep its parent alive until `inst` is no longer referenced.
+  // Use this when (and only when) casting message, map and repeated fields.
+  template <typename T>
+  object CastAndKeepAlive(T* inst, return_value_policy policy) const {
+    object py_inst = cast(inst, policy);
+    object py_parent = cast(parent_, return_value_policy::reference);
+    detail::keep_alive_impl(py_inst, py_parent);
+    return py_inst;
+  }
+
   proto2::Message* proto_;
+  proto2::Message* parent_;
   const proto2::FieldDescriptor* field_desc_;
   const proto2::Reflection* reflection_;
 };
@@ -341,11 +359,7 @@ class ProtoFieldContainer<proto2::Message> : public ProtoFieldContainerBase {
     return message;
   }
   object GetPython(int idx) const {
-    object inst = cast(Get(idx), return_value_policy::reference);
-    object parent = cast(proto_, return_value_policy::reference);
-    // Keep parent alive until inst is no longer referenced.
-    detail::keep_alive_impl(inst, parent);
-    return inst;
+    return this->CastAndKeepAlive(Get(idx), return_value_policy::reference);
   }
   void Set(int idx, proto2::Message* value) {
     if (value->GetTypeName() != field_desc_->message_type()->full_name())
@@ -419,6 +433,9 @@ template <typename T>
 class RepeatedFieldContainer : public ProtoFieldContainer<T> {
  public:
   using ProtoFieldContainer<T>::ProtoFieldContainer;
+  object GetPythonContainer() const {
+    return this->CastAndKeepAlive(this, return_value_policy::copy);
+  }
   void Extend(handle src) {
     if (!isinstance<sequence>(src))
       throw std::invalid_argument("Extend: Passed value is not a sequence.");
@@ -505,27 +522,24 @@ struct FindMapPair {
   }
 };
 
-// Struct which can be used with DispatchFieldDescriptor to convert the map
-// into a string representation.
-template <typename KeyT, typename ValueT>
-struct MapRepr {
+// Struct which can be used with DispatchFieldDescriptor to get the value of
+// the map key.
+template <typename KeyType>
+struct GetMapKey {
+  static object HandleField(const proto2::FieldDescriptor* key_desc,
+                            proto2::Message* kv_pair, proto2::Message* parent) {
+    return ProtoFieldContainer<KeyType>(kv_pair, key_desc, parent)
+        .GetPython(-1);
+  }
+};
+
+// Struct which can be used with DispatchFieldDescriptor to get the string
+// representation of the map key.
+template <typename KeyType>
+struct GetMapKeyRepr {
   static std::string HandleField(const proto2::FieldDescriptor* key_desc,
-                                 proto2::Message* proto,
-                                 const proto2::FieldDescriptor* map_desc,
-                                 const proto2::FieldDescriptor* value_desc) {
-    RepeatedFieldContainer<proto2::Message> map_field(proto, map_desc);
-    if (map_field.Size() == 0) return "{}";
-    std::string repr = "{";
-    for (int i = 0; i < map_field.Size(); ++i) {
-      proto2::Message* kv_pair = map_field.Get(i);
-      repr += ProtoFieldContainer<KeyT>(kv_pair, key_desc).ElementRepr(-1);
-      repr += ": ";
-      repr += ProtoFieldContainer<ValueT>(kv_pair, value_desc).ElementRepr(-1);
-      repr += ", ";
-    }
-    repr.pop_back();
-    repr.back() = '}';
-    return repr;
+                                 proto2::Message* kv_pair) {
+    return ProtoFieldContainer<KeyType>(kv_pair, key_desc).ElementRepr(-1);
   }
 };
 
@@ -539,16 +553,19 @@ class MapFieldContainer : public RepeatedFieldContainer<proto2::Message> {
         key_desc_(map_desc->message_type()->FindFieldByName("key")),
         value_desc_(map_desc->message_type()->FindFieldByName("value")) {}
   using RepeatedFieldContainer<proto2::Message>::RepeatedFieldContainer;
-  // GetPython automatically inserts missing keys, which matches native
+  object GetPythonContainer() const {
+    return this->CastAndKeepAlive(this, return_value_policy::copy);
+  }
+  // GetItem automatically inserts missing keys, which matches native
   // python protos, not dicts (see http://go/pythonprotobuf#undefined).
-  object GetPython(handle key) const {
+  object GetItem(handle key) const {
     return GetValueContainer(key).GetPython(-1);
   }
-  void SetPython(handle key, handle value) {
+  void SetItem(handle key, handle value) {
     GetValueContainer(key).SetPython(-1, value);
   }
   void UpdateFromDict(dict values) {
-    for (auto& item : values) SetPython(item.first, item.second);
+    for (auto& item : values) SetItem(item.first, item.second);
   }
   void UpdateFromKWArgs(kwargs values) { UpdateFromDict(values); }
   void UpdateFromHandle(handle values) {
@@ -561,8 +578,19 @@ class MapFieldContainer : public RepeatedFieldContainer<proto2::Message> {
                                                 key, false) != nullptr;
   }
   std::string Repr() const {
-    return DispatchFieldDescriptor<_MapRepr>(key_desc_, proto_, field_desc_,
-                                             value_desc_);
+    if (Size() == 0) return "{}";
+    std::string repr = "{";
+    for (int i = 0; i < Size(); ++i) {
+      proto2::Message* kv_pair = Get(i);
+      repr += DispatchFieldDescriptor<GetMapKeyRepr>(key_desc_, kv_pair) +
+              ": " +
+              ProtoFieldContainer<MappedType>(kv_pair, value_desc_)
+                  .ElementRepr(-1) +
+              ", ";
+    }
+    repr.pop_back();
+    repr.back() = '}';
+    return repr;
   }
   std::function<std::unique_ptr<proto2::Message>(kwargs)>
   GetEntryClassFactory() {
@@ -571,14 +599,61 @@ class MapFieldContainer : public RepeatedFieldContainer<proto2::Message> {
     };
   }
 
- protected:
-  template <typename KeyT>
-  using _MapRepr = MapRepr<KeyT, MappedType>;
+  // Iterator class for maps.
+  class Iterator {
+   public:
+    // First argument is the container, second is a member function to extract
+    // the appropriate value from a key-value pair message (ie, this function
+    // should return either the key, the value, or a (key, value) tuple).
+    Iterator(MapFieldContainer* container,
+             object (MapFieldContainer::*value_helper)(proto2::Message*))
+        : container_(container), value_helper_(value_helper) {}
 
+    auto* iter() { return this; }
+    object next() {
+      if (idx_ >= container_->Size()) throw stop_iteration();
+      return (container_->*value_helper_)(container_->Get(idx_++));
+    }
+
+   private:
+    MapFieldContainer* container_;
+    object (MapFieldContainer::*value_helper_)(proto2::Message*);
+    int idx_ = 0;
+  };
+
+  Iterator KeyIterator() { return Iterator(this, &MapFieldContainer::GetKey); }
+  Iterator ValueIterator() {
+    return Iterator(this, &MapFieldContainer::GetValue);
+  }
+  Iterator ItemIterator() {
+    return Iterator(this, &MapFieldContainer::GetTuple);
+  }
+
+ protected:
+  // Note that the helper functions bellow all pass the message which contains
+  // the key-value pair to the ProtoFieldContainer as the 3rd argument.
+
+  // Get the ProtoFieldContainer for the value corresponding to the given key.
   ProtoFieldContainer<MappedType> GetValueContainer(handle key) const {
     proto2::Message* kv_pair = DispatchFieldDescriptor<FindMapPair>(
         key_desc_, proto_, field_desc_, key);
-    return ProtoFieldContainer<MappedType>(kv_pair, value_desc_);
+    return ProtoFieldContainer<MappedType>(kv_pair, value_desc_, proto_);
+  }
+
+  // Get the key out of the given key-value message.
+  object GetKey(proto2::Message* kv_pair) {
+    return DispatchFieldDescriptor<GetMapKey>(key_desc_, kv_pair, proto_);
+  }
+
+  // Get the value out of the given key-value message.
+  object GetValue(proto2::Message* kv_pair) {
+    return ProtoFieldContainer<MappedType>(kv_pair, value_desc_, proto_)
+        .GetPython(-1);
+  }
+
+  // Get the given key-value pair as a message.
+  object GetTuple(proto2::Message* kv_pair) {
+    return make_tuple(GetKey(kv_pair), GetValue(kv_pair));
   }
 
   const proto2::FieldDescriptor* key_desc_;
@@ -590,24 +665,15 @@ template <typename ValueType>
 struct TemplatedProtoGetField {
   static object HandleField(const proto2::FieldDescriptor* field_desc,
                             proto2::Message* proto) {
-    object value;
-    bool keep_alive = false;
     if (field_desc->is_map()) {
-      value = cast(MapFieldContainer<ValueType>(proto, field_desc));
-      keep_alive = true;
+      return MapFieldContainer<ValueType>(proto, field_desc)
+          .GetPythonContainer();
     } else if (field_desc->is_repeated()) {
-      value = cast(RepeatedFieldContainer<ValueType>(proto, field_desc));
-      keep_alive = true;
+      return RepeatedFieldContainer<ValueType>(proto, field_desc)
+          .GetPythonContainer();
     } else {  // Singular field.
       return ProtoFieldContainer<ValueType>(proto, field_desc).GetPython(-1);
     }
-
-    if (keep_alive) {
-      // Keep proto alive until value is no longer referenced.
-      object parent = cast(proto, return_value_policy::reference);
-      detail::keep_alive_impl(value, parent);
-    }
-    return value;
   }
 };
 
