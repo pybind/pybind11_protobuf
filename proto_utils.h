@@ -512,7 +512,6 @@ struct FindMapPair {
     RepeatedFieldContainer<proto2::Message> map_field(proto, map_desc);
     for (int i = 0; i < map_field.Size(); ++i) {
       proto2::Message* kv_pair = map_field.Get(i);
-      // TODO(kenoslund, rwgk): This probably doesn't work if KeyT is a message.
       if (ProtoFieldContainer<KeyT>(kv_pair, key_desc).GetPython(-1).equal(key))
         return kv_pair;
     }
