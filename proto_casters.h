@@ -43,11 +43,6 @@ struct polymorphic_type_hook<ProtoType,
 
 namespace detail {
 
-struct generic_proto_caster : type_caster_base<proto2::Message> {
-  // Elevate value to public visibility.
-  using type_caster_base<proto2::Message>::value;
-};
-
 // Pybind11 type_caster to enable automatic wrapping and/or converting
 // protocol messages with pybind11.
 template <typename ProtoType>
@@ -60,13 +55,8 @@ struct type_caster<ProtoType, std::enable_if_t<google::is_proto_v<ProtoType>>>
   bool load(handle src, bool convert) {
     if (!google::PyProtoCheckType<IntrinsicProtoType>(src)) return false;
 
-    if (google::IsWrappedCProto(src)) {
-      // Just remove the wrapper.
-      if (!generic_proto_caster_.load(src, convert)) return false;
-      type_caster_base<ProtoType>::value = static_cast<IntrinsicProtoType *>(
-          static_cast<proto2::Message *>(generic_proto_caster_.value));
-      return true;
-    }
+    if (google::IsWrappedCProto(src))  // Just remove the wrapper.
+      return type_caster_base<ProtoType>::load(src, convert);
 
     // This is not a wrapped C proto and we are not allowed to do conversion.
     if (!convert) return false;
@@ -79,7 +69,6 @@ struct type_caster<ProtoType, std::enable_if_t<google::is_proto_v<ProtoType>>>
   }
 
  private:
-  generic_proto_caster generic_proto_caster_;
   std::unique_ptr<proto2::Message> owned_value_;
 };
 
