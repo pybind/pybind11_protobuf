@@ -11,6 +11,7 @@
 #include <string>
 #include <type_traits>
 
+#include "google/protobuf/any.proto.h"
 #include "net/proto2/proto/descriptor.proto.h"
 #include "net/proto2/public/descriptor.h"
 #include "net/proto2/public/message.h"
@@ -301,6 +302,33 @@ PYBIND11_MODULE(proto, m) {
 
   // Add bindings for the map field iterators.
   BindEachFieldType<MapFieldIteratorBindings>(m, "Mapped");
+
+  // Add bindings for the well-known-types.
+  // TODO(rwgk): Consider adding support for other types/methods defined in
+  // google3/net/proto2/python/internal/well_known_types.py
+  ConcreteProtoMessageBindings<::google::protobuf::Any>(m)
+      .def("Is",
+           [](const ::google::protobuf::Any& self, handle descriptor) {
+             std::string name;
+             if (!::google::protobuf::Any::ParseAnyTypeUrl(
+                     std::string(self.type_url()), &name))
+               return false;
+             return name == static_cast<std::string>(
+                                str(getattr(descriptor, "full_name")));
+           })
+      .def("TypeName",
+           [](const ::google::protobuf::Any& self) {
+             std::string name;
+             ::google::protobuf::Any::ParseAnyTypeUrl(
+                 std::string(self.type_url()), &name);
+             return name;
+           })
+      .def("Pack",
+           [](::google::protobuf::Any* self, handle py_proto) {
+             if (!AnyPackFromPyProto(py_proto, self))
+               throw std::invalid_argument("Failed to pack Any proto.");
+           })
+      .def("Unpack", &AnyUnpackToPyProto);
 }
 
 }  // namespace google

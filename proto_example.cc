@@ -27,13 +27,6 @@ bool CheckAbstractMessage(const proto2::Message& message,
   return message.GetTypeName() == name;
 }
 
-::google::protobuf::Any MakeAnyMessage(handle py_handle) {
-  ::google::protobuf::Any any_proto;
-  if (!google::AnyPackFromPyProto(py_handle, &any_proto))
-    throw std::invalid_argument("Failed to pack Any proto.");
-  return any_proto;
-}
-
 IntMessage& GetIntMessageRef() {
   static IntMessage static_message;
   return static_message;
@@ -71,7 +64,6 @@ PYBIND11_MODULE(proto_example, m) {
         arg("message").noconvert());
   m.def("check_abstract_message", &CheckAbstractMessage, arg("message"),
         arg("name"));
-  m.def("make_any_message", &MakeAnyMessage, arg("message"));
 
   m.def("get_int_message_ref", &GetIntMessageRef,
         return_value_policy::reference);

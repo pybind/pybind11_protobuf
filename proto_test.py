@@ -64,6 +64,11 @@ double_value: 4.5
 
 class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
 
+  NATIVE_AND_WRAPPED_TEST_MESSAGES = (('wrapped',
+                                       proto_example.TestMessage(int_value=5)),
+                                      ('native',
+                                       test_pb2.TestMessage(int_value=5)))
+
   def test_return_wrapped_message(self):
     message = proto_example.make_int_message()
     self.assertEqual(message.DESCRIPTOR.full_name, 'pybind11.test.IntMessage')
@@ -389,22 +394,6 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
         proto_example.check_abstract_message(message,
                                              message.DESCRIPTOR.full_name))
 
-  def test_make_any_from_wrapped_proto(self):
-    message = proto_example.make_test_message()
-    message.int_value = 5
-    any_proto = proto_example.make_any_message(message)
-    self.assertEqual(any_proto.type_url,
-                     'type.googleapis.com/pybind11.test.TestMessage')
-    self.assertEqual(any_proto.value, b'\x10\x05')
-
-  def test_make_any_from_native_proto(self):
-    message = test_pb2.TestMessage()
-    message.int_value = 5
-    any_proto = proto_example.make_any_message(message)
-    self.assertEqual(any_proto.type_url,
-                     'type.googleapis.com/pybind11.test.TestMessage')
-    self.assertEqual(any_proto.value, b'\x10\x05')
-
   @parameterized.named_parameters(
       ('int_message_ref', proto_example.get_int_message_ref),
       ('int_message_raw_ptr', proto_example.get_int_message_raw_ptr),
@@ -463,30 +452,22 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     field['test'] = 5
     self.assertEqual(field['test'], 5)
 
-  @parameterized.named_parameters(
-      ('wrapped', proto_example.TestMessage()),
-      ('native', test_pb2.TestMessage()))
+  @parameterized.named_parameters(*NATIVE_AND_WRAPPED_TEST_MESSAGES)
   def test_copy_from(self, other):
-    other.int_value = 5
     message = proto_example.TestMessage(double_value=5.5)
     message.CopyFrom(other)
     self.assertEqual(message.int_value, 5)
     self.assertEqual(message.double_value, 0)  # Should have been overwritten.
 
-  @parameterized.named_parameters(
-      ('wrapped', proto_example.TestMessage()),
-      ('native', test_pb2.TestMessage()))
+  @parameterized.named_parameters(*NATIVE_AND_WRAPPED_TEST_MESSAGES)
   def test_merge_from(self, other):
-    other.int_value = 5
     message = proto_example.TestMessage(double_value=5.5)
     message.MergeFrom(other)
     self.assertEqual(message.int_value, 5)
     self.assertEqual(message.double_value, 5.5)  # Should have been preserved.
 
-  @parameterized.named_parameters(
-      ('wrapped', proto_example.TestMessage()),
-      ('native', test_pb2.TestMessage()),
-      ('not_a_proto', 'a string'))
+  @parameterized.named_parameters(('not_a_proto', 'a string'),
+                                  *NATIVE_AND_WRAPPED_TEST_MESSAGES)
   def test_copy_merge_from_invalid(self, other):
     message = proto_example.make_int_message()
     self.assertRaises(TypeError, message.CopyFrom, other)
@@ -525,6 +506,22 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
   def test_proto_2_equal(self):
     self.assertProto2Equal(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT,
                            get_fully_populated_test_message())
+
+  @parameterized.named_parameters(*NATIVE_AND_WRAPPED_TEST_MESSAGES)
+  def test_any_special_fields(self, message):
+    any_proto = proto.make_wrapped_c_proto('google.protobuf.Any')
+    any_proto.Pack(message)
+    self.assertEqual(any_proto.TypeName(), 'pybind11.test.TestMessage')
+    self.assertEqual(any_proto.type_url,
+                     'type.googleapis.com/pybind11.test.TestMessage')
+    self.assertEqual(any_proto.value, b'\x10\x05')
+    self.assertTrue(any_proto.Is(message.DESCRIPTOR))
+    self.assertFalse(any_proto.Is(proto_example.make_int_message().DESCRIPTOR))
+
+    message.Clear()
+    self.assertEqual(message.int_value, 0)
+    self.assertTrue(any_proto.Unpack(message))
+    self.assertEqual(message.int_value, 5)
 
 
 if __name__ == '__main__':

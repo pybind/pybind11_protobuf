@@ -25,9 +25,6 @@ template <typename ProtoType>
 struct polymorphic_type_hook<ProtoType,
                              std::enable_if_t<google::is_proto_v<ProtoType>>> {
   static const void *get(const ProtoType *src, const std::type_info *&type) {
-    // Make sure the proto2::Message bindings are available.
-    google::ImportProtoModule();
-
     // Use RTTI to get the concrete message type.
     const void *out = polymorphic_type_hook_base<ProtoType>::get(src, type);
     if (!out) return nullptr;

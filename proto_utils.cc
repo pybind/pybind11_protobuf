@@ -14,6 +14,7 @@
 
 #include "net/proto2/public/descriptor.h"
 #include "net/proto2/public/message.h"
+#include "pybind11/cast.h"
 #include "pybind11/detail/common.h"
 
 namespace pybind11 {
@@ -39,32 +40,34 @@ void ImportProtoModule() {
   }
 }
 
-std::optional<std::string> PyProtoFullName(handle py_proto) {
+bool PyProtoFullName(handle py_proto, std::string* name) {
   if (hasattr(py_proto, "DESCRIPTOR")) {
     auto descriptor = py_proto.attr("DESCRIPTOR");
-    if (hasattr(descriptor, "full_name"))
-      return cast<std::string>(descriptor.attr("full_name"));
+    if (hasattr(descriptor, "full_name")) {
+      if (name) *name = cast<std::string>(descriptor.attr("full_name"));
+      return true;
+    }
   }
-  return std::nullopt;
+  return false;
 }
 
 bool PyProtoCheckType(handle py_proto, const std::string& expected_type) {
-  if (auto optional_name = PyProtoFullName(py_proto))
-    return optional_name.value() == expected_type;
+  if (std::string name; PyProtoFullName(py_proto, &name))
+    return name == expected_type;
   return false;
 }
 
 void PyProtoCheckTypeOrThrow(handle py_proto,
                              const std::string& expected_type) {
-  auto optional_name = PyProtoFullName(py_proto);
-  if (!optional_name) {
+  std::string name;
+  if (!PyProtoFullName(py_proto, &name)) {
     auto builtins = module::import("builtins");
     std::string type_str =
         str(builtins.attr("repr")(builtins.attr("type")(py_proto)));
     throw type_error("Expected a proto, got a " + type_str + ".");
-  } else if (optional_name.value() != expected_type) {
+  } else if (name != expected_type) {
     throw type_error("Passed proto is the wrong type. Expected " +
-                     expected_type + " but got " + optional_name.value() + ".");
+                     expected_type + " but got " + name + ".");
   }
 }
 
@@ -80,9 +83,7 @@ std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto,
   std::string full_type_name;
   if (isinstance<str>(py_proto)) {
     full_type_name = str(py_proto);
-  } else if (auto optional_name = PyProtoFullName(py_proto)) {
-    full_type_name = std::move(optional_name).value();
-  } else {
+  } else if (!PyProtoFullName(py_proto, &full_type_name)) {
     throw std::invalid_argument("Could not get the name of the proto.");
   }
   const proto2::Descriptor* descriptor =
@@ -108,11 +109,35 @@ std::unique_ptr<proto2::Message> PyProtoAllocateMessage(
 }
 
 bool AnyPackFromPyProto(handle py_proto, ::google::protobuf::Any* any_proto) {
-  auto optional_name = PyProtoFullName(py_proto);
-  if (!optional_name) return false;
-  any_proto->set_type_url("type.googleapis.com/" + optional_name.value());
+  std::string name;
+  if (!PyProtoFullName(py_proto, &name)) return false;
+  any_proto->set_type_url("type.googleapis.com/" + name);
   any_proto->set_value(PyProtoSerializeToString(py_proto));
   return true;
+}
+
+bool AnyUnpackToPyProto(const ::google::protobuf::Any& any_proto,
+                        handle py_proto) {
+  // Check that py_proto is a proto message of the same type that is stored
+  // in the any_proto.
+  if (std::string any_type, proto_type;
+      !(PyProtoFullName(py_proto, &proto_type) &&
+        ::google::protobuf::Any::ParseAnyTypeUrl(
+            std::string(any_proto.type_url()), &any_type) &&
+        proto_type == any_type))
+    return false;
+  // Unpack. The serialized string is not copied if py_proto is a wrapped C
+  // proto, and copied once if py_proto is a native python proto.
+  if (detail::type_caster_base<proto2::Message> caster;
+      caster.load(py_proto, false)) {
+    return static_cast<proto2::Message&>(caster).ParseFromCord(
+        any_proto.value());
+  } else {
+    bytes serialized(nullptr, any_proto.value().size());
+    any_proto.value().CopyToArray(PYBIND11_BYTES_AS_STRING(serialized.ptr()));
+    getattr(py_proto, "ParseFromString")(serialized);
+    return true;
+  }
 }
 
 // Throws an out_of_range exception if the index is bad.
