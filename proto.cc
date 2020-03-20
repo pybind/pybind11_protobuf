@@ -276,8 +276,7 @@ PYBIND11_MODULE(proto, m) {
       .def("__setattr__",
            (void (*)(proto2::Message*, const std::string&, handle)) &
                ProtoSetField)
-      .def("SerializeToString",
-           [](proto2::Message* msg) { return bytes(msg->SerializeAsString()); })
+      .def("SerializeToString", &MessageSerializeAsString)
       .def("ParseFromString", &proto2::Message::ParseFromString, arg("data"))
       .def("MergeFromString", &proto2::Message::MergeFromString, arg("data"))
       .def("ByteSize", &proto2::Message::ByteSizeLong)

@@ -713,6 +713,13 @@ std::vector<tuple> MessageListFields(proto2::Message* message);
 // Wrapper around proto2::Message::HasField.
 bool MessageHasField(proto2::Message* message, const std::string& field_name);
 
+// Wrapper around proto2::Message::SerializeAsString.
+// The only valid kwarg is "deterministic", which should be a boolean and, if
+// true, causes maps to be serialized with deterministic order. Keyword
+// arguments are used here because the native python implementation does not
+// allow this to be passed as a positional argument, and we want to match that.
+bytes MessageSerializeAsString(proto2::Message* msg, kwargs kwargs_in);
+
 // Wrapper around proto2::Message::Copy/MergeFrom.
 void MessageCopyFrom(proto2::Message* msg, handle other);
 void MessageMergeFrom(proto2::Message* msg, handle other);

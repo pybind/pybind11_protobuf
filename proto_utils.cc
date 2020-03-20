@@ -228,6 +228,29 @@ bool MessageHasField(proto2::Message* message, const std::string& field_name) {
   return message->GetReflection()->HasField(*message, field_desc);
 }
 
+bytes MessageSerializeAsString(proto2::Message* msg, kwargs kwargs_in) {
+  static constexpr char kwargs_key[] = "deterministic";
+  std::string result;
+  bool deterministic = false;
+  if (!kwargs_in.empty()) {
+    if (kwargs_in.size() == 1 && kwargs_in.contains(kwargs_key)) {
+      deterministic = bool_(kwargs_in[kwargs_key]);
+    } else {
+      throw std::invalid_argument(
+          "Invalid kwargs; the only valid key is 'deterministic'");
+    }
+  }
+  if (deterministic) {
+    proto2::io::StringOutputStream string_stream(&result);
+    proto2::io::CodedOutputStream coded_stream(&string_stream);
+    coded_stream.SetSerializationDeterministic(true);
+    msg->SerializeToCodedStream(&coded_stream);
+  } else {
+    result = msg->SerializeAsString();
+  }
+  return bytes(result);
+}
+
 void MessageCopyFrom(proto2::Message* msg, handle other) {
   PyProtoCheckTypeOrThrow(other, msg->GetTypeName());
   if (!msg->ParseFromString(PyProtoSerializeToString(other)))

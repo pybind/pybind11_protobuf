@@ -507,6 +507,24 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     self.assertProto2Equal(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT,
                            get_fully_populated_test_message())
 
+  @parameterized.named_parameters(
+      ('no_kwargs', {}),
+      ('deterministic_false', {'deterministic': False}),
+      ('deterministic_true', {'deterministic': True}))
+  def test_serialize_and_parse(self, kwargs):
+    message = get_fully_populated_test_message()
+    message_copy = proto_example.TestMessage()
+    message_copy.ParseFromString(message.SerializeToString(**kwargs))
+    self.assertProto2Equal(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT,
+                           message_copy)
+
+  def test_serialize_invalid_kwargs(self):
+    message = get_fully_populated_test_message()
+    with self.assertRaises(ValueError):
+      message.SerializeToString(invalid=True)  # wrong key
+    with self.assertRaises(ValueError):
+      message.SerializeToString(deterministic=True, foo=True)  # too many keys
+
   @parameterized.named_parameters(*NATIVE_AND_WRAPPED_TEST_MESSAGES)
   def test_any_special_fields(self, message):
     any_proto = proto.make_wrapped_c_proto('google.protobuf.Any')
