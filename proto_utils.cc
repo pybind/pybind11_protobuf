@@ -253,14 +253,24 @@ bytes MessageSerializeAsString(proto2::Message* msg, kwargs kwargs_in) {
 
 void MessageCopyFrom(proto2::Message* msg, handle other) {
   PyProtoCheckTypeOrThrow(other, msg->GetTypeName());
-  if (!msg->ParseFromString(PyProtoSerializeToString(other)))
-    throw std::runtime_error("Error copying message.");
+  detail::type_caster_base<proto2::Message> caster;
+  if (caster.load(other, false)) {
+    msg->CopyFrom(static_cast<proto2::Message&>(caster));
+  } else {
+    if (!msg->ParseFromString(PyProtoSerializeToString(other)))
+      throw std::runtime_error("Error copying message.");
+  }
 }
 
 void MessageMergeFrom(proto2::Message* msg, handle other) {
   PyProtoCheckTypeOrThrow(other, msg->GetTypeName());
-  if (!msg->MergeFromString(PyProtoSerializeToString(other)))
-    throw std::runtime_error("Error merging message.");
+  detail::type_caster_base<proto2::Message> caster;
+  if (caster.load(other, false)) {
+    msg->MergeFrom(static_cast<proto2::Message&>(caster));
+  } else {
+    if (!msg->MergeFromString(PyProtoSerializeToString(other)))
+      throw std::runtime_error("Error merging message.");
+  }
 }
 
 dict MessageFieldsByName(const proto2::Descriptor* descriptor) {
