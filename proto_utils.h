@@ -741,9 +741,9 @@ decltype(auto) MakePickler() {
       },
       [](dict d) {
         auto message = PyProtoAllocateMessage<ProtoType>(d["type_name"]);
-        // TODO(b/145925674): Use ParseFromStringPiece once str
+        // TODO(b/145925674): Use ParseFromStringPiece once bytes
         // supports string_view casting.
-        message->ParseFromString(str(d["serialized"]));
+        message->ParseFromString(d["serialized"].cast<bytes>());
         return message;
       });
 }
