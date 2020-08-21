@@ -98,10 +98,11 @@ available unless the concrete message type was previously registered by either:
 
 - A call to a different function which returns the same message type as a
   concrete type.
-- An explicit call to `google::RegisterProtoType<MessageType>(module);` in your
-  `PYBIND11_MODULE` definition. This also adds a constructor for MessageType to
-  your module (`my_module.MessageType()` in this case). The constructor accepts
-  keyword arguments to initialize fields, like native Python constructors.
+- An explicit call to `google::RegisterProtoMessageType<MessageType>(module);`
+  in your `PYBIND11_MODULE` definition. This also adds a constructor for
+  MessageType to your module (`my_module.MessageType()` in this case). The
+  constructor accepts keyword arguments to initialize fields, like native Python
+  constructors.
 
 Note: when you access a sub-message, it is returned as an abstract message
 (`proto2::Message` pointer) and therefore falls into this category.
