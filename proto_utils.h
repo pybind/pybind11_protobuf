@@ -208,6 +208,9 @@ class ProtoFieldContainerBase {
   // Clear the field.
   void Clear() { this->reflection_->ClearField(proto_, field_desc_); }
 
+  // Add is only available for embedded message fields; abort for all others.
+  void Add() { std::abort(); }
+
  protected:
   // Throws an out_of_range exception if the index is bad.
   void CheckIndex(int idx, int allowed_size = -1) const;
@@ -385,13 +388,18 @@ class ProtoFieldContainer<proto2::Message> : public ProtoFieldContainerBase {
         proto_, field_desc_,
         PyProtoAllocateAndCopyMessage<proto2::Message>(value).release());
   }
-  proto2::Message* AddDefault() {
-    proto2::Message* new_msg =
+  proto2::Message* Add(kwargs kwargs_in = kwargs()) {
+    // Use a unique_ptr because it will automatically free memory if
+    // ProtoInitFields throws an exception.
+    std::unique_ptr<proto2::Message> new_msg = std::unique_ptr<proto2::Message>(
         reflection_
             ->GetMutableRepeatedFieldRef<proto2::Message>(proto_, field_desc_)
-            .NewMessage();
-    reflection_->AddAllocatedMessage(proto_, field_desc_, new_msg);
-    return new_msg;
+            .NewMessage());
+    ProtoInitFields(new_msg.get(), kwargs_in);
+    // Transfer ownership of the new message to the proto repeated field.
+    auto new_msg_raw_ptr = new_msg.release();
+    reflection_->AddAllocatedMessage(proto_, field_desc_, new_msg_raw_ptr);
+    return new_msg_raw_ptr;
   }
   std::string ElementRepr(int idx) const {
     return Get(idx)->ShortDebugString();
@@ -454,18 +462,15 @@ class RepeatedFieldContainer : public ProtoFieldContainer<T> {
     this->CheckIndex(idx, this->Size() + 1);
     // Append a new element to the end.
     this->Append(value);
-    // Slide all existing values down one index.
+    // Slide all existing values up one index.
     for (int dst = this->Size() - 1; dst > idx; --dst)
       SwapElements(dst, dst - 1);
   }
   void Delete(int idx) {
-    // TODO(b/145687965): Get this to work for repeated messages.
-    // Current it gives a 'use of uninitialized value' error.
-    if (std::is_same_v<T, proto2::Message>)
-      throw std::runtime_error("Remove does not work for repeated messages.");
     this->CheckIndex(idx);
-    // Slide all existing values up one index.
-    for (int dst = idx; dst < this->Size(); ++dst) SwapElements(dst, dst + 1);
+    // Slide all existing values down one index.
+    for (int dst = idx; dst < this->Size() - 1; ++dst)
+      SwapElements(dst, dst + 1);
     // Remove the last value
     this->reflection_->RemoveLast(this->proto_, this->field_desc_);
   }
@@ -490,16 +495,6 @@ class RepeatedFieldContainer : public ProtoFieldContainer<T> {
   }
 };
 
-// Implement the Add method for repeated fields, which only exists for repeated
-// message fields. Therefore only the specialization should ever be called.
-template <typename T>
-T* AddMessage(RepeatedFieldContainer<T>* container, kwargs kwargs_in) {
-  std::abort();
-}
-template <>
-proto2::Message* AddMessage(RepeatedFieldContainer<proto2::Message>* container,
-                            kwargs kwargs_in);
-
 // Struct which can be used with DispatchFieldDescriptor to find (or add)
 // the map pair (key, value) message with the given key.
 template <typename KeyT>
@@ -523,7 +518,7 @@ struct FindMapPair {
     }
     // Key not found
     if (!add_key) return nullptr;
-    proto2::Message* new_kv_pair = map_field.AddDefault();
+    proto2::Message* new_kv_pair = map_field.Add();
     ProtoFieldContainer<KeyT>(new_kv_pair, key_desc).SetPython(-1, key);
     return new_kv_pair;
   }

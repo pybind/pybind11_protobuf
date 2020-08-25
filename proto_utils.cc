@@ -149,14 +149,6 @@ void ProtoFieldContainerBase::CheckIndex(int idx, int allowed_size) const {
                                 .c_str());
 }
 
-template <>
-proto2::Message* AddMessage(RepeatedFieldContainer<proto2::Message>* container,
-                            kwargs kwargs_in) {
-  proto2::Message* message = container->AddDefault();
-  ProtoInitFields(message, kwargs_in);
-  return message;
-}
-
 const proto2::FieldDescriptor* GetFieldDescriptor(
     proto2::Message* message, const std::string& name,
     PyObject* error_type = PyExc_AttributeError) {

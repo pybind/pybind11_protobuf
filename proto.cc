@@ -39,7 +39,8 @@ class RepeatedFieldBindings : public class_<RepeatedFieldContainer<T>> {
       : class_<RepeatedFieldContainer<T>>(scope, name.c_str()) {
     // Repeated message fields support `add` but not `__setitem__`.
     if (std::is_same_v<T, proto2::Message>) {
-      this->def("add", &AddMessage<T>, return_value_policy::reference_internal);
+      this->def("add", &RepeatedFieldContainer<T>::Add,
+                return_value_policy::reference_internal);
     } else {
       this->def("__setitem__", &RepeatedFieldContainer<T>::SetItem);
     }

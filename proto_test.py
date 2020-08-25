@@ -188,10 +188,10 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
 
     with self.assertRaises(AttributeError):
       message.repeated_int_message.add(invalid_field=3)
+    check_values(message, [8, 2, 7, 2, 2, 0, 3])
 
-    # TODO(b/145687965): Get element removal to work.
-    with self.assertRaises(RuntimeError):
-      del message.repeated_int_message[1]
+    del message.repeated_int_message[1]
+    check_values(message, [8, 7, 2, 2, 0, 3])
 
     message.repeated_int_message.clear()
     self.assertEmpty(message.repeated_int_message)
