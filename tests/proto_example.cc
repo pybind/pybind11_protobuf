@@ -9,7 +9,7 @@
 #include <stdexcept>
 
 #include "pybind11_protobuf/proto_casters.h"
-#include "pybind11_protobuf/test.proto.h"
+#include "pybind11_protobuf/tests/test.proto.h"
 
 namespace pybind11 {
 namespace test {

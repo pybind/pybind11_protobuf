@@ -10,11 +10,11 @@ from __future__ import print_function
 
 import copy
 
-from google3.testing.pybase import googletest
-from google3.testing.pybase import parameterized
+import unittest
+import parameterized
 from pybind11_protobuf import proto
-from pybind11_protobuf import proto_example
-from pybind11_protobuf import test_pb2
+from pybind11_protobuf.tests import proto_example
+from pybind11_protobuf.tests import test_pb2
 from google3.net.proto2.contrib.pyutil import compare
 from google3.net.proto2.python.public import text_format
 
@@ -543,4 +543,4 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  unittest.main()

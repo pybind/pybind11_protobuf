@@ -39,7 +39,8 @@ for details.
 
 Enumerations are passed and returned as integers. You may use the enum values
 from the native python proto module to set and check the enum values in a
-wrapped proto (see proto_test.py for an example).
+wrapped proto (see [proto_test.py](http://google3../pybind11_protobuf/tests/proto_test.py)
+for an example).
 
 ## Reporting bugs
 

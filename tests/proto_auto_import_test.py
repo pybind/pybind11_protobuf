@@ -15,11 +15,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from pybind11_protobuf import proto_example
-from google3.testing.pybase import googletest
+from pybind11_protobuf.tests import proto_example
+import unittest
 
 
-class ProtoAutoImportTest(googletest.TestCase):
+class ProtoAutoImportTest(unittest.TestCase):
 
   def test_access_abstract_message(self):
     # Test setting and getting a field in a message which is not registered
@@ -47,4 +47,4 @@ class ProtoAutoImportTest(googletest.TestCase):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  unittest.main()
