@@ -779,15 +779,9 @@ class_<ProtoType, proto2::Message> ConcreteProtoMessageBindings(handle module) {
 // Register the given concrete ProtoType with pybind11.
 template <typename ProtoType>
 void RegisterProtoMessageType(handle module = nullptr) {
-  // Make sure the proto2::Message bindings are available.
-  google::ImportProtoModule();
+  google::ImportProtoModule();  // TODO(b/167413620): Eliminate this.
+  // Drop the return value from ConcreteProtoMessageBindings.
   ConcreteProtoMessageBindings<ProtoType>(module);
-}
-
-// proto2::Message bindings are added in the proto pybind module.
-template <>
-inline void RegisterProtoMessageType<proto2::Message>(handle) {
-  google::ImportProtoModule();
 }
 
 }  // namespace google

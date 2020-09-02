@@ -13,6 +13,8 @@
 #include <type_traits>
 
 #include "net/proto2/public/message.h"
+#include "pybind11/cast.h"
+#include "pybind11/detail/common.h"
 #include "pybind11_protobuf/proto_utils.h"
 
 namespace pybind11 {
@@ -29,10 +31,15 @@ struct polymorphic_type_hook<ProtoType,
     const void *out = polymorphic_type_hook_base<ProtoType>::get(src, type);
     if (!out) return nullptr;
 
-    // Register ProtoType if is a derived type and has not been registered yet.
-    // This is a no-op if ProtoType == proto2::Message (not a derived type).
-    if (!detail::get_type_info(*type))
-      google::RegisterProtoMessageType<ProtoType>();
+    // TODO(b/167413620): Eliminate this.
+    if (!detail::get_type_info(typeid(proto2::Message)))
+      google::ImportProtoModule();
+
+    if (!detail::get_type_info(*type)) {
+      // Concrete message type is not registered, so cast as a proto2::Message.
+      out = static_cast<const proto2::Message *>(src);
+      type = &typeid(proto2::Message);
+    }
 
     return out;
   }
@@ -52,8 +59,18 @@ struct type_caster<ProtoType, std::enable_if_t<google::is_proto_v<ProtoType>>>
   bool load(handle src, bool convert) {
     if (!google::PyProtoCheckType<IntrinsicProtoType>(src)) return false;
 
-    if (google::IsWrappedCProto(src))  // Just remove the wrapper.
-      return type_caster_base<ProtoType>::load(src, convert);
+    if (google::IsWrappedCProto(src)) {  // Just remove the wrapper.
+      // Concrete ProtoType may not be registered, so load as a proto2::Message.
+      type_caster_base<proto2::Message> base_caster;
+      if (!base_caster.load(src, convert))
+        throw type_error(
+            "Proto message passed type checks yet failed to be loaded as a "
+            "proto2::Message base class. This should not be possible.");
+      // Since we already checked the type, static cast is safe.
+      type_caster_base<ProtoType>::value =
+          static_cast<ProtoType *>(static_cast<proto2::Message *>(base_caster));
+      return true;
+    }
 
     // This is not a wrapped C proto and we are not allowed to do conversion.
     if (!convert) return false;

@@ -70,10 +70,12 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
                                        test_pb2.TestMessage(int_value=5)))
 
   def test_return_wrapped_message(self):
-    message = proto_example.make_int_message()
-    self.assertEqual(message.DESCRIPTOR.full_name, 'pybind11.test.IntMessage')
+    message = proto_example.make_test_message()
+    self.assertEqual(message.DESCRIPTOR.full_name, 'pybind11.test.TestMessage')
+    # This only works if RegisterProtoMessageType<TestMessage> was called in
+    # the PYBIND11_MODULE definition.
     self.assertEqual(message.__class__.DESCRIPTOR.full_name,
-                     'pybind11.test.IntMessage')
+                     'pybind11.test.TestMessage')
 
   def test_is_wrapped_c_proto(self):
     self.assertTrue(proto.is_wrapped_c_proto(proto_example.make_int_message()))
@@ -82,19 +84,31 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     self.assertFalse(proto.is_wrapped_c_proto(test_pb2.IntMessage()))
 
   @parameterized.named_parameters(
-      ('name', 'pybind11.test.IntMessage'),
-      ('native_proto', test_pb2.IntMessage()),
-      ('native_proto_type', test_pb2.IntMessage),
-      ('wrapped_proto', proto_example.make_int_message()),
-      ('wrapped_proto_type', proto_example.make_int_message().__class__))
+      ('name', 'pybind11.test.TestMessage'),
+      ('native_proto', test_pb2.TestMessage()),
+      ('native_proto_type', test_pb2.TestMessage),
+      ('wrapped_proto', proto_example.make_test_message()),
+      # This only works if RegisterProtoMessageType<TestMessage> was called in
+      # the PYBIND11_MODULE definition.
+      ('wrapped_proto_type', proto_example.make_test_message().__class__))
   def test_make_wrapped_c_proto_from(self, type_in):
-    message = proto.make_wrapped_c_proto(type_in, value=5)
+    message = proto.make_wrapped_c_proto(type_in, int_value=5)
     self.assertTrue(proto.is_wrapped_c_proto(message))
-    self.assertEqual(message.value, 5)
+    self.assertEqual(message.int_value, 5)
 
   def test_make_wrapped_c_proto_invalid_keyword_arg(self):
     with self.assertRaises(AttributeError):
       _ = proto.make_wrapped_c_proto(test_pb2.IntMessage, non_existent_field=5)
+
+  def test_unregistered_concrete_proto_type(self):
+    # RegisterProtoMessageType was *not* called for IntMessage.
+    message = proto_example.make_int_message()
+    # DESCRIPTOR is not a static property, so it can't be used from __class__.
+    with self.assertRaises(AttributeError):
+      _ = message.__class__.DESCRIPTOR.full_name
+    # __class__ does not have a concrete constructor defined.
+    with self.assertRaises(TypeError):
+      _ = message.__class__()
 
   def test_access_wrapped_message_singluar_fields(self):
     message = proto_example.make_test_message()

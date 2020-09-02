@@ -1,5 +1,9 @@
 # Pybind11 bindings for Google's Protocol Buffers
 
+[TOC]
+
+## Overview
+
 These adapters make Protobuf types work with Pybind11 bindings. For more
 information on using Pybind11, see
 g3doc/third_party/pybind11/google3_utils/README.md.
@@ -10,6 +14,7 @@ in the .cc file with your bindings:
 ```
 #include "pybind11_protobuf/proto_casters.h"
 ```
+
 Any arguments or return values which are a protocol buffer (including the base
 class, `proto2::Message`) will be automatically wrapped or converted.
 
@@ -29,11 +34,11 @@ that you need and use the wrapped proto.
 When passing protos from python into C++, this will attempt to remove the
 wrapper if possible (ie, if the proto was returned from C via this converter).
 When receiving a python native proto, this class will serialize it and
-deserialize it into the corresponding C++ native proto.
+deserialize it into the corresponding C++ native proto, resulting in a copy.
 
 Using a proto as an output (or input/output) argument is allowed, provided
 the proto passed in is a wrapped C++ proto (not a python native proto).
-When binding output arguments, be sure to use .noconvert() to enforce this.
+When binding output arguments, use .noconvert() to enforce this.
 See [here](https://pybind11.readthedocs.io/en/stable/advanced/functions.html#non-converting-arguments)
 for details.
 
@@ -42,15 +47,31 @@ from the native python proto module to set and check the enum values in a
 wrapped proto (see [proto_test.py](http://google3../pybind11_protobuf/tests/proto_test.py)
 for an example).
 
-## Reporting bugs
+## Abstract vs Concrete Message Bindings
 
-The bindings are designed to exactly match the [native python proto API]
-(https://developers.google.com/protocol-buffers/docs/reference/python-generated).
-However, there are still some differences. If you discover a difference that
-impacts your use case, please [check if there is a bug for it]
-(https://b.corp.google.com/issues?q=componentid:779382%20status:open)
-and [file a bug if there is none]
-(https://b.corp.google.com/issues/new?component=779382&template=1371463).
+The proto module includes bindings for the abstract `proto2::Message` base
+class, and this is all that's necessary in most cases. However, some features
+require registering the concrete message type by adding this to your
+`PYBIND11_MODULE` definition:
+
+```
+pybind11::google::RegisterProtoMessageType<MyMessageType>(my_module);
+```
+
+That line does the following:
+
+- Adds a constructor for `MyMessageType` to your module (`my_module.MyMessageType()`
+  in this case). The constructor accepts keyword arguments to initialize fields,
+  like native Python constructors.
+- Adds a constructor to the `__class__` attribute. This allows constructing a
+  new instance of the same message type with `message.__class__(**kwargs)`,
+  which is required in a few places (for example, by `assertProto2Equal`).
+- `DESCRIPTOR` is a static property of `my_module.MyMessageType()` rather than
+  instance property.
+- The fields are directly registered as instance properties rather than
+  accessed through `__getattr__` and `__setattr__`. This saves a call to
+  `Descriptor::FindFieldByName` each time the field is accessed and may be
+  slightly more efficient.
 
 ## Features supported
 
@@ -70,40 +91,34 @@ and [file a bug if there is none]
 
 - Oneof fields.
 - Extensions.
-- `remove` with repeated message fields and maps (b/145687965).
 - Slicing of repeated fields (b/145687883).
-- Map fields with a message as its key.
 
 See proto.cc for a complete list of all bound and available methods.
 
-# Returning Abstract Protos
+## FAQ/Troubleshooting
 
-Some features require registering a concrete message type. This is done
-automatically whenever a message is returned from C++ to Python as a concrete
-message type (ie, not as a `proto2::Message` pointer). These features are:
+1. Can C++ code reference (and optionally modify) a proto owned by python
+   without copying it?
 
-- A constructor in the `__class__` attribute. This allows constructing a new
-  instance of the same message type with `message.__class__(**kwargs)`, which
-  is used in a number of places (for example, by `assertProto2Equal`).
-- `DESCRIPTOR` is a static property rather than instance property.
-- The fields are directly registered as instance properties rather than
-  accessed through `__getattr__` and `__setattr__`. This saves a call to
-  `Descriptor::FindFieldByName` each time the field is accessed.
+   Yes, as long as it's a wrapped C++ proto, not a native python proto.
 
-Pybind11 can use RTTI to get the concrete message type from an abstract message
-(ie, `proto2::Message`) pointer (raw or smart) or reference, and use that to
-look up a previous registration for the concrete message type, but it cannot
-use that to perform the registration. Therefore, if a function returns a
-pointer or reference to an abstract message, the above features will not be
-available unless the concrete message type was previously registered by either:
+2. How do I construct a wrapped C++ proto from python?
 
-- A call to a different function which returns the same message type as a
-  concrete type.
-- An explicit call to `google::RegisterProtoMessageType<MessageType>(module);`
-  in your `PYBIND11_MODULE` definition. This also adds a constructor for
-  MessageType to your module (`my_module.MessageType()` in this case). The
-  constructor accepts keyword arguments to initialize fields, like native Python
-  constructors.
+   Use `RegisterProtoMessageType`- that will add a constructor to your module.
+   See above for details.
 
-Note: when you access a sub-message, it is returned as an abstract message
-(`proto2::Message` pointer) and therefore falls into this category.
+3. I get `TypeError: MyMessageType: No constructor defined!`
+
+   Call `RegisterProtoMessageType<MyMessageType>` in your `PYBIND11_MODULE`
+   definition.
+
+## Reporting bugs
+
+The bindings are designed to exactly match the [native python proto API]
+(https://developers.google.com/protocol-buffers/docs/reference/python-generated).
+However, there are still some differences. If you discover a difference that
+impacts your use case, please [check if there is a bug for it]
+(https://b.corp.google.com/issues?q=componentid:779382%20status:open)
+and [file a bug if there is none]
+(https://b.corp.google.com/issues/new?component=779382&template=1371463).
+
