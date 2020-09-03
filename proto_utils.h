@@ -3,13 +3,14 @@
 // All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef THIRD_PARTY_PYBIND11_GOOGLE3_UTILS_PROTO_UTILS_H_
-#define THIRD_PARTY_PYBIND11_GOOGLE3_UTILS_PROTO_UTILS_H_
+#ifndef PYBIND11_PROTOBUF_PROTO_UTILS_H_
+#define PYBIND11_PROTOBUF_PROTO_UTILS_H_
 
 #include <pybind11/cast.h>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
+#include <pybind11/stl.h>
 
 #include <cstddef>
 #include <memory>
@@ -27,9 +28,6 @@ namespace google {
 // Alias for checking whether a c++ type is a proto.
 template <typename T>
 inline constexpr bool is_proto_v = std::is_base_of_v<proto2::Message, T>;
-
-// Imports the proto module.
-void ImportProtoModule();
 
 // Name of the property which indicates whether a proto is a wrapped or native.
 constexpr char kIsWrappedCProtoAttr[] = "_is_wrapped_c_proto";
@@ -776,15 +774,11 @@ class_<ProtoType, proto2::Message> ConcreteProtoMessageBindings(handle module) {
   return message_c;
 }
 
-// Register the given concrete ProtoType with pybind11.
-template <typename ProtoType>
-void RegisterProtoMessageType(handle module = nullptr) {
-  google::ImportProtoModule();  // TODO(b/167413620): Eliminate this.
-  // Drop the return value from ConcreteProtoMessageBindings.
-  ConcreteProtoMessageBindings<ProtoType>(module);
-}
+// Registers the bindings for the proto base types in the given module. Can only
+// be called once; subsequent calls will fail due to duplicate registrations.
+void RegisterProtoBindings(module m);
 
 }  // namespace google
 }  // namespace pybind11
 
-#endif  // THIRD_PARTY_PYBIND11_GOOGLE3_UTILS_PROTO_UTILS_H_
+#endif  // PYBIND11_PROTOBUF_PROTO_UTILS_H_

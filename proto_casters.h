@@ -3,9 +3,10 @@
 // All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef THIRD_PARTY_PYBIND11_GOOGLE3_UTILS_PROTO_CASTERS_H_
-#define THIRD_PARTY_PYBIND11_GOOGLE3_UTILS_PROTO_CASTERS_H_
+#ifndef PYBIND11_PROTOBUF_PROTO_CASTERS_H_
+#define PYBIND11_PROTOBUF_PROTO_CASTERS_H_
 
+#include <pybind11/cast.h>
 #include <pybind11/pybind11.h>
 
 #include <memory>
@@ -13,11 +14,40 @@
 #include <type_traits>
 
 #include "net/proto2/public/message.h"
-#include "pybind11/cast.h"
-#include "pybind11/detail/common.h"
 #include "pybind11_protobuf/proto_utils.h"
 
 namespace pybind11 {
+namespace google {
+
+// The value of PYBIND11_PROTOBUF_MODULE_PATH will be different depending on
+// whether this is being used inside or outside of google3. The value used
+// inside of google3 is defined here. Outside of google3, change this value by
+// passing "-DPYBIND11_PROTOBUF_MODULE_PATH=..." on the commandline.
+#ifndef PYBIND11_PROTOBUF_MODULE_PATH
+#define PYBIND11_PROTOBUF_MODULE_PATH \
+  google3.third_party.pybind11_protobuf.proto
+#endif
+
+// Imports the bindings for the proto base types. Like regular imports, this
+// can be called from any number of different modules; everything after the
+// first will be a no-op.
+inline module ImportProtoModule() {
+  auto m = reinterpret_borrow<module>(
+      PyImport_AddModule(PYBIND11_TOSTRING(PYBIND11_PROTOBUF_MODULE_PATH)));
+  if (!detail::get_type_info(typeid(proto2::Message))) RegisterProtoBindings(m);
+  // else no-op because bindings are already loaded.
+  return m;
+}
+
+// Registers the given concrete ProtoType with pybind11.
+template <typename ProtoType>
+void RegisterProtoMessageType(module m = module()) {
+  google::ImportProtoModule();  // TODO(b/167413620): Eliminate this.
+  // Drop the return value from ConcreteProtoMessageBindings.
+  ConcreteProtoMessageBindings<ProtoType>(m);
+}
+
+}  // namespace google
 
 // Specialize polymorphic_type_hook for proto message types.
 // If ProtoType is a derived type (ie, not proto2::Message), this registers
@@ -55,7 +85,7 @@ struct type_caster<ProtoType, std::enable_if_t<google::is_proto_v<ProtoType>>>
   using IntrinsicProtoType = intrinsic_t<ProtoType>;
 
  public:
-  // Conversion part 1 (Python->C++).
+  // Convert Python->C++.
   bool load(handle src, bool convert) {
     if (!google::PyProtoCheckType<IntrinsicProtoType>(src)) return false;
 
@@ -89,4 +119,4 @@ struct type_caster<ProtoType, std::enable_if_t<google::is_proto_v<ProtoType>>>
 }  // namespace detail
 }  // namespace pybind11
 
-#endif  // THIRD_PARTY_PYBIND11_GOOGLE3_UTILS_PROTO_CASTERS_H_
+#endif  // PYBIND11_PROTOBUF_PROTO_CASTERS_H_

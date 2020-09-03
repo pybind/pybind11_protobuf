@@ -69,6 +69,17 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
                                       ('native',
                                        test_pb2.TestMessage(int_value=5)))
 
+  def test_type(self):
+    # Python sees unregistered messages as the base class type.
+    self.assertEqual(
+        str(type(proto_example.make_int_message())),
+        "<class 'google3.third_party.pybind11_protobuf.proto.ProtoMessage'>")
+    # Python sees registered messages as a concrete type.
+    self.assertEqual(
+        str(type(proto_example.make_test_message())),
+        "<class 'google3.third_party.pybind11_protobuf.tests.proto_example.TestMessage'>"
+    )
+
   def test_return_wrapped_message(self):
     message = proto_example.make_test_message()
     self.assertEqual(message.DESCRIPTOR.full_name, 'pybind11.test.TestMessage')
@@ -88,9 +99,10 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
       ('native_proto', test_pb2.TestMessage()),
       ('native_proto_type', test_pb2.TestMessage),
       ('wrapped_proto', proto_example.make_test_message()),
-      # This only works if RegisterProtoMessageType<TestMessage> was called in
-      # the PYBIND11_MODULE definition.
-      ('wrapped_proto_type', proto_example.make_test_message().__class__))
+      # The last 2 only work because RegisterProtoMessageType<TestMessage>
+      # was called in the PYBIND11_MODULE definition.
+      ('registered_constructor', proto_example.TestMessage()),
+      ('registered_type', proto_example.TestMessage))
   def test_make_wrapped_c_proto_from(self, type_in):
     message = proto.make_wrapped_c_proto(type_in, int_value=5)
     self.assertTrue(proto.is_wrapped_c_proto(message))

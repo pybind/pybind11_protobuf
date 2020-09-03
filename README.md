@@ -4,19 +4,57 @@
 
 ## Overview
 
-These adapters make Protobuf types work with Pybind11 bindings. For more
-information on using Pybind11, see
+These adapters make Protocol Buffer message types work with Pybind11 bindings.
+For more information on using Pybind11, see
 g3doc/third_party/pybind11/google3_utils/README.md.
 
-To use the converters listed below, just include the header
-in the .cc file with your bindings:
+To use the proto messages with pybind11:
 
-```
-#include "pybind11_protobuf/proto_casters.h"
-```
+1. Include the header file `pybind11_protobuf/proto_casters.h`
+   in the .cc file with your bindings.
+1. Call `pybind11::google::ImportProtoModule();` in your `PYBIND11_MODULE` definition.
+1. [Optional, not needed in most cases] Call `RegisterProtoMessageType`. See
+   [below](#abstract-vs-concrete-message-bindings) for details.
 
 Any arguments or return values which are a protocol buffer (including the base
 class, `proto2::Message`) will be automatically wrapped or converted.
+
+### Minimal Example
+
+```cpp
+#include <pybind11/pybind11.h>
+
+#include "pybind11_protobuf/proto_casters.h"
+
+PYBIND11_MODULE(my_module, m) {
+  pybind11::google::ImportProtoModule();
+}
+```
+
+### More Complete Example
+
+```cpp
+#include <pybind11/pybind11.h>
+
+#include "path/to/my/my_message.proto.h"
+#include "pybind11_protobuf/proto_casters.h"
+
+// In real use, these 2 functions would probably be defined in a python-agnostic library.
+MyMessage ReturnMyMessage() { ... }
+void TakeMyMessage(const MyMessage& in) { ... }
+
+PYBIND11_MODULE(my_module, m) {
+  pybind11::google::ImportProtoModule();
+
+  // RegisterProtoMessageType is not needed in this case, but shown as an example.
+  pybind11::google::RegisterProtoMessageType<MyMessage>(m);
+
+  m.def("return_my_message", &ReturnMyMessage);
+  m.def("take_my_message", &TakeMyMessage, pybind11::arg("in"));
+}
+```
+
+## Wrapped C++ vs Python Native Types
 
 When returning a proto to python, this will apply a wrapper around the C++
 structure rather constructing a native python proto. This wrapper attempts to
@@ -72,6 +110,31 @@ That line does the following:
   accessed through `__getattr__` and `__setattr__`. This saves a call to
   `Descriptor::FindFieldByName` each time the field is accessed and may be
   slightly more efficient.
+- `type(my_message_instance)` will give you a concrete type (python sees all
+  unregistered messages as the base class type, specifically
+  `google3.third_party.pybind11_protobuf.proto.ProtoMessage`).
+
+## Use Outside of Google3
+
+When exporting code to be built outside of google3, change the module path used
+for the base class proto bindings. This is defined as the
+`PYBIND11_PROTOBUF_MODULE_PATH` at the top of `proto_casters.h`.
+
+When building a module which depends on the proto casters in google3 and
+exporting the built binary for use outside of google3, it may also be useful
+to change this path, but is not required. An example of this is in the tests.
+
+In either case, modules which depend on the proto casters load the base proto
+bindings from linked symbols, not from disk. Therefore, the module path defined
+can be any arbitrary value (as long as it does not conflict with other module
+names) and does *not* require a corresponding module on disk. Put another way,
+shared libraries which use the proto casters are fully self-contained.
+
+However, it is *possible* to have a corresponding module on disk, which can
+be imported on its own. In that case, `PYBIND11_PROTOBUF_MODULE_PATH`
+must match the path to this module. The `proto` module defined in `proto.cc`
+in this directory is an example of this (and the default value of
+`PYBIND11_PROTOBUF_MODULE_PATH` is the path to this module).
 
 ## Features supported
 

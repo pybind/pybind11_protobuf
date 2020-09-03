@@ -56,6 +56,11 @@ std::unique_ptr<proto2::Message> GetAbstractMessageUniquePtr() {
 }
 
 PYBIND11_MODULE(proto_example, m) {
+  google::ImportProtoModule();
+
+  // Register TestMessage but not IntMessage to demonstrate the effect.
+  google::RegisterProtoMessageType<TestMessage>(m);
+
   m.def("make_test_message", []() { return TestMessage(); });
   m.def("make_int_message", []() { return IntMessage(); });
   m.def("check_int_message", &CheckIntMessage, arg("message"), arg("value"));
@@ -85,8 +90,6 @@ PYBIND11_MODULE(proto_example, m) {
         []() -> std::unique_ptr<proto2::Message> {
           return std::make_unique<IntMessage>();
         });
-  // Register TestMessage but not IntMessage to demonstrate the effect.
-  google::RegisterProtoMessageType<TestMessage>(m);
 }
 
 }  // namespace test
