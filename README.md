@@ -114,27 +114,40 @@ That line does the following:
   unregistered messages as the base class type, specifically
   `google3.third_party.pybind11_protobuf.proto.ProtoMessage`).
 
+## Importing the proto module
+
+For the proto casters to work, bindings for the generic protobuffer types (eg,
+`proto2::Message`) must be registered with pybind11. These can be imported from
+python in the usual way (`from pybind11_protobuf import proto`)
+or by calling `pybind11::google::ImportProtoModule()` from the `PYBIND11_MODULE`
+definition of modules which use the proto casters. As usual, the import can be
+done any number of times in the same program; anything after the first will just
+get the already-imported module. Importing the bindings both ways in either
+order also works as expected (but only python 3; this will probably cause errors
+in python 2).
+
+When `ImportProtoModule` is called, the bindings will be added from linked
+symbols, so that the `proto` module does *not* have to exist on disk and .so
+files for modules which use the proto casters are fully self-contained.
+However, it is *possible* to have a corresponding module on disk, which can be
+imported on its own, as is the case with the `pybind11_protobuf/proto.cc` module.
+In that case, `PYBIND11_PROTOBUF_MODULE_PATH` must match the path to this module.
+
+The status casters use the same import mechanism; if modifying the following
+functions, make the same changes in the corresponding status functions:
+- ImportProtoModule
+- IsProtoModuleImported
+- CheckProtoModuleImported
+
 ## Use Outside of Google3
 
-When exporting code to be built outside of google3, change the module path used
-for the base class proto bindings. This is defined as the
-`PYBIND11_PROTOBUF_MODULE_PATH` at the top of `proto_casters.h`.
-
-When building a module which depends on the proto casters in google3 and
-exporting the built binary for use outside of google3, it may also be useful
-to change this path, but is not required. An example of this is in the tests.
-
-In either case, modules which depend on the proto casters load the base proto
-bindings from linked symbols, not from disk. Therefore, the module path defined
-can be any arbitrary value (as long as it does not conflict with other module
-names) and does *not* require a corresponding module on disk. Put another way,
-shared libraries which use the proto casters are fully self-contained.
-
-However, it is *possible* to have a corresponding module on disk, which can
-be imported on its own. In that case, `PYBIND11_PROTOBUF_MODULE_PATH`
-must match the path to this module. The `proto` module defined in `proto.cc`
-in this directory is an example of this (and the default value of
-`PYBIND11_PROTOBUF_MODULE_PATH` is the path to this module).
+When exporting code to be built outside of google3, the module path used
+for the base class proto bindings can be changed by defining
+`PYBIND11_PROTOBUF_MODULE_PATH`. Since bindings for the generic protobuffer
+types are loaded from linked symbols, the module path defined can be any
+arbitrary value (as long as it does not conflict with other module names) and
+does not have correspond to an actual .so file on disk. An example of changing
+this path is in the tests.
 
 ## Features supported
 

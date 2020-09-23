@@ -28,13 +28,13 @@ namespace google {
   google3.third_party.pybind11_protobuf.proto
 #endif
 
-// Imports the bindings for the proto base types. Like regular imports, this
-// can be called from any number of different modules; everything after the
-// first will be a no-op.
+// Imports the bindings for the proto base types. This not thread safe and
+// should only be called from a PYBIND11_MODULE definition. If modifying this,
+// see g3doc/pybind11_protobuf/README.md#importing-the-proto-module
 inline module ImportProtoModule() {
   auto m = reinterpret_borrow<module>(
       PyImport_AddModule(PYBIND11_TOSTRING(PYBIND11_PROTOBUF_MODULE_PATH)));
-  if (!detail::get_type_info(typeid(proto2::Message))) RegisterProtoBindings(m);
+  if (!IsProtoModuleImported()) RegisterProtoBindings(m);
   // else no-op because bindings are already loaded.
   return m;
 }
@@ -42,7 +42,7 @@ inline module ImportProtoModule() {
 // Registers the given concrete ProtoType with pybind11.
 template <typename ProtoType>
 void RegisterProtoMessageType(module m = module()) {
-  google::ImportProtoModule();  // TODO(b/167413620): Eliminate this.
+  CheckProtoModuleImported();
   // Drop the return value from ConcreteProtoMessageBindings.
   ConcreteProtoMessageBindings<ProtoType>(m);
 }
@@ -57,13 +57,11 @@ template <typename ProtoType>
 struct polymorphic_type_hook<ProtoType,
                              std::enable_if_t<google::is_proto_v<ProtoType>>> {
   static const void *get(const ProtoType *src, const std::type_info *&type) {
+    google::CheckProtoModuleImported();
+
     // Use RTTI to get the concrete message type.
     const void *out = polymorphic_type_hook_base<ProtoType>::get(src, type);
     if (!out) return nullptr;
-
-    // TODO(b/167413620): Eliminate this.
-    if (!detail::get_type_info(typeid(proto2::Message)))
-      google::ImportProtoModule();
 
     if (!detail::get_type_info(*type)) {
       // Concrete message type is not registered, so cast as a proto2::Message.
@@ -87,6 +85,8 @@ struct type_caster<ProtoType, std::enable_if_t<google::is_proto_v<ProtoType>>>
  public:
   // Convert Python->C++.
   bool load(handle src, bool convert) {
+    google::CheckProtoModuleImported();
+
     if (!google::PyProtoCheckType<IntrinsicProtoType>(src)) return false;
 
     if (google::IsWrappedCProto(src)) {  // Just remove the wrapper.

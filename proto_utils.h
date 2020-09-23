@@ -186,6 +186,25 @@ class_<ProtoType, proto2::Message> ConcreteProtoMessageBindings(handle module) {
 // be called once; subsequent calls will fail due to duplicate registrations.
 void RegisterProtoBindings(module m);
 
+// If modifying the functions below, see
+// g3doc/pybind11_protobuf/README.md#importing-the-proto-module
+
+// Returns true if the proto module has been imported.
+inline bool IsProtoModuleImported() {
+  return detail::get_type_info(typeid(proto2::Message));
+}
+
+// In debug mode, throws a type error if the proto module is not imported.
+// No-opt if NDEBUG is defined, and inlined so the compiler can optimize it out.
+inline void CheckProtoModuleImported() {
+#ifndef NDEBUG
+  if (!IsProtoModuleImported())
+    throw type_error(
+        "Proto module has not been imported. Did you call ::pybind11::google"
+        "::ImportProtoModule() in your PYBIND11_MODULE definition?");
+#endif
+}
+
 }  // namespace google
 }  // namespace pybind11
 
