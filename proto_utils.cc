@@ -8,6 +8,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <typeindex>
 
 #include "google/protobuf/any.proto.h"
@@ -234,12 +235,13 @@ class ProtoFieldContainer<std::string> : public ProtoFieldContainerBase {
     else
       return str(Get(idx));
   }
-  void Set(int idx, const std::string& value) {
+  void Set(int idx, std::string value) {
     if (field_desc_->is_repeated()) {
       CheckIndex(idx);
-      reflection_->SetRepeatedString(proto_, field_desc_, idx, value);
+      reflection_->SetRepeatedString(proto_, field_desc_, idx,
+                                     std::move(value));
     } else {
-      reflection_->SetString(proto_, field_desc_, value);
+      reflection_->SetString(proto_, field_desc_, std::move(value));
     }
   }
   void SetPython(int idx, handle value) {
@@ -569,12 +571,14 @@ class MapFieldContainer : public RepeatedFieldContainer<proto2::Message> {
 };
 
 const proto2::FieldDescriptor* GetFieldDescriptor(
-    proto2::Message* message, const std::string& name,
+    proto2::Message* message, std::string_view name,
     PyObject* error_type = PyExc_AttributeError) {
   auto* field_desc = message->GetDescriptor()->FindFieldByName(name);
   if (!field_desc) {
-    std::string error_str = "'" + message->GetTypeName() +
-                            "' object has no attribute '" + name + "'";
+    std::string error_str =
+        "'" + message->GetTypeName() + "' object has no attribute '";
+    error_str.append(name);
+    error_str.append("'");
     PyErr_SetString(error_type, error_str.c_str());
     throw error_already_set();
   }
@@ -640,9 +644,39 @@ std::vector<tuple> MessageListFields(proto2::Message* message) {
 }
 
 // Wrapper around proto2::Message::HasField.
-bool MessageHasField(proto2::Message* message, const std::string& field_name) {
+bool MessageHasField(proto2::Message* message, std::string_view field_name) {
+  auto* oneof_desc = message->GetDescriptor()->FindOneofByName(field_name);
+  if (oneof_desc)
+    return message->GetReflection()->HasOneof(*message, oneof_desc);
+
   auto* field_desc = GetFieldDescriptor(message, field_name, PyExc_ValueError);
   return message->GetReflection()->HasField(*message, field_desc);
+}
+
+void MessageClearField(proto2::Message* message, std::string_view field_name) {
+  auto* oneof_desc = message->GetDescriptor()->FindOneofByName(field_name);
+  if (oneof_desc) {
+    message->GetReflection()->ClearOneof(message, oneof_desc);
+    return;
+  }
+
+  auto* field_desc = GetFieldDescriptor(message, field_name, PyExc_ValueError);
+  message->GetReflection()->ClearField(message, field_desc);
+}
+
+const std::string* MessageWhichOneOf(proto2::Message* message,
+                                     std::string_view oneof_group) {
+  auto* oneof_desc = message->GetDescriptor()->FindOneofByName(oneof_group);
+  if (!oneof_desc) {
+    std::string error_str = "Requested oneof does not exist: ";
+    error_str.append(oneof_group);
+    throw std::invalid_argument(error_str);
+  }
+
+  auto* field_desc =
+      message->GetReflection()->GetOneofFieldDescriptor(*message, oneof_desc);
+  if (!field_desc) return nullptr;
+  return &field_desc->name();
 }
 
 // Wrapper around proto2::Message::SerializeAsString.
@@ -940,7 +974,7 @@ bool AnyUnpackToPyProto(const ::google::protobuf::Any& any_proto,
   }
 }
 
-object ProtoGetField(proto2::Message* message, const std::string& name) {
+object ProtoGetField(proto2::Message* message, std::string_view name) {
   return ProtoGetField(message, GetFieldDescriptor(message, name));
 }
 
@@ -949,7 +983,7 @@ object ProtoGetField(proto2::Message* message,
   return DispatchFieldDescriptor<TemplatedProtoGetField>(field_desc, message);
 }
 
-void ProtoSetField(proto2::Message* message, const std::string& name,
+void ProtoSetField(proto2::Message* message, std::string_view name,
                    handle value) {
   ProtoSetField(message, GetFieldDescriptor(message, name), value);
 }
@@ -969,7 +1003,8 @@ void ProtoSetField(proto2::Message* message,
 void ProtoInitFields(proto2::Message* message, kwargs kwargs_in) {
   for (auto& item : kwargs_in) {
     DispatchFieldDescriptor<TemplatedProtoSetField>(
-        GetFieldDescriptor(message, str(item.first)), message, item.second);
+        GetFieldDescriptor(message, cast<std::string_view>(item.first)),
+        message, item.second);
   }
 }
 
@@ -1108,9 +1143,9 @@ void RegisterProtoBindings(module m) {
       .def_property_readonly(kIsWrappedCProtoAttr, [](void*) { return true; })
       .def("__repr__", &proto2::Message::DebugString)
       .def("__getattr__",
-           (object(*)(proto2::Message*, const std::string&)) & ProtoGetField)
+           (object(*)(proto2::Message*, std::string_view)) & ProtoGetField)
       .def("__setattr__",
-           (void (*)(proto2::Message*, const std::string&, handle)) &
+           (void (*)(proto2::Message*, std::string_view, handle)) &
                ProtoSetField)
       .def("SerializeToString", &MessageSerializeAsString)
       .def("ParseFromString", &proto2::Message::ParseFromString, arg("data"))
@@ -1122,7 +1157,10 @@ void RegisterProtoBindings(module m) {
       .def("FindInitializationErrors", &MessageFindInitializationErrors,
            "Slowly build a list of all required fields that are not set.")
       .def("ListFields", &MessageListFields)
-      .def("HasField", &MessageHasField)
+      .def("HasField", &MessageHasField, arg("field_name"))
+      .def("ClearField", &MessageClearField, arg("field_name"))
+      .def("WhichOneOf", &MessageWhichOneOf, arg("oneof_group"),
+           return_value_policy::copy)
       // Pickle support is provided only because copy.deepcopy uses it.
       // Do not use it directly; use serialize/parse instead (go/nopickle).
       .def(MakePickler<proto2::Message>())

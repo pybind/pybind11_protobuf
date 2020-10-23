@@ -162,14 +162,26 @@ this path is in the tests.
   - pickle (only to support copy.deepcopy; see go/nopickle).
   - `text_format` module methods `MessageToString`, `Parse` and `Merge`.
   - `compare.assertProto2Equal`.
+- Most commonly used Message methods, including:
+  - SerializeToString
+  - ParseFromString
+  - MergeFromString
+  - ByteSize
+  - Clear
+  - CopyFrom
+  - MergeFrom
+  - FindInitializationErrors
+  - ListFields
+  - HasField (including support for oneof fields).
+  - ClearField (including support for oneof fields).
+  - WhichOneOf
 
 ## Features not yet implemented/ covered
 
-- Oneof fields.
 - Extensions.
 - Slicing of repeated fields (b/145687883).
 
-See proto.cc for a complete list of all bound and available methods.
+See proto_utils.cc for a complete list of all available methods.
 
 ## FAQ/Troubleshooting
 

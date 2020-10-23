@@ -31,4 +31,9 @@ message TestMessage {
   map<int32, IntMessage> int_message_map = 7;
   TestEnum enum_value = 8;
   repeated TestEnum repeated_enum_value = 9;
+
+  oneof test_oneof {
+    int32 oneof_a = 11;
+    double oneof_b = 12;
+  }
 }

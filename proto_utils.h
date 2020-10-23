@@ -38,13 +38,13 @@ inline bool IsWrappedCProto(handle handle) {
 }
 
 // Gets the field with the given name from the given message as a python object.
-object ProtoGetField(proto2::Message* message, const std::string& name);
+object ProtoGetField(proto2::Message* message, std::string_view name);
 object ProtoGetField(proto2::Message* message,
                      const proto2::FieldDescriptor* field_desc);
 
 // Sets the field with the given name in the given message from a python object.
 // As in the native API, message, repeated, and map fields cannot be set.
-void ProtoSetField(proto2::Message* message, const std::string& name,
+void ProtoSetField(proto2::Message* message, std::string_view name,
                    handle value);
 void ProtoSetField(proto2::Message* message,
                    const proto2::FieldDescriptor* field_desc, handle value);

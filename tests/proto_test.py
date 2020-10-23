@@ -375,6 +375,31 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     self.assertTrue(message.HasField('int_message'))
     with self.assertRaises(ValueError):
       message.HasField('non_existent_field')
+    self.assertFalse(message.HasField('test_oneof'))
+    message.oneof_a = 5
+    self.assertTrue(message.HasField('test_oneof'))
+
+  def test_clear_field(self):
+    message = proto_example.make_test_message()
+    message.int_message.value = 5
+    self.assertTrue(message.HasField('int_message'))
+    message.ClearField('int_message')
+    self.assertFalse(message.HasField('int_message'))
+    with self.assertRaises(ValueError):
+      message.ClearField('non_existent_field')
+    message.oneof_a = 5
+    message.ClearField('test_oneof')
+    self.assertFalse(message.HasField('test_oneof'))
+
+  def test_which_one_of(self):
+    message = proto_example.make_test_message()
+    with self.assertRaises(ValueError):
+      message.WhichOneOf('non_existent_field')
+    self.assertIsNone(message.WhichOneOf('test_oneof'))
+    message.oneof_a = 5
+    self.assertEqual(message.WhichOneOf('test_oneof'), 'oneof_a')
+    message.oneof_b = 6
+    self.assertEqual(message.WhichOneOf('test_oneof'), 'oneof_b')
 
   def test_pass_wrapped_proto(self):
     message = proto_example.make_int_message()
