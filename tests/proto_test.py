@@ -470,8 +470,11 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
   @parameterized.named_parameters(
       ('int_message_unique_ptr', proto_example.get_int_message_unique_ptr()),
       ('abstract_message_unique_ptr',
-       proto_example.get_abstract_message_unique_ptr()))
-  def test_get_int_message_unique_ptr(self, message):
+       proto_example.get_abstract_message_unique_ptr()),
+      ('int_message_shared_ptr', proto_example.get_int_message_shared_ptr()),
+      ('abstract_message_shared_ptr',
+       proto_example.get_abstract_message_shared_ptr()))
+  def test_get_int_message_smart_ptr(self, message):
     message.value = 5
     self.assertEqual(message.value, 5)
     self.assertTrue(proto_example.check_int_message(message, 5))

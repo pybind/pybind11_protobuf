@@ -116,6 +116,11 @@ struct type_caster<ProtoType, std::enable_if_t<google::is_proto_v<ProtoType>>>
   std::unique_ptr<proto2::Message> owned_value_;
 };
 
+// copybara:strip_begin(core pybind11 patch required)
+// A specialization of move_only_holder_caster in proto_utils.h converts
+// std::unique_ptrs to protobuffers into std::shared_ptrs automatically.
+// copybara:strip_end
+
 }  // namespace detail
 }  // namespace pybind11
 

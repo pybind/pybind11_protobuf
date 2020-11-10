@@ -911,9 +911,14 @@ std::string PyProtoSerializeToString(handle py_proto) {
   throw std::invalid_argument("Passed python object is not a proto.");
 }
 
-template <>
-std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto,
-                                                        kwargs kwargs_in) {
+const proto2::Descriptor* PyProtoGetDescriptor(handle py_proto) {
+  detail::make_caster<proto2::Message> caster;
+  if (caster.load(py_proto, true)) {
+    // Native C++ proto, so we can get the descriptor directly.
+    return detail::cast_op<proto2::Message*>(caster)->GetDescriptor();
+  }
+
+  // Look the descriptor based on the proto's type name.
   std::string full_type_name;
   if (isinstance<str>(py_proto)) {
     full_type_name = str(py_proto);
@@ -925,7 +930,13 @@ std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto,
           full_type_name);
   if (!descriptor)
     throw std::runtime_error("Proto Descriptor not found: " + full_type_name);
-  return PyProtoAllocateMessage(descriptor, kwargs_in);
+  return descriptor;
+}
+
+template <>
+std::unique_ptr<proto2::Message> PyProtoAllocateMessage(handle py_proto,
+                                                        kwargs kwargs_in) {
+  return PyProtoAllocateMessage(PyProtoGetDescriptor(py_proto), kwargs_in);
 }
 
 std::unique_ptr<proto2::Message> PyProtoAllocateMessage(
@@ -1137,7 +1148,7 @@ void RegisterProtoBindings(module m) {
   // These bindings use __getattr__, __setattr__ and the reflection interface
   // to access message-specific fields, so no additional bindings are needed
   // for derived message types.
-  class_<proto2::Message>(m, "ProtoMessage")
+  class_<proto2::Message, std::shared_ptr<proto2::Message>>(m, "ProtoMessage")
       .def_property_readonly("DESCRIPTOR", &proto2::Message::GetDescriptor,
                              return_value_policy::reference)
       .def_property_readonly(kIsWrappedCProtoAttr, [](void*) { return true; })

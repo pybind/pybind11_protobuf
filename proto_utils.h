@@ -29,6 +29,31 @@ namespace google {
 template <typename T>
 inline constexpr bool is_proto_v = std::is_base_of_v<proto2::Message, T>;
 
+// copybara:strip_begin(core pybind11 patch required)
+// For limitations without this code, see README.md#protocol-buffer-holder.
+}  // namespace google
+
+namespace detail {
+
+// All protos use shared pointers as their holder, so automatically convert a
+// unique_ptr to a shared pointer. Note that this requires a patch to the core
+// pybind11 to add a SFINAE template parameter to move_only_holder_caster.
+template <typename ProtoType, typename HolderType>
+struct move_only_holder_caster<
+    ProtoType, HolderType, std::enable_if_t<google::is_proto_v<ProtoType>>> {
+  static handle cast(HolderType&& src, return_value_policy policy,
+                     handle handle) {
+    return copyable_holder_caster<ProtoType, std::shared_ptr<ProtoType>>::cast(
+        std::shared_ptr(std::move(src)), policy, handle);
+  }
+  static constexpr auto name = type_caster_base<type>::name;
+};
+
+}  // namespace detail
+
+namespace google {
+// copybara:strip_end
+
 // Name of the property which indicates whether a proto is a wrapped or native.
 constexpr char kIsWrappedCProtoAttr[] = "_is_wrapped_c_proto";
 
@@ -88,6 +113,10 @@ inline bool PyProtoCheckType<proto2::Message>(handle py_proto) {
 // Returns the serialized version of the given (native or wrapped) python proto.
 std::string PyProtoSerializeToString(handle py_proto);
 
+// Gets the descriptor for the proto specified by the argument, which can be a
+// native python proto, a wrapped C proto, or a string with the full type name.
+const proto2::Descriptor* PyProtoGetDescriptor(handle py_proto);
+
 // Allocate and return the ProtoType given by the template argument.
 // py_proto is not used in this version, but is used by a specialization below.
 template <typename ProtoType>
@@ -116,8 +145,7 @@ std::unique_ptr<proto2::Message> PyProtoAllocateMessage(
 template <typename ProtoType>
 std::unique_ptr<ProtoType> PyProtoAllocateAndCopyMessage(handle py_proto) {
   auto new_msg = PyProtoAllocateMessage<ProtoType>(py_proto);
-  if (!new_msg->ParseFromString(PyProtoSerializeToString(py_proto)))
-    throw std::runtime_error("Error copying message.");
+  ProtoCopyFrom(new_msg.get(), py_proto);
   return new_msg;
 }
 
@@ -154,11 +182,12 @@ decltype(auto) MakePickler() {
 // well known types (google3/net/proto2/python/internal/well_known_types.py);
 // all other message types should use RegisterProtoMessageType.
 template <typename ProtoType>
-class_<ProtoType, proto2::Message> ConcreteProtoMessageBindings(handle module) {
+auto ConcreteProtoMessageBindings(handle module) {
   // Register the type.
   auto* descriptor = ProtoType::GetDescriptor();
   const char* registered_name = descriptor->name().c_str();
-  class_<ProtoType, proto2::Message> message_c(module, registered_name);
+  class_<ProtoType, proto2::Message, std::shared_ptr<ProtoType>> message_c(
+      module, registered_name);
   // Add a constructor.
   message_c.def(init([](kwargs kwargs_in) {
     return PyProtoAllocateMessage<ProtoType>(handle(), kwargs_in);

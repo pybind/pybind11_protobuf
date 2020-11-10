@@ -41,6 +41,10 @@ std::unique_ptr<IntMessage> GetIntMessageUniquePtr() {
   return std::make_unique<IntMessage>();
 }
 
+std::shared_ptr<IntMessage> GetIntMessageSharedPtr() {
+  return std::make_shared<IntMessage>();
+}
+
 proto2::Message& GetAbstractMessageRef() {
   static IntMessage static_message;
   return static_message;
@@ -53,6 +57,10 @@ proto2::Message* GetAbstractMessageRawPtr() {
 
 std::unique_ptr<proto2::Message> GetAbstractMessageUniquePtr() {
   return std::make_unique<IntMessage>();
+}
+
+std::shared_ptr<proto2::Message> GetAbstractMessageSharedPtr() {
+  return std::make_shared<IntMessage>();
 }
 
 PYBIND11_MODULE(proto_example, m) {
@@ -75,12 +83,14 @@ PYBIND11_MODULE(proto_example, m) {
   m.def("get_int_message_raw_ptr", &GetIntMessageRawPtr,
         return_value_policy::reference);
   m.def("get_int_message_unique_ptr", &GetIntMessageUniquePtr);
+  m.def("get_int_message_shared_ptr", &GetIntMessageSharedPtr);
 
   m.def("get_abstract_message_ref", &GetAbstractMessageRef,
         return_value_policy::reference);
   m.def("get_abstract_message_raw_ptr", &GetAbstractMessageRawPtr,
         return_value_policy::reference);
   m.def("get_abstract_message_unique_ptr", &GetAbstractMessageUniquePtr);
+  m.def("get_abstract_message_shared_ptr", &GetAbstractMessageSharedPtr);
 
   m.def("make_test_message_as_abstract",
         []() -> std::unique_ptr<proto2::Message> {

@@ -139,6 +139,24 @@ functions, make the same changes in the corresponding status functions:
 - IsProtoModuleImported
 - CheckProtoModuleImported
 
+## Protocol Buffer Holder
+
+Internally pybind11 uses a smart pointer to hold wrapped C++ types (see [here]
+(https://pybind11.readthedocs.io/en/stable/advanced/smart_ptrs.html) for details).
+All instances of a given type must use the same the holder type; using the wrong
+holder type will cause a segfault without a useful error message.
+
+Protocol buffers all use `std::shared_ptr` as their holder. Inside of google3,
+we have patched pybind11 so that a `std::unique_ptr` to a protocol buffer will
+automatically be converted to a `std::shared_ptr`. However, this does not
+currently work with the open source release of pybind11, so this functionality
+is stripped out by copybara. Therefore, open sourced code *must* manually convert
+a `std::unique_ptr` to a proto to a `std::shared_ptr` before returning it to python.
+Enabling the automatic conversion in the core pybind11 is a WIP but will take
+more time. Returning protocol buffers by value (ie, without a smart pointer)
+and inside a `std::shared_ptr` *will* work automatically with the open source
+release of pybind11.
+
 ## Use Outside of Google3
 
 When exporting code to be built outside of google3, the module path used
