@@ -177,7 +177,7 @@ this path is in the tests.
   proto, as well as keyword initialization.
 - Python functions which can take protos as arguments:
   - `copy.deepcopy`
-  - pickle (only to support copy.deepcopy; see go/nopickle).
+  - pickle (needed for e.g. beam and useful for debugging; but see go/nopickle).
   - `text_format` module methods `MessageToString`, `Parse` and `Merge`.
   - `compare.assertProto2Equal`.
 - Most commonly used Message methods, including:

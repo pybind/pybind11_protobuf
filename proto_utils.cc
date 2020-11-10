@@ -895,7 +895,7 @@ void PyProtoCheckTypeOrThrow(handle py_proto,
                              const std::string& expected_type) {
   std::string name;
   if (!PyProtoFullName(py_proto, &name)) {
-    auto builtins = module::import("builtins");
+    auto builtins = module::import(PYBIND11_BUILTINS_MODULE);
     std::string type_str =
         str(builtins.attr("repr")(builtins.attr("type")(py_proto)));
     throw type_error("Expected a proto, got a " + type_str + ".");
@@ -920,7 +920,9 @@ const proto2::Descriptor* PyProtoGetDescriptor(handle py_proto) {
 
   // Look the descriptor based on the proto's type name.
   std::string full_type_name;
-  if (isinstance<str>(py_proto)) {
+  if (isinstance<bytes>(py_proto)) {
+    full_type_name = py_proto.cast<std::string>();
+  } else if (isinstance<str>(py_proto)) {
     full_type_name = str(py_proto);
   } else if (!PyProtoFullName(py_proto, &full_type_name)) {
     throw std::invalid_argument("Could not get the name of the proto.");
@@ -1172,9 +1174,13 @@ void RegisterProtoBindings(module m) {
       .def("ClearField", &MessageClearField, arg("field_name"))
       .def("WhichOneOf", &MessageWhichOneOf, arg("oneof_group"),
            return_value_policy::copy)
-      // Pickle support is provided only because copy.deepcopy uses it.
-      // Do not use it directly; use serialize/parse instead (go/nopickle).
       .def(MakePickler<proto2::Message>())
+      .def("__copy__", [](object self) {
+          return PyProtoAllocateAndCopyMessage<proto2::Message>(self);
+          })
+      .def("__deepcopy__", [](object self, dict) {
+          return PyProtoAllocateAndCopyMessage<proto2::Message>(self);
+          }, arg("memo"))
       .def(
           "SetInParent", [](proto2::Message*) {},
           "No-op. Provided only for compatability with text_format.");

@@ -194,6 +194,12 @@ auto ConcreteProtoMessageBindings(handle module) {
   }));
   // Create a pickler for this type (the base class pickler will fail).
   message_c.def(MakePickler<ProtoType>());
+  message_c.def("__copy__", [](object self) {
+      return PyProtoAllocateAndCopyMessage<ProtoType>(self);
+      });
+  message_c.def("__deepcopy__", [](object self, dict) {
+      return PyProtoAllocateAndCopyMessage<ProtoType>(self);
+      }, arg("memo"));
   // Add the descriptor as a static field.
   message_c.def_readonly_static("DESCRIPTOR", descriptor);
   // Add bindings for each field, to avoid the FindFieldByName lookup.

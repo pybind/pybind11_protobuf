@@ -32,11 +32,15 @@ namespace google {
 // should only be called from a PYBIND11_MODULE definition. If modifying this,
 // see g3doc/pybind11_protobuf/README.md#importing-the-proto-module
 inline module ImportProtoModule() {
+#if PY_MAJOR_VERSION >= 3
   auto m = reinterpret_borrow<module>(
       PyImport_AddModule(PYBIND11_TOSTRING(PYBIND11_PROTOBUF_MODULE_PATH)));
   if (!IsProtoModuleImported()) RegisterProtoBindings(m);
   // else no-op because bindings are already loaded.
   return m;
+#else
+  return module::import(PYBIND11_TOSTRING(PYBIND11_PROTOBUF_MODULE_PATH));
+#endif
 }
 
 // Registers the given concrete ProtoType with pybind11.

@@ -9,6 +9,7 @@ from __future__ import division
 from __future__ import print_function
 
 import copy
+import pickle
 
 import unittest
 import parameterized
@@ -17,6 +18,9 @@ from pybind11_protobuf.tests import proto_example
 from pybind11_protobuf.tests import test_pb2
 from google3.net.proto2.contrib.pyutil import compare
 from google3.net.proto2.python.public import text_format
+
+if str is bytes:  # PY2
+  import cPickle as pickle  # pylint: disable=g-import-not-at-top
 
 
 def get_fully_populated_test_message():
@@ -60,6 +64,17 @@ enum_value: ONE
 repeated_enum_value: TWO
 double_value: 4.5
 """
+
+
+def named_parameters_test_special_copy_methods():
+  for copy_fn in ('copy', 'deepcopy'):
+    for proto_kind, make_proto, proto_attr in (
+        ('registered', 'make_int_message', 'value'),
+        ('concrete', 'TestMessage', 'int_value')):
+      yield ('_'.join((copy_fn, proto_kind)),
+             getattr(copy, copy_fn),
+             getattr(proto_example, make_proto),
+             proto_attr)
 
 
 class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
@@ -261,7 +276,9 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     native = test_pb2.TestMessage()
     native.string_int_map['k1'] = 5
     native.string_int_map['k2'] = 6
-    self.assertEqual(str(message.string_int_map), str(native.string_int_map))
+    self.assertDictEqual(
+        dict(message.string_int_map),
+        dict(native.string_int_map))
 
     message.string_int_map.update(k3=7)
     self.assertEqual(message.string_int_map['k3'], 7)
@@ -527,11 +544,22 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     self.assertRaises(TypeError, message.CopyFrom, other)
     self.assertRaises(TypeError, message.MergeFrom, other)
 
-  def test_deepcopy(self):
-    message = proto_example.make_int_message()
-    message.value = 5
-    message_copy = copy.deepcopy(message)
-    self.assertEqual(message_copy.value, 5)
+  @parameterized.named_parameters(
+      ('registered', proto_example.make_int_message()),
+      ('concrete', get_fully_populated_test_message()))
+  def test_pickle_roundtrip(self, message):
+    pickled = pickle.dumps(message, pickle.HIGHEST_PROTOCOL)
+    restored = pickle.loads(pickled)
+    self.assertProto2Equal(restored, message)
+
+  @parameterized.named_parameters(named_parameters_test_special_copy_methods())
+  def test_special_copy_methods(self, copier, make_proto, proto_attr):
+    message = make_proto()
+    setattr(message, proto_attr, 5)
+    message_copy = copier(message)
+    self.assertEqual(getattr(message_copy, proto_attr), 5)
+    setattr(message_copy, proto_attr, 7)
+    self.assertEqual(getattr(message, proto_attr), 5)
 
   def test_get_entry_class(self):
     message = proto_example.make_test_message()
