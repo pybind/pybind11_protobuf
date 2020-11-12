@@ -85,6 +85,20 @@ from the native python proto module to set and check the enum values in a
 wrapped proto (see [proto_test.py](http://google3../pybind11_protobuf/tests/proto_test.py)
 for an example).
 
+## Comparing Protos
+
+The message objects returned from C++ to python are a different type than the
+native Python message objects (even if the message type is the same) and
+therefore will not compare equal with `==` even if the contents are indentical.
+
+To check equality between protos in unit tests, use the [compare module]
+(https://source.corp.google.com/piper///depot/google3/net/proto2/contrib/pyutil/compare.py).
+This also has the advantage of providing more useful error messages when the
+protos do not compare equally.
+
+Outside of unit tests, compare protos field-by-field or serialize/deserialize
+to convert both into native or both into wrapped-C++ protos.
+
 ## Abstract vs Concrete Message Bindings
 
 The proto module includes bindings for the abstract `proto2::Message` base
