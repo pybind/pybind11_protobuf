@@ -2,6 +2,22 @@
 
 [TOC]
 
+## Before You Get Started
+
+The bindings described below introduce a wrapped c++ protocol buffer mapping
+for pybind11 which is currently in wide use but has the potential for
+triggering undefined behavior from Python (b/173464573).
+
+Since there is an existing python wrapper for C++ protocol buffers
+(//net/proto2/python/public:use_fast_cpp_protos), and much of the work
+overlaps, it makes sense to reuse the existing protocol implementation. That
+type_caster, `fast_cpp_proto_casters.h`, is a work in progress found in this
+directory.
+
+New uses should consider using `fast_cpp_proto_casters.h` instead of the
+bindings described below.  To get started, see the examples in
+`test/fast_cpp_proto_*`.
+
 ## Overview
 
 These adapters make Protocol Buffer message types work with Pybind11 bindings.

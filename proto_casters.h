@@ -16,6 +16,10 @@
 #include "net/proto2/public/message.h"
 #include "pybind11_protobuf/proto_utils.h"
 
+#if defined(PYBIND11_PROTOBUF_FAST_CPP_PROTO_CASTERS_H_)
+#error "fast_cpp_proto_casters.h and proto_casters.h conflict."
+#endif
+
 namespace pybind11 {
 namespace google {
 
