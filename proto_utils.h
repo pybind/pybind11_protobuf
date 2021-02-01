@@ -36,8 +36,8 @@ inline constexpr bool is_proto_v = std::is_base_of_v<proto2::Message, T>;
 namespace detail {
 
 // All protos use shared pointers as their holder, so automatically convert a
-// unique_ptr to a shared pointer. Note that this requires a patch to the core
-// pybind11 to add a SFINAE template parameter to move_only_holder_caster.
+// unique_ptr to a shared pointer. Note that this requires pybind11 > v2.6.2,
+// only available from pybind11 github master at the point of this writing.
 template <typename ProtoType, typename HolderType>
 struct move_only_holder_caster<
     ProtoType, HolderType, std::enable_if_t<google::is_proto_v<ProtoType>>> {
