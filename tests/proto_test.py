@@ -186,6 +186,8 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
       message.repeated_int_value.append('invalid value')
     with self.assertRaises(AttributeError):
       message.repeated_int_value = [1]
+    with self.assertRaises(IndexError):
+      print(message.repeated_int_value[1000])
 
   def test_access_wrapped_message_repeated_int_message(self):
     message = proto_example.make_test_message()
@@ -246,6 +248,8 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     with self.assertRaises(AttributeError):
       message.repeated_int_message.add()
       message.repeated_int_message[0] = test_pb2.IntMessage()
+    with self.assertRaises(IndexError):
+      print(message.repeated_int_message[1000])
 
   def test_access_wrapped_message_map_string_int(self):
     message = proto_example.make_test_message()
@@ -361,6 +365,8 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
 
     with self.assertRaises(AttributeError):
       message.repeated_enum_value = [1]
+    with self.assertRaises(IndexError):
+      print(message.repeated_enum_value[1000])
 
   def test_access_nonexistent_field(self):
     message = proto_example.make_test_message()

@@ -120,13 +120,14 @@ class ProtoFieldContainerBase {
   void Add() { std::abort(); }
 
  protected:
-  // Throws an out_of_range exception if the index is bad.
+  // Throws an exception if the index is bad.
   void CheckIndex(int idx, int allowed_size = -1) const {
     if (allowed_size < 0) allowed_size = Size();
-    if (idx < 0 || idx >= allowed_size)
-      throw std::out_of_range(("Bad index: " + std::to_string(idx) + " (max: " +
-                               std::to_string(allowed_size - 1) + ")")
-                                  .c_str());
+    if (idx < 0 || idx >= allowed_size) {
+      // This is faster than throwing a std::out_of_range exception.
+      PyErr_SetString(PyExc_IndexError, "list index out of range");
+      throw error_already_set();
+    }
   }
 
   // Cast `inst` and keep its parent alive until `inst` is no longer referenced.
