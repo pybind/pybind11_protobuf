@@ -8,8 +8,8 @@
 #include <stdexcept>
 #include <string>
 
-#include "base/logging.h"
-#include "net/proto2/python/public/proto_api.h"
+#include "glog/logging.h"
+#include "python/google/protobuf/proto_api.h"
 
 
 void pybind11_proto_casters_collision() {
@@ -17,7 +17,7 @@ void pybind11_proto_casters_collision() {
   // and proto_utils.cc to detect potential ODR violations in libraries.
 
   // Avoid mixing fast_cpp_proto_casters.h and proto_casters.h in the same
-  // build target; this violates the ODR rule for type_caster<proto2::Message>
+  // build target; this violates the ODR rule for type_caster<::google::protobuf::Message>
   // as well as other potential types, and can lead to hard to diagnose bugs,
   // crashes, and other mysterious bad behavior.
 
@@ -32,10 +32,10 @@ using pybind11::object;
 using pybind11::reinterpret_steal;
 using pybind11::str;
 
-const proto2::python::PyProto_API &GetPyProtoApi() {
+const ::google::protobuf::python::PyProto_API &GetPyProtoApi() {
   static auto *result = [] {
-    auto *r = static_cast<const ::proto2::python::PyProto_API *>(
-        PyCapsule_Import(::proto2::python::PyProtoAPICapsuleName(), 0));
+    auto *r = static_cast<const ::google::protobuf::python::PyProto_API *>(
+        PyCapsule_Import(::google::protobuf::python::PyProtoAPICapsuleName(), 0));
     CHECK_NE(r, nullptr) << "Failed to obtain Python protobuf C++ API. "
                             "Did you link against "
                             "//net/proto2/python/public:use_fast_cpp_protos? "
@@ -63,8 +63,8 @@ std::string PyObjectTypeString(PyObject *obj) {
   return type_str;
 }
 
-std::pair<object, proto2::Message *> cpp_to_py_impl::allocate(
-    const proto2::Descriptor *src_descriptor) {
+std::pair<object, ::google::protobuf::Message *> cpp_to_py_impl::allocate(
+    const ::google::protobuf::Descriptor *src_descriptor) {
   const auto &py_proto_api = fast_cpp_protos::GetPyProtoApi();
   CHECK(src_descriptor != nullptr);
   auto *descriptor =
@@ -75,18 +75,18 @@ std::pair<object, proto2::Message *> cpp_to_py_impl::allocate(
   if (result.ptr() == nullptr) {
     throw error_already_set();
   }
-  proto2::Message *message =
+  ::google::protobuf::Message *message =
       py_proto_api.GetMutableMessagePointer(result.ptr());
   return {std::move(result), message};
 }
 
-object cpp_to_py_impl::reference(proto2::Message *src) {
+object cpp_to_py_impl::reference(::google::protobuf::Message *src) {
   const auto &py_proto_api = fast_cpp_protos::GetPyProtoApi();
   return reinterpret_steal<object>(
       py_proto_api.NewMessageOwnedExternally(src, nullptr));
 }
 
-object cpp_to_py_impl::copy(const proto2::Message &src) {
+object cpp_to_py_impl::copy(const ::google::protobuf::Message &src) {
   auto [result, result_message] = allocate(src.GetDescriptor());
   result_message->CopyFrom(src);
   return result;

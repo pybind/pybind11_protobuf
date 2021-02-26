@@ -1,10 +1,10 @@
 """Test that an alternative module path ."""
 
 from pybind11_protobuf.tests import alternate_module_path_example
-import unittest
+from google3.testing.pybase import googletest
 
 
-class AlternateModulePathTest(unittest.TestCase):
+class AlternateModulePathTest(googletest.TestCase):
 
   def test_type(self):
     self.assertEqual(
@@ -13,4 +13,4 @@ class AlternateModulePathTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-  unittest.main()
+  googletest.main()

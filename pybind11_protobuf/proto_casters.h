@@ -13,7 +13,7 @@
 #include <stdexcept>
 #include <type_traits>
 
-#include "net/proto2/public/message.h"
+#include "google/protobuf/message.h"
 #include "pybind11_protobuf/proto_utils.h"
 
 #if defined(PYBIND11_PROTOBUF_FAST_CPP_PROTO_CASTERS_H_)
@@ -58,7 +58,7 @@ void RegisterProtoMessageType(module m = module()) {
 }  // namespace google
 
 // Specialize polymorphic_type_hook for proto message types.
-// If ProtoType is a derived type (ie, not proto2::Message), this registers
+// If ProtoType is a derived type (ie, not ::google::protobuf::Message), this registers
 // it and adds a constructor and concrete fields, to avoid the need to call
 // FindFieldByName for every field access.
 template <typename ProtoType>
@@ -72,9 +72,9 @@ struct polymorphic_type_hook<ProtoType,
     if (!out) return nullptr;
 
     if (!detail::get_type_info(*type)) {
-      // Concrete message type is not registered, so cast as a proto2::Message.
-      out = static_cast<const proto2::Message *>(src);
-      type = &typeid(proto2::Message);
+      // Concrete message type is not registered, so cast as a ::google::protobuf::Message.
+      out = static_cast<const ::google::protobuf::Message *>(src);
+      type = &typeid(::google::protobuf::Message);
     }
 
     return out;
@@ -98,15 +98,15 @@ struct type_caster<ProtoType, std::enable_if_t<google::is_proto_v<ProtoType>>>
     if (!google::PyProtoCheckType<IntrinsicProtoType>(src)) return false;
 
     if (google::IsWrappedCProto(src)) {  // Just remove the wrapper.
-      // Concrete ProtoType may not be registered, so load as a proto2::Message.
-      type_caster_base<proto2::Message> base_caster;
+      // Concrete ProtoType may not be registered, so load as a ::google::protobuf::Message.
+      type_caster_base<::google::protobuf::Message> base_caster;
       if (!base_caster.load(src, convert))
         throw type_error(
             "Proto message passed type checks yet failed to be loaded as a "
-            "proto2::Message base class. This should not be possible.");
+            "::google::protobuf::Message base class. This should not be possible.");
       // Since we already checked the type, static cast is safe.
       type_caster_base<ProtoType>::value =
-          static_cast<ProtoType *>(static_cast<proto2::Message *>(base_caster));
+          static_cast<ProtoType *>(static_cast<::google::protobuf::Message *>(base_caster));
       return true;
     }
 
@@ -121,7 +121,7 @@ struct type_caster<ProtoType, std::enable_if_t<google::is_proto_v<ProtoType>>>
   }
 
  private:
-  std::unique_ptr<proto2::Message> owned_value_;
+  std::unique_ptr<::google::protobuf::Message> owned_value_;
 };
 
 // copybara:strip_begin(core pybind11 patch required)

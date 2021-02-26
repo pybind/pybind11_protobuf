@@ -8,8 +8,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import unittest
-import parameterized
+from google3.testing.pybase import googletest
+from google3.testing.pybase import parameterized
 from pybind11_protobuf.tests import fast_cpp_proto_example as proto_example
 from pybind11_protobuf.tests import test_pb2
 from google3.net.proto2.contrib.pyutil import compare
@@ -83,11 +83,11 @@ class ProtoTest(compare.Proto2Assertions):
     # These are both seen as the concrete type.
     self.assertEqual(
         str(type(proto_example.make_int_message())),
-        "<class 'google3.third_party.pybind11_protobuf.tests.test_pb2.IntMessage'>"
+        "<class 'pybind11_protobuf.tests.test_pb2.IntMessage'>"
     )
     self.assertEqual(
         str(type(proto_example.make_test_message())),
-        "<class 'google3.third_party.pybind11_protobuf.tests.test_pb2.TestMessage'>"
+        "<class 'pybind11_protobuf.tests.test_pb2.TestMessage'>"
     )
 
   def test_keep_alive_message(self):
@@ -217,4 +217,4 @@ class ProtoTest(compare.Proto2Assertions):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  googletest.main()

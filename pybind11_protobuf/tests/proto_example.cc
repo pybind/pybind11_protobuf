@@ -9,7 +9,7 @@
 #include <stdexcept>
 
 #include "pybind11_protobuf/proto_casters.h"
-#include "pybind11_protobuf/tests/test.proto.h"
+#include "pybind11_protobuf/tests/test.pb.h"
 
 namespace pybind11 {
 namespace test {
@@ -22,7 +22,7 @@ void MutateIntMessage(int32 value, IntMessage* message) {
   message->set_value(value);
 }
 
-bool CheckAbstractMessage(const proto2::Message& message,
+bool CheckAbstractMessage(const ::google::protobuf::Message& message,
                           const std::string& name) {
   return message.GetTypeName() == name;
 }
@@ -45,21 +45,21 @@ std::shared_ptr<IntMessage> GetIntMessageSharedPtr() {
   return std::make_shared<IntMessage>();
 }
 
-proto2::Message& GetAbstractMessageRef() {
+::google::protobuf::Message& GetAbstractMessageRef() {
   static IntMessage static_message;
   return static_message;
 }
 
-proto2::Message* GetAbstractMessageRawPtr() {
+::google::protobuf::Message* GetAbstractMessageRawPtr() {
   static IntMessage static_message;
   return &static_message;
 }
 
-std::unique_ptr<proto2::Message> GetAbstractMessageUniquePtr() {
+std::unique_ptr<::google::protobuf::Message> GetAbstractMessageUniquePtr() {
   return std::make_unique<IntMessage>();
 }
 
-std::shared_ptr<proto2::Message> GetAbstractMessageSharedPtr() {
+std::shared_ptr<::google::protobuf::Message> GetAbstractMessageSharedPtr() {
   return std::make_shared<IntMessage>();
 }
 
@@ -93,11 +93,11 @@ PYBIND11_MODULE(proto_example, m) {
   m.def("get_abstract_message_shared_ptr", &GetAbstractMessageSharedPtr);
 
   m.def("make_test_message_as_abstract",
-        []() -> std::unique_ptr<proto2::Message> {
+        []() -> std::unique_ptr<::google::protobuf::Message> {
           return std::make_unique<TestMessage>();
         });
   m.def("make_int_message_as_abstract",
-        []() -> std::unique_ptr<proto2::Message> {
+        []() -> std::unique_ptr<::google::protobuf::Message> {
           return std::make_unique<IntMessage>();
         });
 }

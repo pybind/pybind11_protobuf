@@ -3,7 +3,7 @@
 #include <pybind11/pybind11.h>
 
 #include "pybind11_protobuf/proto_casters.h"
-#include "pybind11_protobuf/tests/test.proto.h"
+#include "pybind11_protobuf/tests/test.pb.h"
 
 namespace pybind11 {
 namespace test {

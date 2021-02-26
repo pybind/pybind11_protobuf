@@ -1,11 +1,11 @@
-"""Tests for google3.third_party.pybind11_protobuf.tests.missing_import."""
+"""Tests for pybind11_protobuf.tests.missing_import."""
 
-import unittest
+from google3.testing.pybase import googletest
 from pybind11_protobuf.tests import missing_import
 from pybind11_protobuf.tests import test_pb2
 
 
-class MissingImportTest(unittest.TestCase):
+class MissingImportTest(googletest.TestCase):
 
   message_regex = 'Proto module has not been imported.*'
 
@@ -20,4 +20,4 @@ class MissingImportTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
-  unittest.main()
+  googletest.main()

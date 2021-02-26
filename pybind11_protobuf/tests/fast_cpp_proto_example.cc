@@ -10,7 +10,7 @@
 #include <stdexcept>
 
 #include "pybind11_protobuf/fast_cpp_proto_casters.h"
-#include "pybind11_protobuf/tests/test.proto.h"
+#include "pybind11_protobuf/tests/test.pb.h"
 
 namespace pybind11 {
 namespace test {
@@ -19,7 +19,7 @@ bool CheckIntMessage(const IntMessage& message, int32 value) {
   return message.value() == value;
 }
 
-bool CheckMessage(const proto2::Message& message, const std::string& name) {
+bool CheckMessage(const ::google::protobuf::Message& message, const std::string& name) {
   return message.GetTypeName() == name;
 }
 
@@ -105,17 +105,17 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
 #if PYBIND11_PROTOBUF_UNSAFE
   m.def(
       "get_message_ref",
-      []() -> proto2::Message& { return *GetIntMessagePtr(); },
+      []() -> ::google::protobuf::Message& { return *GetIntMessagePtr(); },
       return_value_policy::reference);
   m.def(
       "get_message_raw_ptr",
-      []() -> proto2::Message* { return GetIntMessagePtr(); },
+      []() -> ::google::protobuf::Message* { return GetIntMessagePtr(); },
       return_value_policy::reference);
 #if PYBIND11_REFERENCE_WRAPPER
   m.def(
       "get_message_ref_wrapper",
-      []() -> std::reference_wrapper<proto2::Message> {
-        return std::ref(*static_cast<proto2::Message*>(GetIntMessagePtr()));
+      []() -> std::reference_wrapper<::google::protobuf::Message> {
+        return std::ref(*static_cast<::google::protobuf::Message*>(GetIntMessagePtr()));
       },
       return_value_policy::reference);
 #endif
@@ -123,13 +123,13 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
 
   m.def(
       "get_message_const_ref",
-      []() -> const proto2::Message& { return *GetIntMessagePtr(); },
+      []() -> const ::google::protobuf::Message& { return *GetIntMessagePtr(); },
       return_value_policy::copy);  // can't be reference.
   m.def(
       "get_message_const_raw_ptr",
-      []() -> const proto2::Message* { return GetIntMessagePtr(); },
+      []() -> const ::google::protobuf::Message* { return GetIntMessagePtr(); },
       return_value_policy::copy);  // can't be reference.
-  m.def("get_message_unique_ptr", []() -> std::unique_ptr<proto2::Message> {
+  m.def("get_message_unique_ptr", []() -> std::unique_ptr<::google::protobuf::Message> {
     return GetIntMessageUniquePtr();
   });
 
@@ -168,7 +168,7 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
   m.def("check_message", &CheckMessage, arg("message"), arg("name"));
   m.def(
       "check_message_const_ptr",
-      [](const proto2::Message* m, const std::string& name) {
+      [](const ::google::protobuf::Message* m, const std::string& name) {
         return (m == nullptr) ? false : CheckMessage(*m, name);
       },
       arg("message"), arg("name"));
@@ -176,13 +176,13 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
 #if PYBIND11_PROTOBUF_UNSAFE
   m.def(
       "check_message_ptr",
-      [](proto2::Message* m, const std::string& name) {  // unsafe
+      [](::google::protobuf::Message* m, const std::string& name) {  // unsafe
         return (m == nullptr) ? false : CheckMessage(*m, name);
       },
       arg("message"), arg("name"));
   m.def(
       "check_message_ref",
-      [](proto2::Message& m, const std::string& name) {  // unsafe
+      [](::google::protobuf::Message& m, const std::string& name) {  // unsafe
         return CheckMessage(m, name);
       },
       arg("message"), arg("name"));
@@ -208,7 +208,7 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
 
   m.def(
       "consume_message",
-      [](std::unique_ptr<proto2::Message> m) {
+      [](std::unique_ptr<::google::protobuf::Message> m) {
         if (m) m->GetDescriptor();
       },
       arg("message"));
@@ -218,7 +218,7 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
       "fn_overload", [](const IntMessage&) -> int { return 2; },
       arg("message"));
   m.def(
-      "fn_overload", [](const proto2::Message&) -> int { return 1; },
+      "fn_overload", [](const ::google::protobuf::Message&) -> int { return 1; },
       arg("message"));
 
 #if 0
@@ -228,7 +228,7 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
   m.def("get_int_message_shared_ptr", []() -> std::shared_ptr<IntMessage> {
     return GetIntMessageUniquePtr();
   });
-  m.def("get_message_shared_ptr", []() -> std::shared_ptr<proto2::Message> {
+  m.def("get_message_shared_ptr", []() -> std::shared_ptr<::google::protobuf::Message> {
     return GetIntMessageUniquePtr();
   });
 
