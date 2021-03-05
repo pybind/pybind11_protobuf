@@ -23,7 +23,7 @@ pybind_library(
         "//devtools/python/blaze:py2_mode": [":proto"],
     }),
     visibility = [
-        "//third_party/pybind11:users",  # copybara:replace "//visibility:public"
+        "//visibility:public",
     ],
     deps = [
         ":proto_utils",
@@ -45,7 +45,7 @@ pybind_library(
     srcs = ["fast_cpp_proto_casters.cc"],
     hdrs = ["fast_cpp_proto_casters.h"],
     visibility = [
-        "//third_party/pybind11:users",  # copybara:replace "//visibility:public"
+        "//visibility:public",
     ],
     deps = [
         "@com_google_glog//:glog",
