@@ -77,7 +77,7 @@ def get_message():
   return l
 
 
-class ProtoTest(compare.Proto2Assertions):
+class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
 
   def test_type(self):
     # These are both seen as the concrete type.
