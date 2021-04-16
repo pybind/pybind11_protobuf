@@ -176,10 +176,22 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     message.repeated_int_value.extend([6, 5])
     self.assertSequenceEqual(message.repeated_int_value, [8, 7, 6, 5])
 
+    self.assertEqual(message.repeated_int_value[:], [8, 7, 6, 5])
+    self.assertEqual(message.repeated_int_value[:2], [8, 7])
+    self.assertEqual(message.repeated_int_value[1:3], [7, 6])
+    self.assertEqual(message.repeated_int_value[2:], [6, 5])
+    self.assertEqual(message.repeated_int_value[::2], [8, 6])  # step = 2
+
     message.repeated_int_value[1] = 5
     self.assertSequenceEqual(message.repeated_int_value, [8, 5, 6, 5])
 
-    message.repeated_int_value.clear()
+    message.repeated_int_value[1:3] = [0, 1]
+    self.assertSequenceEqual(message.repeated_int_value, [8, 0, 1, 5])
+
+    del message.repeated_int_value[1:3]
+    self.assertSequenceEqual(message.repeated_int_value, [8, 5])
+
+    del message.repeated_int_value[:]
     self.assertEmpty(message.repeated_int_value)
 
     with self.assertRaises(TypeError):
@@ -199,44 +211,53 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
     sub_msg.value = 7
     message.repeated_int_message.append(sub_msg)
 
-    def check_values(message, values):
-      self.assertLen(message.repeated_int_message, len(values))
-      for msg, expected in zip(message.repeated_int_message, values):
+    def check_values(messages, expected_values):
+      self.assertLen(messages, len(expected_values))
+      for msg, expected in zip(messages, expected_values):
         self.assertEqual(msg.value, expected)
 
     self.assertLen(message.repeated_int_message, 2)
     self.assertEqual(message.repeated_int_message[0].value, 6)
     self.assertEqual(message.repeated_int_message[1].value, 7)
-    check_values(message, [6, 7])
+    check_values(message.repeated_int_message, [6, 7])
 
     self.assertEqual(str(message.repeated_int_message), '[value: 6, value: 7]')
 
     message.repeated_int_message[0].value = 8
-    check_values(message, [8, 7])
+    check_values(message.repeated_int_message, [8, 7])
 
     sub_msg.value = 2
     message.repeated_int_message.insert(1, sub_msg)
-    check_values(message, [8, 2, 7])
+    check_values(message.repeated_int_message, [8, 2, 7])
 
     message.repeated_int_message.extend([sub_msg, sub_msg])
-    check_values(message, [8, 2, 7, 2, 2])
+    check_values(message.repeated_int_message, [8, 2, 7, 2, 2])
 
     new_msg = message.repeated_int_message.add()
     self.assertEqual(new_msg.value, 0)
-    check_values(message, [8, 2, 7, 2, 2, 0])
+    check_values(message.repeated_int_message, [8, 2, 7, 2, 2, 0])
 
     new_msg = message.repeated_int_message.add(value=3)
     self.assertEqual(new_msg.value, 3)
-    check_values(message, [8, 2, 7, 2, 2, 0, 3])
+    check_values(message.repeated_int_message, [8, 2, 7, 2, 2, 0, 3])
 
     with self.assertRaises(AttributeError):
       message.repeated_int_message.add(invalid_field=3)
-    check_values(message, [8, 2, 7, 2, 2, 0, 3])
+    check_values(message.repeated_int_message, [8, 2, 7, 2, 2, 0, 3])
+
+    check_values(message.repeated_int_message[:], [8, 2, 7, 2, 2, 0, 3])
+    check_values(message.repeated_int_message[3:], [2, 2, 0, 3])
+    check_values(message.repeated_int_message[2:4], [7, 2])
+    check_values(message.repeated_int_message[:3], [8, 2, 7])
+    check_values(message.repeated_int_message[::2], [8, 7, 2, 3])  # step = 2
 
     del message.repeated_int_message[1]
-    check_values(message, [8, 7, 2, 2, 0, 3])
+    check_values(message.repeated_int_message, [8, 7, 2, 2, 0, 3])
 
-    message.repeated_int_message.clear()
+    del message.repeated_int_message[2:4]
+    check_values(message.repeated_int_message, [8, 7, 0, 3])
+
+    del message.repeated_int_message[:]
     self.assertEmpty(message.repeated_int_message)
 
     with self.assertRaises(TypeError):

@@ -395,11 +395,37 @@ class RepeatedFieldContainer : public ProtoFieldContainer<T> {
     // Remove the last value
     this->reflection_->RemoveLast(this->proto_, this->field_desc_);
   }
-  // TODO(b/145687883): Support the case that indices is a slice.
-  object GetItem(handle indices) { return this->GetPython(cast<int>(indices)); }
-  void DelItem(handle indices) { Delete(cast<int>(indices)); }
-  void SetItem(handle indices, handle values) {
-    this->SetPython(cast<int>(indices), values);
+  object GetItem(int index) { return this->GetPython(index); }
+  void DelItem(int index) { Delete(index); }
+  void SetItem(int index, handle value) { this->SetPython(index, value); }
+  object GetSlice(slice slice) {
+    size_t start, stop, step, slicelength;
+    if (!slice.compute(this->Size(), &start, &stop, &step, &slicelength))
+      throw error_already_set();
+    list seq;
+    for (size_t i = 0; i < slicelength; ++i) {
+      seq.append(this->GetPython(start));
+      start += step;
+    }
+    return seq;
+  }
+  void SetSlice(slice slice, handle values) {
+    size_t start, stop, step, slicelength;
+    if (!slice.compute(this->Size(), &start, &stop, &step, &slicelength))
+      throw error_already_set();
+    for (size_t i = 0; i < slicelength; ++i) {
+      this->SetPython(start, values[int_(i)]);
+      start += step;
+    }
+  }
+  void DelSlice(slice slice) {
+    size_t start, stop, step, slicelength;
+    if (!slice.compute(this->Size(), &start, &stop, &step, &slicelength))
+      throw error_already_set();
+    for (size_t i = 0; i < slicelength; ++i) {
+      stop -= step;
+      Delete(stop);
+    }
   }
   std::string Repr() const {
     if (this->Size() == 0) return "[]";
@@ -768,11 +794,14 @@ class RepeatedFieldBindings : public class_<RepeatedFieldContainer<T>> {
                 return_value_policy::reference_internal);
     } else {
       this->def("__setitem__", &RepeatedFieldContainer<T>::SetItem);
+      this->def("__setitem__", &RepeatedFieldContainer<T>::SetSlice);
     }
     this->def("__repr__", &RepeatedFieldContainer<T>::Repr);
     this->def("__len__", &RepeatedFieldContainer<T>::Size);
     this->def("__getitem__", &RepeatedFieldContainer<T>::GetItem);
+    this->def("__getitem__", &RepeatedFieldContainer<T>::GetSlice);
     this->def("__delitem__", &RepeatedFieldContainer<T>::DelItem);
+    this->def("__delitem__", &RepeatedFieldContainer<T>::DelSlice);
     this->def("MergeFrom", &RepeatedFieldContainer<T>::Extend);
     this->def("extend", &RepeatedFieldContainer<T>::Extend);
     this->def("append", &RepeatedFieldContainer<T>::Append);
