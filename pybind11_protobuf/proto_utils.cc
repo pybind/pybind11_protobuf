@@ -399,32 +399,36 @@ class RepeatedFieldContainer : public ProtoFieldContainer<T> {
   void DelItem(int index) { Delete(index); }
   void SetItem(int index, handle value) { this->SetPython(index, value); }
   object GetSlice(slice slice) {
-    size_t start, stop, step, slicelength;
-    if (!slice.compute(this->Size(), &start, &stop, &step, &slicelength))
+    size_t start, stop, step, slice_length;
+    if (!slice.compute(this->Size(), &start, &stop, &step, &slice_length))
       throw error_already_set();
     list seq;
-    for (size_t i = 0; i < slicelength; ++i) {
+    for (size_t i = 0; i < slice_length; ++i) {
       seq.append(this->GetPython(start));
       start += step;
     }
     return seq;
   }
   void SetSlice(slice slice, handle values) {
-    size_t start, stop, step, slicelength;
-    if (!slice.compute(this->Size(), &start, &stop, &step, &slicelength))
+    size_t start, stop, step, slice_length;
+    if (!slice.compute(this->Size(), &start, &stop, &step, &slice_length))
       throw error_already_set();
-    for (size_t i = 0; i < slicelength; ++i) {
+    for (size_t i = 0; i < slice_length; ++i) {
       this->SetPython(start, values[int_(i)]);
       start += step;
     }
   }
   void DelSlice(slice slice) {
-    size_t start, stop, step, slicelength;
-    if (!slice.compute(this->Size(), &start, &stop, &step, &slicelength))
+    size_t start, stop, step, slice_length, field_length = this->Size();
+    if (!slice.compute(field_length, &start, &stop, &step, &slice_length))
       throw error_already_set();
-    for (size_t i = 0; i < slicelength; ++i) {
-      stop -= step;
-      Delete(stop);
+    if (slice_length == field_length) {
+      this->Clear();  // More efficient than removing all elements one-by-one.
+    } else {
+      for (size_t i = 0; i < slice_length; ++i) {
+        stop -= step;
+        Delete(stop);
+      }
     }
   }
   std::string Repr() const {
@@ -806,9 +810,6 @@ class RepeatedFieldBindings : public class_<RepeatedFieldContainer<T>> {
     this->def("extend", &RepeatedFieldContainer<T>::Extend);
     this->def("append", &RepeatedFieldContainer<T>::Append);
     this->def("insert", &RepeatedFieldContainer<T>::Insert);
-    // TODO(b/145687883): Remove the clear method, which doesn't exist in the
-    // native API. __delitem__ should be used instead, once it supports slicing.
-    this->def("clear", &RepeatedFieldContainer<T>::Clear);
   }
 };
 
