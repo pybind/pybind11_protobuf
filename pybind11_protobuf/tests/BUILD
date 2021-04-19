@@ -1,7 +1,6 @@
 # Tests and examples for the pybind11_protobuf package.
 
 load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
-load("//devtools/python/blaze:python3.bzl", "py2and3_strict_test")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 # [internal] load cc_proto_library.bzl
 
@@ -16,7 +15,7 @@ pybind_extension(
     ],
 )
 
-py2and3_strict_test(
+py_test(
     name = "proto_test",
     srcs = ["proto_test.py"],
     data = [
@@ -24,11 +23,9 @@ py2and3_strict_test(
         "//pybind11_protobuf:proto.so",
         "@com_google_protobuf//:proto_api",
     ],
+    python_version = "PY3",
     deps = [
         ":test_py_pb2",
-        "//net/proto2/contrib/pyutil:compare",
-        "//net/proto2/python/public",
-        "//net/proto2/python/public:use_pure_python",  # Automatically added go/proto_python_default
         "//testing/pybase",
         "//testing/pybase:parameterized",
     ],
@@ -49,30 +46,26 @@ py_proto_library(
     deps = [":test_proto"],
 )
 
-py2and3_strict_test(
+py_test(
     name = "import_order_a_test",
     srcs = ["import_order_a_test.py"],
     data = [
         ":proto_example.so",
         "//pybind11_protobuf:proto.so",
     ],
-    deps = [
-        "//net/proto2/python/public:use_pure_python",  # Automatically added go/proto_python_default
-        "//testing/pybase",
-    ],
+    python_version = "PY3",
+    deps = ["//testing/pybase"],
 )
 
-py2and3_strict_test(
+py_test(
     name = "import_order_b_test",
     srcs = ["import_order_b_test.py"],
     data = [
         ":proto_example.so",
         "//pybind11_protobuf:proto.so",
     ],
-    deps = [
-        "//net/proto2/python/public:use_pure_python",  # Automatically added go/proto_python_default
-        "//testing/pybase",
-    ],
+    python_version = "PY3",
+    deps = ["//testing/pybase"],
 )
 
 # An example (and test) of using an alternative path for the protobuf module.
@@ -110,14 +103,14 @@ pybind_extension(
     ],
 )
 
-py2and3_strict_test(
+py_test(
     name = "missing_import_test",
     srcs = ["missing_import_test.py"],
     data = [":missing_import.so"],
-    srcs_version = "PY2AND3",
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [
         ":test_py_pb2",
-        "//net/proto2/python/public:use_pure_python",  # Automatically added go/proto_python_default
         "//testing/pybase",
     ],
 )
@@ -134,17 +127,17 @@ pybind_extension(
     ],
 )
 
-py2and3_strict_test(
+py_test(
     name = "fast_cpp_proto_test",
     srcs = ["fast_cpp_proto_test.py"],
-    srcs_version = "PY2AND3",
+    python_version = "PY3",
+    srcs_version = "PY3",
     deps = [
         ":fast_cpp_proto_example",
         ":test_py_pb2",
-        "//net/proto2/contrib/pyutil:compare",
-        "//net/proto2/python/public",
-        "//net/proto2/python/public:use_fast_cpp_protos",
         "//testing/pybase",
         "//testing/pybase:parameterized",
+        "@com_google_protobuf//:proto_api",
+        "@com_google_protobuf//:use_fast_cpp_protos",
     ],
 )
