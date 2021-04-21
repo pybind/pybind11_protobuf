@@ -707,7 +707,7 @@ void MessageClearField(::google::protobuf::Message* message, std::string_view fi
   message->GetReflection()->ClearField(message, field_desc);
 }
 
-const std::string* MessageWhichOneOf(::google::protobuf::Message* message,
+const std::string* MessageWhichOneof(::google::protobuf::Message* message,
                                      std::string_view oneof_group) {
   auto* oneof_desc = message->GetDescriptor()->FindOneofByName(std::string(oneof_group));
   if (!oneof_desc) {
@@ -1216,7 +1216,7 @@ void RegisterProtoBindings(module m) {
       .def("ListFields", &MessageListFields)
       .def("HasField", &MessageHasField, arg("field_name"))
       .def("ClearField", &MessageClearField, arg("field_name"))
-      .def("WhichOneOf", &MessageWhichOneOf, arg("oneof_group"),
+      .def("WhichOneof", &MessageWhichOneof, arg("oneof_group"),
            return_value_policy::copy)
       .def(MakePickler<::google::protobuf::Message>())
       .def("__copy__", [](object self) {

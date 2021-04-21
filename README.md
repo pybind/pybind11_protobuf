@@ -222,7 +222,7 @@ this path is in the tests.
   - ListFields
   - HasField (including support for oneof fields).
   - ClearField (including support for oneof fields).
-  - WhichOneOf
+  - WhichOneof
 
 ## Features not yet implemented/ covered
 

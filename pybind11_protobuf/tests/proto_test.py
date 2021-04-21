@@ -438,12 +438,12 @@ class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
   def test_which_one_of(self):
     message = proto_example.make_test_message()
     with self.assertRaises(ValueError):
-      message.WhichOneOf('non_existent_field')
-    self.assertIsNone(message.WhichOneOf('test_oneof'))
+      message.WhichOneof('non_existent_field')
+    self.assertIsNone(message.WhichOneof('test_oneof'))
     message.oneof_a = 5
-    self.assertEqual(message.WhichOneOf('test_oneof'), 'oneof_a')
+    self.assertEqual(message.WhichOneof('test_oneof'), 'oneof_a')
     message.oneof_b = 6
-    self.assertEqual(message.WhichOneOf('test_oneof'), 'oneof_b')
+    self.assertEqual(message.WhichOneof('test_oneof'), 'oneof_b')
 
   def test_pass_wrapped_proto(self):
     message = proto_example.make_int_message()
