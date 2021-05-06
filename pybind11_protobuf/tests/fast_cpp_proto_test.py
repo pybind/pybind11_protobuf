@@ -10,9 +10,9 @@ from __future__ import print_function
 
 from google3.testing.pybase import googletest
 from google3.testing.pybase import parameterized
+from pybind11_protobuf.tests import compare
 from pybind11_protobuf.tests import fast_cpp_proto_example as proto_example
 from pybind11_protobuf.tests import test_pb2
-from google3.net.proto2.contrib.pyutil import compare
 
 
 def get_fully_populated_test_message():
@@ -77,7 +77,7 @@ def get_message():
   return l
 
 
-class ProtoTest(parameterized.TestCase, compare.Proto2Assertions):
+class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
 
   def test_type(self):
     # These are both seen as the concrete type.

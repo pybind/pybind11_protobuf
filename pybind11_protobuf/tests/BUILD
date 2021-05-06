@@ -25,6 +25,7 @@ py_test(
     ],
     python_version = "PY3",
     deps = [
+        ":compare",
         ":test_py_pb2",
         "//testing/pybase",
         "//testing/pybase:parameterized",
@@ -133,6 +134,7 @@ py_test(
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
+        ":compare",
         ":fast_cpp_proto_example",
         ":test_py_pb2",
         "//testing/pybase",
@@ -140,4 +142,11 @@ py_test(
         "@com_google_protobuf//:proto_api",
         "@com_google_protobuf//:use_fast_cpp_protos",
     ],
+)
+
+py_library(
+    name = "compare",
+    srcs = ["compare.py"],
+    data = ["@com_google_protobuf//:proto_api"],
+    srcs_version = "PY3",
 )
