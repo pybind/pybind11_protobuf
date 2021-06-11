@@ -17,6 +17,7 @@ pybind_library(
 
 pybind_library(
     name = "proto_casters",
+    srcs = ["proto_casters.cc"],
     hdrs = ["proto_casters.h"],
     data = select({
         "//devtools/python/blaze:py3_mode": [],

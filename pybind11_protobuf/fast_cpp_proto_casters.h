@@ -54,7 +54,7 @@
 // an in-use python object, other potentially unsafe practices.
 
 // NOTE: This is is incompatible with proto_casters.h in the same directory.
-#if defined(PYBIND11_PROTOBUF_PROTO_UTILS_H_)
+#if defined(PYBIND11_PROTOBUF_PROTO_CASTERS_H_)
 #error "fast_cpp_proto_casters.h and proto_casters.h conflict."
 #endif
 
