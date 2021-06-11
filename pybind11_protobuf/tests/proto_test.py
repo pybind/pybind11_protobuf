@@ -449,10 +449,20 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     message = proto_example.make_int_message()
     message.value = 5
     self.assertTrue(proto_example.check_int_message(message, 5))
+    self.assertTrue(proto_example.check_int_message_ptr(message, 5))
+    self.assertTrue(proto_example.check_int_message_ptr_notnone(message, 5))
+
+  def test_pass_none(self):
+    with self.assertRaises(TypeError):
+      proto_example.check_int_message(None, 5)
+    with self.assertRaises(TypeError):
+      proto_example.check_int_message_ptr_notnone(None, 5)
+    self.assertFalse(proto_example.check_int_message_ptr(None, 5))
 
   def test_pass_wrapped_proto_wrong_type(self):
     message = proto_example.make_test_message()
-    self.assertRaises(TypeError, proto_example.check_int_message, message, 5)
+    with self.assertRaises(TypeError):
+      proto_example.check_int_message(message, 5)
 
   def test_pass_native_proto(self):
     message = test_pb2.IntMessage()
@@ -461,11 +471,12 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
 
   def test_pass_native_proto_wrong_type(self):
     message = test_pb2.TestMessage()
-    self.assertRaises(TypeError, proto_example.check_int_message, message, 5)
+    with self.assertRaises(TypeError):
+      proto_example.check_int_message(message, 5)
 
   def test_pass_not_a_proto(self):
-    self.assertRaises(TypeError, proto_example.check_int_message, 'not_a_proto',
-                      5)
+    with self.assertRaises(TypeError):
+      proto_example.check_int_message('not_a_proto', 5)
 
   def test_mutate_wrapped_proto(self):
     message = proto_example.make_int_message()
@@ -475,7 +486,8 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
   def test_mutate_native_proto(self):
     # This is not allowed (enforce by `.noconvert()` on the argument binding).
     message = test_pb2.TestMessage()
-    self.assertRaises(TypeError, proto_example.mutate_int_message, 5, message)
+    with self.assertRaises(TypeError):
+      proto_example.mutate_int_message(5, message)
 
   def test_pass_generic_wrapped_proto(self):
     message = proto_example.make_test_message()
@@ -568,8 +580,10 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
                                   *NATIVE_AND_WRAPPED_TEST_MESSAGES)
   def test_copy_merge_from_invalid(self, other):
     message = proto_example.make_int_message()
-    self.assertRaises(TypeError, message.CopyFrom, other)
-    self.assertRaises(TypeError, message.MergeFrom, other)
+    with self.assertRaises(TypeError):
+      message.CopyFrom(other)
+    with self.assertRaises(TypeError):
+      message.MergeFrom(other)
 
   @parameterized.named_parameters(
       ('registered', proto_example.make_int_message()),

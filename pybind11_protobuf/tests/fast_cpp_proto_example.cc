@@ -141,6 +141,14 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
         return (m == nullptr) ? false : CheckIntMessage(*m, value);
       },
       arg("message"), arg("value"));
+
+  m.def(
+      "check_int_message_const_ptr_notnone",
+      [](const IntMessage* m, int32 value) {
+        return (m == nullptr) ? false : CheckIntMessage(*m, value);
+      },
+      arg("message").none(false), arg("value"));
+
   m.def(
       "check_int_message_value",
       [](IntMessage m, int32 value) { return CheckIntMessage(m, value); },
@@ -204,14 +212,41 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
   // std::unique_ptr
   m.def(
       "consume_int_message",
-      [](std::unique_ptr<IntMessage> m) { m->set_value(1); }, arg("message"));
+      [](std::unique_ptr<IntMessage> m) {
+        if (m) {
+          m->set_value(1);
+          return true;
+        }
+        return false;
+      },
+      arg("message"));
+
+  m.def(
+      "consume_int_message_notnone",
+      [](std::unique_ptr<IntMessage> m) {
+        if (m) {
+          m->set_value(1);
+          return true;
+        }
+        return false;
+      },
+      arg("message").none(false));
 
   m.def(
       "consume_message",
       [](std::unique_ptr<::google::protobuf::Message> m) {
         if (m) m->GetDescriptor();
+        return m ? true : false;
       },
       arg("message"));
+
+  m.def(
+      "consume_message_notnone",
+      [](std::unique_ptr<::google::protobuf::Message> m) {
+        if (m) m->GetDescriptor();
+        return m ? true : false;
+      },
+      arg("message").none(false));
 
   // overloaded functions
   m.def(

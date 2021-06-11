@@ -18,6 +18,10 @@ bool CheckIntMessage(const IntMessage& message, int32 value) {
   return message.value() == value;
 }
 
+bool CheckIntMessagePtr(const IntMessage* message, int32 value) {
+  return message ? (message->value() == value) : false;
+}
+
 void MutateIntMessage(int32 value, IntMessage* message) {
   message->set_value(value);
 }
@@ -72,6 +76,11 @@ PYBIND11_MODULE(proto_example, m) {
   m.def("make_test_message", []() { return TestMessage(); });
   m.def("make_int_message", []() { return IntMessage(); });
   m.def("check_int_message", &CheckIntMessage, arg("message"), arg("value"));
+  m.def("check_int_message_ptr", &CheckIntMessagePtr, arg("message"),
+        arg("value"));
+  m.def("check_int_message_ptr_notnone", &CheckIntMessagePtr,
+        arg("message").none(false), arg("value"));
+
   m.def("mutate_int_message", &MutateIntMessage, arg("value"),
         // Message is an output value, so do not allow conversions.
         arg("message").noconvert());

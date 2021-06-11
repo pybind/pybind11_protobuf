@@ -198,6 +198,12 @@ struct type_caster<
 
   // Convert Python->C++.
   bool load(handle src, bool convert) {
+    /// When given a none, treat it as a nullptr.
+    if (src.is_none()) {
+      value = nullptr;
+      return true;
+    }
+
     // There are times when it would be nice for load to have a notion of which
     // cast operation will be called, however pybind does not have that feature.
     // Try to extract the C++ ::google::protobuf::Message using they python API.
@@ -267,7 +273,7 @@ struct type_caster<
   // steal_copy returns a copy of the object suitable
   // for our specialization of move_only_holder_caster.
   std::unique_ptr<ProtoType> steal_copy() {
-    if (!value) throw reference_cast_error();
+    if (!value) return nullptr;
     if (!owned) {
       owned = std::unique_ptr<ProtoType>(value->New());
       owned->CopyFrom(*value);

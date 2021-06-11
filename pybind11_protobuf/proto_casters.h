@@ -95,6 +95,12 @@ struct type_caster<ProtoType, std::enable_if_t<google::is_proto_v<ProtoType>>>
   bool load(handle src, bool convert) {
     google::CheckProtoModuleImported();
 
+    // Allow None as an alias for nullptr
+    if (src.is_none()) {
+      owned_value_ = nullptr;
+      return true;
+    }
+
     if (!google::PyProtoCheckType<IntrinsicProtoType>(src)) return false;
 
     if (google::IsWrappedCProto(src)) {  // Just remove the wrapper.

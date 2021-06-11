@@ -134,6 +134,11 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     self.assertTrue(proto_example.check_int_message_value(message, 5))
     self.assertTrue(proto_example.check_int_message_rvalue(message, 5))
 
+  def test_check_int_message_none(self):
+    self.assertFalse(proto_example.check_int_message_const_ptr(None, 5))
+    with self.assertRaises(TypeError):
+      proto_example.check_int_message_const_ptr_notnone(None, 5)
+
   @parameterized.named_parameters(
       ('native_proto', test_pb2.IntMessage),
       ('pybind11_wrapper', proto_example.make_int_message))
@@ -180,10 +185,19 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
   def test_consume_int_message(self, get_message_function):
     message = get_message_function()
     message.value = 5
-    proto_example.consume_int_message(message)  # makes a copy
+    self.assertTrue(proto_example.consume_int_message(message))  # makes a copy
     self.assertEqual(message.value, 5)
-    proto_example.consume_message(message)  # makes another copy
+    self.assertTrue(
+        proto_example.consume_message(message))  # makes another copy
     self.assertEqual(message.value, 5)
+
+  def test_consume_message_none(self):
+    self.assertFalse(proto_example.consume_int_message(None))
+    self.assertFalse(proto_example.consume_message(None))
+    with self.assertRaises(TypeError):
+      proto_example.consume_message_notnone(None)
+    with self.assertRaises(TypeError):
+      proto_example.consume_int_message_notnone(None)
 
   @parameterized.named_parameters(get_message_references())
   def test_get_int_message_reference(self, get_message_function):
