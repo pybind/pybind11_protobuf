@@ -51,6 +51,5 @@ pybind_library(
         "@com_google_glog//:glog",
         "@com_google_protobuf//:proto_api",
         "@com_google_protobuf//:protobuf",
-        "@com_google_protobuf//:use_fast_cpp_protos",
     ],
 )

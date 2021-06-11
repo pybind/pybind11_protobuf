@@ -5,12 +5,14 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
+#include <optional>
 #include <stdexcept>
 #include <string>
 
 #include "glog/logging.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/message.h"
 #include "python/google/protobuf/proto_api.h"
-
 
 void pybind11_proto_casters_collision() {
   // This symbol intentionally defined in both fast_cpp_proto_casters.cc
@@ -24,15 +26,11 @@ void pybind11_proto_casters_collision() {
   // See https://github.com/pybind/pybind11/issues/2695 for more details.
 }
 
+namespace py = pybind11;
+
 namespace pybind11_protobuf::fast_cpp_protos {
 
-using pybind11::error_already_set;
-using pybind11::handle;
-using pybind11::object;
-using pybind11::reinterpret_steal;
-using pybind11::str;
-
-const ::google::protobuf::python::PyProto_API &GetPyProtoApi() {
+const ::google::protobuf::python::PyProto_API *GetPyProtoApi() {
   static auto *result = [] {
     auto *r = static_cast<const ::google::protobuf::python::PyProto_API *>(
         PyCapsule_Import(::google::protobuf::python::PyProtoAPICapsuleName(), 0));
@@ -43,7 +41,11 @@ const ::google::protobuf::python::PyProto_API &GetPyProtoApi() {
     return r;
   }();
 
-  return *result;
+  return result;
+}
+
+const ::google::protobuf::Message *GetCppProtoMessagePointer(const py::handle &src) {
+  return GetPyProtoApi()->GetMessagePointer(src.ptr());
 }
 
 std::string PyObjectTypeString(PyObject *obj) {
@@ -55,7 +57,7 @@ std::string PyObjectTypeString(PyObject *obj) {
   if (type != nullptr) {
     auto *repr = PyObject_Repr(type);
     if (repr != nullptr) {
-      type_str = str(handle(repr));
+      type_str = py::str(py::handle(repr));
       Py_DECREF(repr);
     }
     Py_DECREF(type);
@@ -63,33 +65,32 @@ std::string PyObjectTypeString(PyObject *obj) {
   return type_str;
 }
 
-std::pair<object, ::google::protobuf::Message *> cpp_to_py_impl::allocate(
+std::pair<py::object, ::google::protobuf::Message *> cpp_to_py_impl::allocate(
     const ::google::protobuf::Descriptor *src_descriptor) {
-  const auto &py_proto_api = fast_cpp_protos::GetPyProtoApi();
   CHECK(src_descriptor != nullptr);
+  const auto *py_proto_api = fast_cpp_protos::GetPyProtoApi();
   auto *descriptor =
-      py_proto_api.GetDefaultDescriptorPool()->FindMessageTypeByName(
+      py_proto_api->GetDefaultDescriptorPool()->FindMessageTypeByName(
           src_descriptor->full_name());
-  object result =
-      reinterpret_steal<object>(py_proto_api.NewMessage(descriptor, nullptr));
+  py::object result = py::reinterpret_steal<py::object>(
+      py_proto_api->NewMessage(descriptor, nullptr));
   if (result.ptr() == nullptr) {
-    throw error_already_set();
+    throw py::error_already_set();
   }
   ::google::protobuf::Message *message =
-      py_proto_api.GetMutableMessagePointer(result.ptr());
+      py_proto_api->GetMutableMessagePointer(result.ptr());
   return {std::move(result), message};
 }
 
-object cpp_to_py_impl::reference(::google::protobuf::Message *src) {
-  const auto &py_proto_api = fast_cpp_protos::GetPyProtoApi();
-  return reinterpret_steal<object>(
-      py_proto_api.NewMessageOwnedExternally(src, nullptr));
-}
-
-object cpp_to_py_impl::copy(const ::google::protobuf::Message &src) {
-  auto [result, result_message] = allocate(src.GetDescriptor());
-  result_message->CopyFrom(src);
-  return result;
+py::object cpp_to_py_impl::reference(::google::protobuf::Message *src) {
+  const auto *py_proto_api = fast_cpp_protos::GetPyProtoApi();
+  if (!py_proto_api) {
+    throw py::type_error(
+        "Policy reference is only allowed for uses of "
+        "//net/proto2/python/public:use_fast_cpp_protos");
+  }
+  return py::reinterpret_steal<py::object>(
+      py_proto_api->NewMessageOwnedExternally(src, nullptr));
 }
 
 }  // namespace pybind11_protobuf::fast_cpp_protos
