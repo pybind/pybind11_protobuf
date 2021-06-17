@@ -640,6 +640,10 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     message_copy.ParseFromString(message.SerializeToString(**kwargs))
     self.assertProtoEqual(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT,
                           message_copy)
+    message_copy = proto_example.TestMessage()
+    message_copy.ParseFromString(message.SerializePartialToString(**kwargs))
+    self.assertProtoEqual(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT,
+                          message_copy)
 
   def test_serialize_invalid_kwargs(self):
     message = get_fully_populated_test_message()

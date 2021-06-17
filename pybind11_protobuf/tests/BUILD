@@ -6,6 +6,14 @@ load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 
 licenses(["notice"])
 
+py_library(
+    name = "compare",
+    srcs = ["compare.py"],
+    data = ["@com_google_protobuf//:proto_api"],
+    srcs_version = "PY3",
+    visibility = ["//visibility:public"],
+)
+
 pybind_extension(
     name = "proto_example",
     srcs = ["proto_example.cc"],
@@ -142,11 +150,4 @@ py_test(
         "@com_google_protobuf//:proto_api",
         "@com_google_protobuf//:use_fast_cpp_protos",
     ],
-)
-
-py_library(
-    name = "compare",
-    srcs = ["compare.py"],
-    data = ["@com_google_protobuf//:proto_api"],
-    srcs_version = "PY3",
 )

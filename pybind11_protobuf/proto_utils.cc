@@ -715,7 +715,8 @@ const std::string* MessageWhichOneof(::google::protobuf::Message* message,
 // true, causes maps to be serialized with deterministic order. Keyword
 // arguments are used here because the native python implementation does not
 // allow this to be passed as a positional argument, and we want to match that.
-bytes MessageSerializeAsString(::google::protobuf::Message* msg, kwargs kwargs_in) {
+bytes MessageSerializeAsString(::google::protobuf::Message* msg, kwargs kwargs_in,
+                               bool partial) {
   static constexpr char kwargs_key[] = "deterministic";
   std::string result;
   bool deterministic = false;
@@ -731,9 +732,17 @@ bytes MessageSerializeAsString(::google::protobuf::Message* msg, kwargs kwargs_i
     ::google::protobuf::io::StringOutputStream string_stream(&result);
     ::google::protobuf::io::CodedOutputStream coded_stream(&string_stream);
     coded_stream.SetSerializationDeterministic(true);
-    msg->SerializeToCodedStream(&coded_stream);
+    if (partial) {
+      msg->SerializePartialToCodedStream(&coded_stream);
+    } else {
+      msg->SerializeToCodedStream(&coded_stream);
+    }
   } else {
-    result = msg->SerializeAsString();
+    if (partial) {
+      result = msg->SerializePartialAsString();
+    } else {
+      result = msg->SerializeAsString();
+    }
   }
   return bytes(result);
 }
@@ -1192,7 +1201,14 @@ void RegisterProtoBindings(module m) {
       .def("__setattr__",
            (void (*)(::google::protobuf::Message*, std::string_view, handle)) &
                ProtoSetField)
-      .def("SerializeToString", &MessageSerializeAsString)
+      .def("SerializeToString",
+           [](::google::protobuf::Message* msg, kwargs kwargs_in) {
+             return MessageSerializeAsString(msg, kwargs_in, false);
+           })
+      .def("SerializePartialToString",
+           [](::google::protobuf::Message* msg, kwargs kwargs_in) {
+             return MessageSerializeAsString(msg, kwargs_in, true);
+           })
       .def("ParseFromString", &::google::protobuf::Message::ParseFromString, arg("data"))
       .def("MergeFromString", &::google::protobuf::Message::MergeFromString, arg("data"))
       .def("ByteSize", &::google::protobuf::Message::ByteSizeLong)
@@ -1207,12 +1223,16 @@ void RegisterProtoBindings(module m) {
       .def("WhichOneof", &MessageWhichOneof, arg("oneof_group"),
            return_value_policy::copy)
       .def(MakePickler<::google::protobuf::Message>())
-      .def("__copy__", [](object self) {
-          return PyProtoAllocateAndCopyMessage<::google::protobuf::Message>(self);
-          })
-      .def("__deepcopy__", [](object self, dict) {
-          return PyProtoAllocateAndCopyMessage<::google::protobuf::Message>(self);
-          }, arg("memo"))
+      .def("__copy__",
+           [](object self) {
+             return PyProtoAllocateAndCopyMessage<::google::protobuf::Message>(self);
+           })
+      .def(
+          "__deepcopy__",
+          [](object self, dict) {
+            return PyProtoAllocateAndCopyMessage<::google::protobuf::Message>(self);
+          },
+          arg("memo"))
       .def(
           "SetInParent", [](::google::protobuf::Message*) {},
           "No-op. Provided only for compatability with text_format.");
