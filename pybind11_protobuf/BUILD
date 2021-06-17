@@ -17,12 +17,15 @@ pybind_library(
 
 pybind_library(
     name = "proto_casters",
-    srcs = ["proto_casters.cc"],
     hdrs = ["proto_casters.h"],
     data = select({
         "//devtools/python/blaze:py3_mode": [],
         "//devtools/python/blaze:py2_mode": [":proto"],
     }),
+    defines = [
+        # Force a build error when build variants are mixed.
+        "PYBIND11_PROTOBUF_MODE=pybind11_protos",
+    ],
     visibility = [
         "//visibility:public",
     ],
@@ -45,6 +48,10 @@ pybind_library(
     name = "fast_cpp_proto_casters",
     srcs = ["fast_cpp_proto_casters.cc"],
     hdrs = ["fast_cpp_proto_casters.h"],
+    defines = [
+        # Force a build error when build variants are mixed.
+        "PYBIND11_PROTOBUF_MODE=fast_cpp_protos",
+    ],
     visibility = [
         "//visibility:public",
     ],
