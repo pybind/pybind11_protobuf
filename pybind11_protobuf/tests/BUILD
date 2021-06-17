@@ -131,8 +131,9 @@ pybind_extension(
     srcs = ["fast_cpp_proto_example.cc"],
     deps = [
         ":test_cc_proto",
+        "//net/proto2/contrib/parse_proto:parse_text_proto",
         "//pybind11_protobuf:fast_cpp_proto_casters",
-        "@com_google_protobuf//:use_fast_cpp_protos",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -148,6 +149,22 @@ py_test(
         "//testing/pybase",
         "//testing/pybase:parameterized",
         "@com_google_protobuf//:proto_api",
-        "@com_google_protobuf//:use_fast_cpp_protos",
+        "@com_google_protobuf//:use_fast_cpp_protos",  # fixdeps: keep
+    ],
+)
+
+py_test(
+    name = "fast_cpp_proto_test__pure_python",
+    srcs = ["fast_cpp_proto_test.py"],
+    main = "fast_cpp_proto_test.py",
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":compare",
+        ":fast_cpp_proto_example",
+        ":test_py_pb2",
+        "//testing/pybase",
+        "//testing/pybase:parameterized",
+        "@com_google_protobuf//:proto_api",
     ],
 )

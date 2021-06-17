@@ -8,15 +8,19 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 
+#include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
 
-// pybind11 type_caster that works in conjunction with python
-// use_fast_cpp_protos to convert protocol buffers between C++ and python.
-// (Users must link: //net/proto2/python/public:use_fast_cpp_protos)
+// pybind11 type_caster that works in conjunction with python fast_cpp_proto
+// implementation to convert protocol buffers between C++ and python.
+// This binder supports binaries linked with both native python protos
+// and fast cpp python protos.
 //
 // Supports by value, by const reference and unique_ptr types.
 // TODO: Enable std::shared_ptr of proto types.
@@ -28,9 +32,10 @@
 // When returning a ::google::protobuf::Message (or derived class), python sees a
 // concrete type based on the message descriptor.
 //
+// Passing dynamically generated message types is not yet supported.
 //
 // To use fast_cpp_proto_casters, include this file in the binding definition
-// file and link the appropriate build dependency.
+// file.
 //
 // Example:
 //
@@ -41,6 +46,7 @@
 // PYBIND11_MODULE(my_module, m) {
 //  m.def("get_message", &GetMessage);
 // }
+//
 
 // WARNING   WARNING   WARNING   WARNING   WARNING   WARNING  WARNING
 //
@@ -69,12 +75,19 @@ namespace pybind11_protobuf::fast_cpp_protos {
 template <typename T>
 constexpr auto is_proto_v = std::is_base_of_v<::google::protobuf::Message, T>;
 
-// Returns the type name of the python object as would be returned
-// by `repr(type(obj))`
-std::string PyObjectTypeString(PyObject *obj);
-
 // Returns a ::google::protobuf::Message* from a cpp_fast_proto.
-const ::google::protobuf::Message *GetCppProtoMessagePointer(const pybind11::handle &src);
+const ::google::protobuf::Message *GetCppProtoMessagePointer(pybind11::handle src);
+
+// Returns the protocol buffer's py_proto.DESCRIPTOR.full_name attribute.
+std::optional<std::string> PyDescriptorName(pybind11::handle py_proto);
+
+// Allocates a C++ protocol buffer for a given name.
+std::unique_ptr<::google::protobuf::Message> PyAllocateCProtoByName(
+    const std::string &full_name);
+
+// Serialize the py_proto and deserialize it into the provided message.
+// Caller should enforce any type identity that is required.
+bool PyCopyProtoToCProto(pybind11::handle py_proto, ::google::protobuf::Message *message);
 
 struct cpp_to_py_impl {
  public:
@@ -109,7 +122,16 @@ struct cpp_to_py_impl {
     // We can't dynamic-cast to a concrete type, so no moving allowed.
     auto [result, result_message] =
         cpp_to_py_impl::allocate(src.GetDescriptor());
-    result_message->CopyFrom(src);
+    if (result_message->GetDescriptor() == src.GetDescriptor()) {
+      // Only protos which actually have the same descriptor are copyable.
+      result_message->CopyFrom(src);
+    } else {
+      auto serialized = src.SerializePartialAsString();
+      if (!result_message->ParseFromString(serialized)) {
+        throw pybind11::type_error(
+            "Failed to copy protocol buffer with mismatched descriptor");
+      }
+    }
     return result;
   }
 };
@@ -138,9 +160,11 @@ struct type_caster<
 
 #if PYBIND11_PROTOBUF_UNSAFE
     return policy == return_value_policy::reference ||
+           policy == return_value_policy::reference_internal ||
            policy == return_value_policy::automatic_reference;
 #else
-    return policy == return_value_policy::reference;
+    return policy == return_value_policy::reference ||
+           policy == return_value_policy::reference_internal;
 #endif
   }
 
@@ -215,24 +239,18 @@ struct type_caster<
       return true;
     }
 
-    // Try to extract the C++ ::google::protobuf::Message using they python API.
-    if (try_load_as_fast_cpp_proto(
-            src, std::is_same<::google::protobuf::Message, ProtoType>{})) {
-      return true;
+    // Try to get an underlying C++ message pointer from the object.
+    // fast_cpp_proto implementation types as well as types returned from C++
+    // will satisfy this, and we stop after success.
+    if (const ::google::protobuf::Message *message =
+            pybind11_protobuf::fast_cpp_protos::GetCppProtoMessagePointer(src);
+        message != nullptr) {
+      return try_load_as_fast_cpp_proto(message);
     }
 
-    // This was not a fast_cpp_proto message, perhaps it is a pybind messge?
-    // TODO(lar): Add try_load_as_pybind_message()
-
-    if (convert) {
-      // TODO(lar): The incoming object is not a fast_cpp proto, so attempt to
-      // serialize it and deserialize it as a native C++ proto type.
-    }
-
-    // This is not a supported message type.
-    // TODO: Remove the PyErr_Clear.
-    PyErr_Clear();
-    return false;
+    // The incoming object is not a fast_cpp proto, so attempt to
+    // serialize it and deserialize into a native C++ proto type.
+    return try_load_via_proto_serialization(src);
   }
 
   // steal_copy returns a copy of the object suitable
@@ -285,56 +303,77 @@ struct type_caster<
       /*default is T&&*/ T_>>>>;
   // clang-format on
 
+ private:
   // try_load_as_fast_cpp_proto attempts to reference a C++ native protocol
-  // buffer that is generated via python bindings.
-  bool try_load_as_fast_cpp_proto(handle src,
-                                  /*::google::protobuf::Message*/ std::false_type) {
-    const ::google::protobuf::Message *message =
-        pybind11_protobuf::fast_cpp_protos::GetCppProtoMessagePointer(src);
-    if (!message) {
-      return false;
-    }
-
-    // This is not a ::google::protobuf::Message, so validate the incoming proto type
-    // via descriptor comparisons..
-    if (ProtoType::descriptor() != message->GetDescriptor() &&
-        ProtoType::descriptor()->full_name() !=
-            message->GetDescriptor()->full_name()) {
-      // passed proto type does not match.
+  // buffer that is generated via the PyProto_API and related packages.
+  template <typename P = ProtoType>
+  std::enable_if_t<!std::is_same_v<P, ::google::protobuf::Message>, bool>
+  try_load_as_fast_cpp_proto(const ::google::protobuf::Message *message) {
+    // This is a specific proto C++ type mapping, so expect that the descriptor
+    // matches; that generally means that the descriptor is from the same pool.
+    if (ProtoType::descriptor() != message->GetDescriptor()) {
+      // Type mismatch.
       return false;
     }
 
     // If the capability were available, then we could probe PyProto_API and
     // allow c++ mutability based on the python reference count.
 
-    // Use our const reference, even though we don't know whether
-    // the callee is const or not...
+    // The dynamic cast returns nullptr when the reflection types differ.
     value = ::google::protobuf::DynamicCastToGenerated<ProtoType>(
         const_cast<::google::protobuf::Message *>(message));
-    if (value != nullptr) {
-      return true;
-    }
-
-    // Mutable case, however there are submessages referenced.
-    // Consider the jbms@ proposed optimization to copy all the
-    // referenced submessages, then detach the existing references.
-
-    // Just make a copy. This could be generic serialization/deserialization,
-    // but we already use fast python protos, so it should work.
-    owned = std::unique_ptr<ProtoType>(new ProtoType());
-    owned->CopyFrom(*message);
-    value = owned.get();
-    return true;
-  }
-
-  bool try_load_as_fast_cpp_proto(handle src,
-                                  /*::google::protobuf::Message*/ std::true_type) {
-    // Pass a reference to reference the internal pointer to C++.
-    value = pybind11_protobuf::fast_cpp_protos::GetCppProtoMessagePointer(src);
     return value != nullptr;
   }
 
- protected:
+  template <typename P = ProtoType>
+  std::enable_if_t<std::is_same_v<P, ::google::protobuf::Message>, bool>
+  try_load_as_fast_cpp_proto(const ::google::protobuf::Message *message) {
+    // Pass a reference to reference the internal pointer to C++.
+    value = message;
+    return true;
+  }
+
+  // try_load_via_proto_serialization checks whether the tyes match, and creates
+  // a C++ protocol buffer via serialize/deserialize calls.
+  template <typename P = ProtoType>
+  std::enable_if_t<!std::is_same_v<P, ::google::protobuf::Message>, bool>
+  try_load_via_proto_serialization(handle src) {
+    auto proto_name = pybind11_protobuf::fast_cpp_protos::PyDescriptorName(src);
+    if (!proto_name || *proto_name != ProtoType::descriptor()->full_name()) {
+      // type mismatch.
+      return false;
+    }
+    owned = std::unique_ptr<ProtoType>(new ProtoType());
+    value = owned.get();
+    return pybind11_protobuf::fast_cpp_protos::PyCopyProtoToCProto(src,
+                                                                   owned.get());
+  }
+
+  template <typename P = ProtoType>
+  std::enable_if_t<std::is_same_v<P, ::google::protobuf::Message>, bool>
+  try_load_via_proto_serialization(handle src) {
+    auto descriptor_name =
+        pybind11_protobuf::fast_cpp_protos::PyDescriptorName(src);
+    if (!descriptor_name) {
+      return false;
+    }
+    owned = pybind11_protobuf::fast_cpp_protos::PyAllocateCProtoByName(
+        *descriptor_name);
+    if (!owned) {
+      // This is a dynamic proto, or at least one that doesn't exist in the C++
+      // default pool so run the  equivalent of the following:
+      //   file_proto = descriptor_pb2.FileDescriptorProto()
+      //   src.DESCRIPTOR.file.CopyToProto(file_proto)
+      //   descriptor_pool.Add(file_proto)
+      //
+      // And retry creating the object.
+      return false;
+    }
+    value = owned.get();
+    return pybind11_protobuf::fast_cpp_protos::PyCopyProtoToCProto(src,
+                                                                   owned.get());
+  }
+
   const ProtoType *value;
   std::unique_ptr<ProtoType> owned;
 };
@@ -382,6 +421,17 @@ struct move_only_holder_caster<
  protected:
   HolderType holder;
 };
+
+// NOTE: We also need to add support and/or test classes:
+//
+//  ::google::protobuf::Descriptor
+//  ::google::protobuf::EnumDescriptor
+//  ::google::protobuf::EnumValueDescriptor
+//  ::google::protobuf::FieldDescriptor
+//  ::google::protobuf::FieldDescriptor::Type  (enum)
+//  ::google::protobuf::FieldDescriptor::CppType  (enum)
+//  ::google::protobuf::FieldDescriptor::Label  (enum)
+//  google::protobuf::Any
 
 }  // namespace pybind11::detail
 

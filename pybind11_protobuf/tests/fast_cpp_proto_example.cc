@@ -9,18 +9,60 @@
 #include <memory>
 #include <stdexcept>
 
+#include "net/proto2/contrib/parse_proto/parse_text_proto.h"
+#include "google/protobuf/descriptor.pb.h"
+#include "google/protobuf/dynamic_message.h"
 #include "pybind11_protobuf/fast_cpp_proto_casters.h"
 #include "pybind11_protobuf/tests/test.pb.h"
 
 namespace pybind11 {
 namespace test {
 
+// This constructs a dynamic message that is wire-compatible with
+// with IntMessage; conversion using the fast_cpp_proto api will fail
+// as the PyProto_API will not be able to find the proto in the default
+// pool.
+::google::protobuf::Message* GetDynamicMessagePtr() {
+  static ::google::protobuf::DescriptorPool pool;
+  static ::google::protobuf::DynamicMessageFactory factory(&pool);
+
+  static ::google::protobuf::Message* dynamic = [&] {
+    ::google::protobuf::FileDescriptorProto file_proto =
+        ::google::protobuf::contrib::parse_proto::ParseTextProtoOrDie(R"pb(
+          name: 'pybind11_protobuf/tests'
+          package: 'pybind11.test'
+          message_type: {
+            name: 'DynamicIntMessage'
+            field: { name: 'value' number: 1 type: TYPE_INT32 }
+          }
+        )pb");
+
+    pool.BuildFile(file_proto);
+
+    auto* descriptor =
+        pool.FindMessageTypeByName("pybind11.test.DynamicIntMessage");
+    assert(descriptor != nullptr);
+
+    auto* prototype = factory.GetPrototype(descriptor);
+    assert(descriptor != nullptr);
+
+    auto* dynamic = prototype->New();
+    dynamic->GetReflection()->SetInt32(
+        dynamic, dynamic->GetDescriptor()->FindFieldByName("value"), 123);
+    return dynamic;
+  }();
+
+  return dynamic;
+}
+
 bool CheckIntMessage(const IntMessage& message, int32 value) {
   return message.value() == value;
 }
 
-bool CheckMessage(const ::google::protobuf::Message& message, const std::string& name) {
-  return message.GetTypeName() == name;
+bool CheckMessage(const ::google::protobuf::Message& message, int32 value) {
+  auto* f = message.GetDescriptor()->FindFieldByName("value");
+  if (!f) f = message.GetDescriptor()->FindFieldByName("value_int32");
+  return message.GetReflection()->GetInt32(message, f) == value;
 }
 
 IntMessage* GetIntMessagePtr() {
@@ -44,6 +86,7 @@ std::unique_ptr<IntMessage> GetIntMessageUniquePtr() {
 PYBIND11_MODULE(fast_cpp_proto_example, m) {
   m.attr("PYBIND11_PROTOBUF_UNSAFE") = pybind11::int_(PYBIND11_PROTOBUF_UNSAFE);
   m.attr("REFERENCE_WRAPPER") = pybind11::int_(REFERENCE_WRAPPER);
+
   m.def("make_test_message", []() { return TestMessage(); });
   m.def("make_int_message", []() { return IntMessage(); });
 
@@ -120,7 +163,6 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
       return_value_policy::reference);
 #endif
 #endif
-
   m.def(
       "get_message_const_ref",
       []() -> const ::google::protobuf::Message& { return *GetIntMessagePtr(); },
@@ -132,6 +174,12 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
   m.def("get_message_unique_ptr", []() -> std::unique_ptr<::google::protobuf::Message> {
     return GetIntMessageUniquePtr();
   });
+
+  // dynamic
+  m.def(
+      "get_dynamic",
+      []() -> ::google::protobuf::Message& { return *GetDynamicMessagePtr(); },
+      return_value_policy::copy);
 
   // concrete.
   m.def("check_int_message", &CheckIntMessage, arg("message"), arg("value"));
@@ -173,27 +221,27 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
 #endif
 
   // abstract.
-  m.def("check_message", &CheckMessage, arg("message"), arg("name"));
+  m.def("check_message", &CheckMessage, arg("message"), arg("value"));
   m.def(
       "check_message_const_ptr",
-      [](const ::google::protobuf::Message* m, const std::string& name) {
-        return (m == nullptr) ? false : CheckMessage(*m, name);
+      [](const ::google::protobuf::Message* m, int value) {
+        return (m == nullptr) ? false : CheckMessage(*m, value);
       },
-      arg("message"), arg("name"));
+      arg("message"), arg("value"));
 
 #if PYBIND11_PROTOBUF_UNSAFE
   m.def(
       "check_message_ptr",
-      [](::google::protobuf::Message* m, const std::string& name) {  // unsafe
-        return (m == nullptr) ? false : CheckMessage(*m, name);
+      [](::google::protobuf::Message* m, int value) {  // unsafe
+        return (m == nullptr) ? false : CheckMessage(*m, value);
       },
-      arg("message"), arg("name"));
+      arg("message"), arg("value"));
   m.def(
       "check_message_ref",
-      [](::google::protobuf::Message& m, const std::string& name) {  // unsafe
-        return CheckMessage(m, name);
+      [](::google::protobuf::Message& m, int value) {  // unsafe
+        return CheckMessage(m, value);
       },
-      arg("message"), arg("name"));
+      arg("message"), arg("value"));
 #endif
 
 #if PYBIND11_PROTOBUF_UNSAFE
