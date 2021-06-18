@@ -263,19 +263,25 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
   def test_consume_int_message(self, get_message_function):
     message = get_message_function()
     message.value = 5
-    self.assertTrue(proto_example.consume_int_message(message))  # makes a copy
+    # these all make copies.
+    self.assertTrue(proto_example.consume_int_message(message, 5))
     self.assertEqual(message.value, 5)
-    self.assertTrue(
-        proto_example.consume_message(message))  # makes another copy
+    self.assertTrue(proto_example.consume_message(message, 5))
     self.assertEqual(message.value, 5)
+    self.assertTrue(proto_example.consume_int_message_const(message, 5))
+    self.assertTrue(proto_example.consume_shared_int_message(message, 5))
+    self.assertTrue(proto_example.consume_shared_int_message_const(message, 5))
+    self.assertTrue(proto_example.consume_shared_message(message, 5))
 
   def test_consume_message_none(self):
-    self.assertFalse(proto_example.consume_int_message(None))
-    self.assertFalse(proto_example.consume_message(None))
+    self.assertFalse(proto_example.consume_int_message(None, 5))
+    self.assertFalse(proto_example.consume_message(None, 5))
+    self.assertFalse(proto_example.consume_shared_int_message(None, 5))
+    self.assertFalse(proto_example.consume_shared_message(None, 5))
     with self.assertRaises(TypeError):
-      proto_example.consume_message_notnone(None)
+      proto_example.consume_message_notnone(None, 5)
     with self.assertRaises(TypeError):
-      proto_example.consume_int_message_notnone(None)
+      proto_example.consume_int_message_notnone(None, 5)
 
   @parameterized.named_parameters(get_message_references())
   def test_get_int_message_reference(self, get_message_function):
@@ -310,7 +316,7 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     self.assertEqual(
         proto_example.adjust_enum(test_pb2.TestMessage.ONE),
         test_pb2.TestMessage.TWO)
-    with self.assertRaises(TypeError):
+    with self.assertRaises(ValueError):
       proto_example.adjust_enum(7)
 
   @parameterized.named_parameters([('native_any_proto', any_pb2.Any,

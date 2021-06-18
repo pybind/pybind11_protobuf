@@ -74,6 +74,10 @@ std::unique_ptr<IntMessage> GetIntMessageUniquePtr() {
   return std::make_unique<IntMessage>();
 }
 
+std::shared_ptr<IntMessage> GetIntMessageSharedPtr() {
+  return std::make_shared<IntMessage>();
+}
+
 // pybind11 type_caster<> specialization for std::reference_wrapper<ProtoType>
 // does not work correctly unless we allow unsafe conversions.
 // See: https://github.com/pybind/pybind11/pull/2705
@@ -129,6 +133,7 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
       []() -> const IntMessage* { return GetIntMessagePtr(); },
       return_value_policy::copy);  // can't be reference.
   m.def("get_int_message_unique_ptr", &GetIntMessageUniquePtr);
+  m.def("get_int_message_unique_ptr", &GetIntMessageSharedPtr);
 #if PYBIND11_REFERENCE_WRAPPER
   m.def(
       "get_int_message_ref_wrapper_copy",
@@ -173,6 +178,9 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
       return_value_policy::copy);  // can't be reference.
   m.def("get_message_unique_ptr", []() -> std::unique_ptr<::google::protobuf::Message> {
     return GetIntMessageUniquePtr();
+  });
+  m.def("get_message_shared_ptr", []() -> std::shared_ptr<::google::protobuf::Message> {
+    return GetIntMessageSharedPtr();
   });
 
   // dynamic
@@ -260,41 +268,59 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
   // std::unique_ptr
   m.def(
       "consume_int_message",
-      [](std::unique_ptr<IntMessage> m) {
-        if (m) {
-          m->set_value(1);
-          return true;
-        }
-        return false;
+      [](std::unique_ptr<IntMessage> m, int value) {
+        return (m == nullptr) ? false : CheckMessage(*m, value);
       },
-      arg("message"));
+      arg("message"), arg("value"));
+
+  m.def(
+      "consume_int_message_const",
+      [](std::unique_ptr<const IntMessage> m, int value) {
+        return (m == nullptr) ? false : CheckMessage(*m, value);
+      },
+      arg("message"), arg("value"));
 
   m.def(
       "consume_int_message_notnone",
-      [](std::unique_ptr<IntMessage> m) {
-        if (m) {
-          m->set_value(1);
-          return true;
-        }
-        return false;
+      [](std::unique_ptr<IntMessage> m, int value) {
+        return (m == nullptr) ? false : CheckMessage(*m, value);
       },
-      arg("message").none(false));
+      arg("message").none(false), arg("value"));
 
   m.def(
       "consume_message",
-      [](std::unique_ptr<::google::protobuf::Message> m) {
-        if (m) m->GetDescriptor();
-        return m ? true : false;
+      [](std::unique_ptr<::google::protobuf::Message> m, int value) {
+        return (m == nullptr) ? false : CheckMessage(*m, value);
       },
-      arg("message"));
+      arg("message"), arg("value"));
 
   m.def(
       "consume_message_notnone",
-      [](std::unique_ptr<::google::protobuf::Message> m) {
-        if (m) m->GetDescriptor();
-        return m ? true : false;
+      [](std::unique_ptr<::google::protobuf::Message> m, int value) {
+        return (m == nullptr) ? false : CheckMessage(*m, value);
       },
-      arg("message").none(false));
+      arg("message").none(false), arg("value"));
+
+  m.def(
+      "consume_shared_int_message",
+      [](std::shared_ptr<IntMessage> m, int value) {
+        return (m == nullptr) ? false : CheckMessage(*m, value);
+      },
+      arg("message"), arg("value"));
+
+  m.def(
+      "consume_shared_int_message_const",
+      [](std::shared_ptr<const IntMessage> m, int value) {
+        return (m == nullptr) ? false : CheckMessage(*m, value);
+      },
+      arg("message"), arg("value"));
+
+  m.def(
+      "consume_shared_message",
+      [](std::shared_ptr<IntMessage> m, int value) {
+        return (m == nullptr) ? false : CheckMessage(*m, value);
+      },
+      arg("message"), arg("value"));
 
   // overloaded functions
   m.def(
