@@ -422,6 +422,52 @@ struct move_only_holder_caster<
   HolderType holder;
 };
 
+// Specialization which translates Proto::Enum types to/from ints.
+//
+// This will have ODR conflicts when users specify wrappers for enums
+// using py::enum_<T>.  Ideally we remove those from the codebase entirely,
+// as python proto enums are just ints.
+//
+template <typename EnumType>
+struct type_caster<EnumType,
+                   std::enable_if_t<::google::protobuf::is_proto_enum<EnumType>::value>> {
+ private:
+  using T = std::underlying_type_t<EnumType>;
+
+ public:
+  static constexpr auto name = _<EnumType>();
+
+  // cast converts from C++ -> Python
+  static handle cast(EnumType src, return_value_policy policy, handle p) {
+    return make_caster<T>::cast(static_cast<T>(src), policy, p);
+  }
+
+  // load converts from Python -> C++
+  bool load(handle src, bool convert) {
+    type_caster<T> base;
+    if (base.load(src, convert)) {
+      T v = static_cast<T>(base);
+      if (::google::protobuf::GetEnumDescriptor<EnumType>()->FindValueByNumber(v) ==
+          nullptr) {
+        throw type_error("Invalid valid for ::google::protobuf::Enum " +
+                         std::string(name.text));
+      }
+      value = static_cast<EnumType>(v);
+      return true;
+    }
+    // And maybe accept strings if convert is true?
+    return false;
+  }
+
+  explicit operator EnumType() { return value; }
+
+  template <typename>
+  using cast_op_type = EnumType;
+
+ private:
+  EnumType value;
+};
+
 // NOTE: We also need to add support and/or test classes:
 //
 //  ::google::protobuf::Descriptor

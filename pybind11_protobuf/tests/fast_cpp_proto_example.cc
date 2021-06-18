@@ -304,6 +304,24 @@ PYBIND11_MODULE(fast_cpp_proto_example, m) {
       "fn_overload", [](const ::google::protobuf::Message&) -> int { return 1; },
       arg("message"));
 
+  // enum functions
+  m.def(
+      "adjust_enum",
+      [](TestMessage::TestEnum e) -> TestMessage::TestEnum {
+        switch (e) {
+          case TestMessage::ZERO:
+            return TestMessage::ONE;
+          case TestMessage::ONE:
+            return TestMessage::TWO;
+          case TestMessage::TWO:
+            return TestMessage::ZERO;
+          default:
+            /// likely an error
+            return TestMessage::ZERO;
+        }
+      },
+      arg("enum"));
+
 #if 0
   // std::shared_ptr support does not work yet.
   // Wait for https://github.com/pybind/pybind11/pull/2672
