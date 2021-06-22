@@ -16,6 +16,7 @@
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
+#include "pybind11_protobuf/enum_type_caster.h"
 
 // pybind11 type_caster that works in conjunction with python fast_cpp_proto
 // implementation to convert protocol buffers between C++ and python.
@@ -485,51 +486,6 @@ struct copyable_holder_caster<
   HolderType holder;
 };
 
-// Specialization which translates Proto::Enum types to/from ints.
-//
-// This will have ODR conflicts when users specify wrappers for enums
-// using py::enum_<T>.  Ideally we remove those from the codebase entirely,
-// as python proto enums are just ints.
-//
-template <typename EnumType>
-struct type_caster<EnumType,
-                   std::enable_if_t<::google::protobuf::is_proto_enum<EnumType>::value>> {
- private:
-  using T = std::underlying_type_t<EnumType>;
-
- public:
-  static constexpr auto name = _<EnumType>();
-
-  // cast converts from C++ -> Python
-  static handle cast(EnumType src, return_value_policy policy, handle p) {
-    return make_caster<T>::cast(static_cast<T>(src), policy, p);
-  }
-
-  // load converts from Python -> C++
-  bool load(handle src, bool convert) {
-    type_caster<T> base;
-    if (base.load(src, convert)) {
-      T v = static_cast<T>(base);
-      if (::google::protobuf::GetEnumDescriptor<EnumType>()->FindValueByNumber(v) ==
-          nullptr) {
-        throw value_error("Invalid value for ::google::protobuf::Enum " +
-                          std::string(name.text));
-      }
-      value = static_cast<EnumType>(v);
-      return true;
-    }
-    // And maybe accept strings if convert is true?
-    return false;
-  }
-
-  explicit operator EnumType() { return value; }
-
-  template <typename>
-  using cast_op_type = EnumType;
-
- private:
-  EnumType value;
-};
 
 // NOTE: We also need to add support and/or test classes:
 //
@@ -537,10 +493,6 @@ struct type_caster<EnumType,
 //  ::google::protobuf::EnumDescriptor
 //  ::google::protobuf::EnumValueDescriptor
 //  ::google::protobuf::FieldDescriptor
-//  ::google::protobuf::FieldDescriptor::Type  (enum)
-//  ::google::protobuf::FieldDescriptor::CppType  (enum)
-//  ::google::protobuf::FieldDescriptor::Label  (enum)
-//  google::protobuf::Any
 //
 
 }  // namespace pybind11::detail

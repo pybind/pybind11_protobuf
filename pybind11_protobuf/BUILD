@@ -57,8 +57,18 @@ pybind_library(
         "//visibility:public",
     ],
     deps = [
+        ":enum_type_caster",
         "@com_google_glog//:glog",
         "@com_google_protobuf//:proto_api",
         "@com_google_protobuf//:protobuf",
     ],
+)
+
+pybind_library(
+    name = "enum_type_caster",
+    hdrs = ["enum_type_caster.h"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = ["@com_google_protobuf//:protobuf"],
 )

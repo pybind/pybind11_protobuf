@@ -311,14 +311,6 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     self.assertEqual(proto_example.fn_overload(test_pb2.IntMessage()), 2)
     self.assertEqual(proto_example.fn_overload(test_pb2.TestMessage()), 1)
 
-  def test_enum(self):
-    self.assertEqual(proto_example.adjust_enum(0), 1)
-    self.assertEqual(
-        proto_example.adjust_enum(test_pb2.TestMessage.ONE),
-        test_pb2.TestMessage.TWO)
-    with self.assertRaises(ValueError):
-      proto_example.adjust_enum(7)
-
   @parameterized.named_parameters([('native_any_proto', any_pb2.Any,
                                     test_pb2.IntMessage),
                                    ('native_any_proto_pybind_msg', any_pb2.Any,

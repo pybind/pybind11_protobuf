@@ -2,6 +2,7 @@
 
 load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
+
 # [internal] load cc_proto_library.bzl
 
 licenses(["notice"])
@@ -12,6 +13,27 @@ py_library(
     data = ["@com_google_protobuf//:proto_api"],
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
+)
+
+pybind_extension(
+    name = "proto_enum_module",
+    srcs = ["proto_enum_module.cc"],
+    deps = [
+        ":test_cc_proto",
+        "//pybind11_protobuf:enum_type_caster",
+    ],
+)
+
+py_test(
+    name = "proto_enum_test",
+    srcs = ["proto_enum_test.py"],
+    data = [":proto_enum_module.so"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":test_py_pb2",
+        "//testing/pybase",
+    ],
 )
 
 pybind_extension(
