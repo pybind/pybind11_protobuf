@@ -77,6 +77,22 @@ py_proto_library(
     deps = [":test_proto"],
 )
 
+proto_library(
+    name = "extension_proto",
+    srcs = ["extension.proto"],
+    deps = [":test_proto"],
+)
+
+cc_proto_library(
+    name = "extension_cc_proto",
+    deps = [":extension_proto"],
+)
+
+py_proto_library(
+    name = "extension_py_pb2",
+    deps = [":extension_proto"],
+)
+
 py_test(
     name = "import_order_a_test",
     srcs = ["import_order_a_test.py"],
@@ -214,6 +230,33 @@ py_test(
     deps = [
         ":compare",
         ":test_py_pb2",
+        "//testing/pybase",
+        "//testing/pybase:parameterized",
+    ],
+)
+
+pybind_extension(
+    name = "extension_module",
+    srcs = ["extension_module.cc"],
+    deps = [
+        ":extension_cc_proto",
+        ":test_cc_proto",
+        "//pybind11_protobuf:fast_cpp_proto_casters",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+py_test(
+    name = "extension_test",
+    srcs = ["extension_test.py"],
+    data = [
+        ":extension_module.so",
+        ":proto_enum_module.so",
+    ],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":extension_py_pb2",
         "//testing/pybase",
         "//testing/pybase:parameterized",
     ],
