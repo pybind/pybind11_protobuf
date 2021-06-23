@@ -187,23 +187,6 @@ py_test(
         "//testing/pybase",
         "//testing/pybase:parameterized",
         "@com_google_protobuf//:proto_api",
-        "@com_google_protobuf//:use_fast_cpp_protos",  # fixdeps: keep
-    ],
-)
-
-py_test(
-    name = "fast_cpp_proto_test__pure_python",
-    srcs = ["fast_cpp_proto_test.py"],
-    main = "fast_cpp_proto_test.py",
-    python_version = "PY3",
-    srcs_version = "PY3",
-    deps = [
-        ":compare",
-        ":fast_cpp_proto_example",
-        ":test_py_pb2",
-        "//testing/pybase",
-        "//testing/pybase:parameterized",
-        "@com_google_protobuf//:proto_api",
     ],
 )
 
@@ -257,6 +240,35 @@ py_test(
     srcs_version = "PY3",
     deps = [
         ":extension_py_pb2",
+        "//testing/pybase",
+        "//testing/pybase:parameterized",
+    ],
+)
+
+pybind_extension(
+    name = "message_module",
+    srcs = ["message_module.cc"],
+    deps = [
+        ":test_cc_proto",
+        "//pybind11_protobuf:fast_cpp_proto_casters",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+py_test(
+    name = "message_test",
+    srcs = ["message_test.py"],
+    data = [
+        ":extension_module.so",
+        ":message_module.so",
+        ":proto_enum_module.so",
+        "@com_google_protobuf//:proto_api",
+    ],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":compare",
+        ":test_py_pb2",
         "//testing/pybase",
         "//testing/pybase:parameterized",
     ],
