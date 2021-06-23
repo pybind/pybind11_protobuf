@@ -58,6 +58,7 @@ pybind_library(
     ],
     deps = [
         ":enum_type_caster",
+        ":proto_cast_util",
         "@com_google_glog//:glog",
         "@com_google_protobuf//:proto_api",
         "@com_google_protobuf//:protobuf",
@@ -71,6 +72,17 @@ pybind_library(
         "//visibility:public",
     ],
     deps = [
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+pybind_library(
+    name = "proto_cast_util",
+    srcs = ["proto_cast_util.cc"],
+    hdrs = ["proto_cast_util.h"],
+    deps = [
+        "@com_google_glog//:glog",
+        "@com_google_protobuf//:proto_api",
         "@com_google_protobuf//:protobuf",
     ],
 )
