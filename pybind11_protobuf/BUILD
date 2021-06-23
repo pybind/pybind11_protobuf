@@ -70,5 +70,7 @@ pybind_library(
     visibility = [
         "//visibility:public",
     ],
-    deps = ["@com_google_protobuf//:protobuf"],
+    deps = [
+        "@com_google_protobuf//:protobuf",
+    ],
 )

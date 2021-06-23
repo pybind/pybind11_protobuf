@@ -9,10 +9,9 @@
 #include <string>
 #include <type_traits>
 
-#include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
-
-// TODO(lar): Replace descriptor.proto.h with generated_enum_util.h
+#include "google/protobuf/generated_enum_reflection.h"
+#include "google/protobuf/generated_enum_util.h"
 
 // pybind11 type_caster specialization which translates Proto::Enum types
 // to/from ints. This will have ODR conflicts when users specify wrappers for
