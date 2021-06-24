@@ -81,6 +81,7 @@ pybind_library(
     srcs = ["proto_cast_util.cc"],
     hdrs = ["proto_cast_util.h"],
     deps = [
+        "@com_google_absl//absl/strings",
         "@com_google_glog//:glog",
         "@com_google_protobuf//:proto_api",
         "@com_google_protobuf//:protobuf",

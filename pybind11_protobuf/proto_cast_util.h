@@ -40,6 +40,20 @@ std::pair<pybind11::object, ::google::protobuf::Message *> AllocatePyFastCppProt
 // message. This is potentially unsafe.
 pybind11::object ReferencePyFastCppProto(::google::protobuf::Message *message);
 
+// Returns a handle to a python protobuf suitably
+pybind11::handle GenericFastCppProtoCast(::google::protobuf::Message *src,
+                                         pybind11::return_value_policy policy,
+                                         pybind11::handle parent,
+                                         bool is_const);
+
+pybind11::handle GenericPyProtoCast(::google::protobuf::Message *src,
+                                    pybind11::return_value_policy policy,
+                                    pybind11::handle parent, bool is_const);
+
+pybind11::handle GenericProtoCast(::google::protobuf::Message *src,
+                                  pybind11::return_value_policy policy,
+                                  pybind11::handle parent, bool is_const);
+
 }  // namespace pybind11_protobuf
 
 #endif  // PYBIND11_PROTOBUF_PROTO_CAST_UTIL_H_

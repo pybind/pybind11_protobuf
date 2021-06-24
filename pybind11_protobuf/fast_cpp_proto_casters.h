@@ -194,61 +194,43 @@ struct proto_caster_load_impl<::google::protobuf::Message> {
 };
 
 struct fast_cpp_cast_impl {
-  PYBIND11_NOINLINE static handle cast_impl(::google::protobuf::Message *src,
-                                            return_value_policy policy,
-                                            handle parent, bool is_const) {
+  inline static handle cast_impl(::google::protobuf::Message *src,
+                                 return_value_policy policy, handle parent,
+                                 bool is_const) {
     if (src == nullptr) return none().release();
 
-    switch (policy) {
-      case return_value_policy::automatic:
-      case return_value_policy::copy: {
-        auto [result, result_message] =
-            pybind11_protobuf::AllocatePyFastCppProto(src->GetDescriptor());
-
-        if (result_message->GetDescriptor() == src->GetDescriptor()) {
-          // Only protos which actually have the same descriptor are copyable.
-          result_message->CopyFrom(*src);
-        } else {
-          auto serialized = src->SerializePartialAsString();
-          if (!result_message->ParseFromString(serialized)) {
-            throw type_error(
-                "Failed to copy protocol buffer with mismatched descriptor");
-          }
-        }
-        return result.release();
-      } break;
-
-      case return_value_policy::reference:
-      case return_value_policy::reference_internal: {
-        if (is_const) {
-          throw type_error(
-              "Cannot return a const reference to a ::google::protobuf::Message derived "
-              "type.  Consider setting return_value_policy::copy in the "
-              "pybind11 def().");
-        }
-
-        object result = pybind11_protobuf::ReferencePyFastCppProto(src);
-        if (policy == return_value_policy::reference_internal) {
-          pybind11::detail::keep_alive_impl(result, parent);
-        }
-        return result.release();
-      } break;
-
-      default:
-        throw cast_error("unhandled return_value_policy: should not happen!");
+    if (is_const && (policy == return_value_policy::reference ||
+                     policy == return_value_policy::reference_internal)) {
+      throw type_error(
+          "Cannot return a const reference to a ::google::protobuf::Message derived "
+          "type.  Consider setting return_value_policy::copy in the "
+          "pybind11 def().");
     }
+
+    return pybind11_protobuf::GenericFastCppProtoCast(src, policy, parent,
+                                                      is_const);
+  }
+};
+
+struct native_cast_impl {
+  inline static handle cast_impl(::google::protobuf::Message *src,
+                                 return_value_policy policy, handle parent,
+                                 bool is_const) {
+    if (src == nullptr) return none().release();
+
+    // When using native casters, always copy the proto.
+    return pybind11_protobuf::GenericProtoCast(src, return_value_policy::copy,
+                                               parent, false);
   }
 };
 
 // pybind11 type_caster specialization for c++ protocol buffer types.
-template <typename ProtoType>
-struct fast_proto_caster : public proto_caster_load_impl<ProtoType>,
-                           fast_cpp_cast_impl {
+template <typename ProtoType, typename CastBase>
+struct proto_caster : public proto_caster_load_impl<ProtoType>,
+                      public CastBase {
  private:
   using Loader = proto_caster_load_impl<ProtoType>;
-  using Caster = fast_cpp_cast_impl;
-
-  using Caster::cast_impl;
+  using CastBase::cast_impl;
   using Loader::owned;
   using Loader::value;
 
@@ -264,22 +246,19 @@ struct fast_proto_caster : public proto_caster_load_impl<ProtoType>,
   static handle cast(const ProtoType *src, return_value_policy policy,
                      handle parent) {
     if (policy == return_value_policy::automatic ||
-        policy == return_value_policy::automatic_reference)
+        policy == return_value_policy::automatic_reference) {
       policy = return_value_policy::copy;
-
-    if (!src) return none().release();
+    }
     return cast_impl(const_cast<ProtoType *>(src), policy, parent, true);
   }
 
   static handle cast(ProtoType *src, return_value_policy policy,
                      handle parent) {
     if (policy == return_value_policy::automatic ||
-        policy == return_value_policy::automatic_reference)
+        policy == return_value_policy::automatic_reference) {
       policy = return_value_policy::copy;
-
-    if (!src) return none().release();
+    }
     std::unique_ptr<ProtoType> wrapper;
-
     if (policy == return_value_policy::take_ownership) {
       wrapper.reset(src);
       policy = return_value_policy::copy;
@@ -290,9 +269,9 @@ struct fast_proto_caster : public proto_caster_load_impl<ProtoType>,
   static handle cast(ProtoType const &src, return_value_policy policy,
                      handle parent) {
     if (policy == return_value_policy::automatic ||
-        policy == return_value_policy::automatic_reference)
+        policy == return_value_policy::automatic_reference) {
       policy = return_value_policy::copy;
-
+    }
     return cast_impl(const_cast<ProtoType *>(&src), return_value_policy::copy,
                      parent, true);
   }
@@ -300,9 +279,9 @@ struct fast_proto_caster : public proto_caster_load_impl<ProtoType>,
   static handle cast(ProtoType &src, return_value_policy policy,
                      handle parent) {
     if (policy == return_value_policy::automatic ||
-        policy == return_value_policy::automatic_reference)
+        policy == return_value_policy::automatic_reference) {
       policy = return_value_policy::copy;
-
+    }
     return cast_impl(&src, policy, parent, false);
   }
 
@@ -351,11 +330,11 @@ struct fast_proto_caster : public proto_caster_load_impl<ProtoType>,
 namespace pybind11::detail {
 
 // pybind11 type_caster<> specialization for c++ protocol buffer types using
-// inheritance from google::fast_proto_caster<>.
+// inheritance from google::proto_caster<>.
 template <typename ProtoType>
 struct type_caster<
     ProtoType, std::enable_if_t<std::is_base_of_v<::google::protobuf::Message, ProtoType>>>
-    : public google::fast_proto_caster<ProtoType> {};
+    : public google::proto_caster<ProtoType, google::fast_cpp_cast_impl> {};
 
 // NOTE: If smart_holders becomes the default we will need to change this to
 //    type_caster<std::unique_ptr<ProtoType, D>, ...
