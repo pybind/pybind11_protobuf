@@ -273,3 +273,30 @@ py_test(
         "//testing/pybase:parameterized",
     ],
 )
+
+pybind_extension(
+    name = "pass_by_module",
+    srcs = ["pass_by_module.cc"],
+    deps = [
+        ":test_cc_proto",
+        "//net/proto2/contrib/parse_proto:parse_text_proto",
+        "//pybind11_protobuf:native_proto_caster",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+py_test(
+    name = "pass_by_test",
+    srcs = ["pass_by_test.py"],
+    data = [
+        ":pass_by_module.so",
+        "@com_google_protobuf//:proto_api",
+    ],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":test_py_pb2",
+        "//testing/pybase",
+        "//testing/pybase:parameterized",
+    ],
+)
