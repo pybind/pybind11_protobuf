@@ -34,7 +34,14 @@ def remove_ws(text):
   return re.sub(r'\s+', '', str(text))
 
 
-class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
+class MessageTest(parameterized.TestCase, compare.ProtoAssertions):
+
+  @parameterized.named_parameters(
+      ('native_proto', test_pb2.TestMessage),
+      ('cast_proto', m.make_test_message),
+  )
+  def test_isinstance(self, factory):
+    self.assertIsInstance(factory(), test_pb2.TestMessage)
 
   @parameterized.named_parameters(
       ('native_proto', test_pb2.TestMessage),
@@ -112,14 +119,26 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     with self.assertRaises(AttributeError):
       message.int_message = m.make_int_message(4)
 
+  def test_construct_nested_message(self):
+    n = m.make_nested_message(4)
+    self.assertEqual(4, n.value)
+
+  def test_access_nested_message_field(self):
+    message = m.make_test_message()
+    message.nested.value = 4
+    self.assertEqual(4, message.nested.value)
+    with self.assertRaises(AttributeError):
+      message.nested = test_pb2.IntMessage.Nested()
+    with self.assertRaises(AttributeError):
+      message.nested = m.make_nested_message(4)
+
   def test_access_repeated_int_message(self):
     message = m.make_test_message()
     sub_msg = m.make_int_message()
     sub_msg.value = 6
     message.repeated_int_message.append(sub_msg)
     # Append/Extend/Set should work from native or wrapped messages.
-    if isinstance(sub_msg, test_pb2.IntMessage):
-      sub_msg = test_pb2.IntMessage()
+    sub_msg = test_pb2.IntMessage()
     sub_msg.value = 7
     message.repeated_int_message.append(sub_msg)
 
@@ -176,22 +195,17 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     with self.assertRaises(IndexError):
       print(message.repeated_int_message[1000])
 
-    message.repeated_int_message.add()
-
     with self.assertRaises(TypeError):
       message.repeated_int_message.append('invalid value')
     with self.assertRaises(TypeError):
       message.repeated_int_message.append(test_pb2.TestMessage())
     with self.assertRaises(AttributeError):
       message.repeated_int_message = [test_pb2.IntMessage()]
-    with self.assertRaises(TypeError):
-      message.repeated_int_message[0] = test_pb2.IntMessage()
 
-    if isinstance(message, test_pb2.TestMessage):
-      message.repeated_int_message[0].CopyFrom(test_pb2.IntMessage())
-    else:
-      with self.assertRaises(TypeError):
-        message.repeated_int_message[0].CopyFrom(test_pb2.IntMessage())
+    message.repeated_int_message.add()
+    with self.assertRaises((TypeError, AttributeError)):
+      message.repeated_int_message[0] = test_pb2.IntMessage()
+    message.repeated_int_message[0].CopyFrom(test_pb2.IntMessage())
 
   def test_access_map_string_int(self):
     message = m.make_test_message()
@@ -432,7 +446,7 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
 
   def test_byte_size_clear(self):
     message = get_cpp_message()
-    self.assertEqual(message.ByteSize(), 49)
+    self.assertEqual(message.ByteSize(), 53)
 
   def test_clear(self):
     message = get_cpp_message()
@@ -473,8 +487,8 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
 
   @parameterized.named_parameters(
       ('native_to_native', get_py_message, test_pb2.TestMessage),
-      #  ('native_to_cast', get_py_message, m.make_test_message),
-      #  ('cast_to_native', get_cpp_message, test_pb2.TestMessage),
+      ('native_to_cast', get_py_message, m.make_test_message),
+      ('cast_to_native', get_cpp_message, test_pb2.TestMessage),
       ('cast_to_cast', get_cpp_message, m.make_test_message),
   )
   def test_copy_from(self, a, b):
@@ -485,8 +499,8 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
 
   @parameterized.named_parameters(
       ('native_to_native', get_py_message, test_pb2.TestMessage),
-      #  ('native_to_cast', get_py_message, m.make_test_message),
-      #  ('cast_to_native', get_cpp_message, test_pb2.TestMessage),
+      ('native_to_cast', get_py_message, m.make_test_message),
+      ('cast_to_native', get_cpp_message, test_pb2.TestMessage),
       ('cast_to_cast', get_cpp_message, m.make_test_message),
   )
   def test_merge_from(self, a, b):

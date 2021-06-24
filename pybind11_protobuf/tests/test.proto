@@ -36,4 +36,9 @@ message TestMessage {
     int32 oneof_a = 11;
     double oneof_b = 12;
   }
+
+  message Nested {
+    int32 value = 1;
+  }
+  Nested nested = 13;
 }

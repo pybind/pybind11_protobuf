@@ -14,7 +14,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
-#include "pybind11_protobuf/fast_cpp_proto_casters.h"
+#include "pybind11_protobuf/native_proto_caster.h"
 #include "pybind11_protobuf/tests/test.pb.h"
 
 namespace py = ::pybind11;

@@ -21,12 +21,7 @@ def get_py_message(value=5):
   return msg
 
 
-# NOTE: The isinstance checks guard against accessing the Extensions field
-# when given a fast_cpp_proto and the binary is running in pure python mode,
-# and indicates an access path which should be fixed.
-
-
-class ProtoTest(parameterized.TestCase):
+class ExtensionTest(parameterized.TestCase):
 
   @parameterized.named_parameters(('python', get_py_message),
                                   ('cpp', m.get_message))
@@ -34,26 +29,18 @@ class ProtoTest(parameterized.TestCase):
     a = get_message_function()
     self.assertEqual(str(a.DESCRIPTOR.full_name), 'pybind11.test.BaseMessage')
 
-  def test_get_extension_py(self):
-    a = get_py_message(value=8)
+  @parameterized.named_parameters(('python', get_py_message),
+                                  ('cpp', m.get_message))
+  def test_get_extension_py(self, get_message_function):
+    a = get_message_function(value=8)
     self.assertEqual(8, a.Extensions[extension_pb2.int_message].value)
 
-  def test_get_extension_cpp(self):
-    a = m.get_message(value=8)
-    if isinstance(a, extension_pb2.BaseMessage):
-      self.assertEqual(8, a.Extensions[extension_pb2.int_message].value)
-    else:
-      with self.assertRaises(KeyError):
-        a.Extensions[extension_pb2.int_message].value = 9
-
-  def test_set_extension_cpp(self):
-    a = m.get_base_message()
-    if isinstance(a, extension_pb2.BaseMessage):
-      a.Extensions[extension_pb2.int_message].value = 8
-      self.assertEqual(8, a.Extensions[extension_pb2.int_message].value)
-    else:
-      with self.assertRaises(KeyError):
-        a.Extensions[extension_pb2.int_message].value = 8
+  @parameterized.named_parameters(('python', get_py_message),
+                                  ('cpp', m.get_message))
+  def test_set_extension_cpp(self, get_message_function):
+    a = get_message_function()
+    a.Extensions[extension_pb2.int_message].value = 8
+    self.assertEqual(8, a.Extensions[extension_pb2.int_message].value)
 
   @parameterized.named_parameters(('python', get_py_message),
                                   ('cpp', m.get_message))

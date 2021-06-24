@@ -65,7 +65,7 @@ def get_cpp_dynamic_int_message(value=5):
   return m.dynamic_message_ptr('pybind11.test.IntMessage', value)
 
 
-class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
+class DynamicMessageTest(parameterized.TestCase, compare.ProtoAssertions):
 
   @parameterized.named_parameters(
       ('native_proto', test_pb2.IntMessage),

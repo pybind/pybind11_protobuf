@@ -196,7 +196,7 @@ pybind_extension(
     deps = [
         ":test_cc_proto",
         "//net/proto2/contrib/parse_proto:parse_text_proto",
-        "//pybind11_protobuf:fast_cpp_proto_casters",
+        "//pybind11_protobuf:native_proto_caster",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -224,7 +224,7 @@ pybind_extension(
     deps = [
         ":extension_cc_proto",
         ":test_cc_proto",
-        "//pybind11_protobuf:fast_cpp_proto_casters",
+        "//pybind11_protobuf:native_proto_caster",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -250,7 +250,7 @@ pybind_extension(
     srcs = ["message_module.cc"],
     deps = [
         ":test_cc_proto",
-        "//pybind11_protobuf:fast_cpp_proto_casters",
+        "//pybind11_protobuf:native_proto_caster",
         "@com_google_protobuf//:protobuf",
     ],
 )

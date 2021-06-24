@@ -11,7 +11,7 @@
 
 #include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
-#include "pybind11_protobuf/fast_cpp_proto_casters.h"
+#include "pybind11_protobuf/native_proto_caster.h"
 #include "pybind11_protobuf/tests/test.pb.h"
 
 namespace py = ::pybind11;
@@ -45,6 +45,9 @@ int_message_map {
 enum_value: ONE
 repeated_enum_value: TWO
 double_value: 4.5
+nested {
+  value: 5
+}
 )";
 
   m.def(
@@ -62,6 +65,15 @@ double_value: 4.5
       "make_int_message",
       [](int value) -> IntMessage {
         IntMessage msg;
+        msg.set_value(value);
+        return msg;
+      },
+      py::arg("value") = 123);
+
+  m.def(
+      "make_nested_message",
+      [](int value) -> TestMessage::Nested {
+        TestMessage::Nested msg;
         msg.set_value(value);
         return msg;
       },
