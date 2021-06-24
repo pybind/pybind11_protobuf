@@ -48,6 +48,17 @@ pybind_extension(
 )
 
 pybind_library(
+    name = "enum_type_caster",
+    hdrs = ["enum_type_caster.h"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+pybind_library(
     name = "fast_cpp_proto_casters",
     srcs = ["fast_cpp_proto_casters.cc"],
     hdrs = ["fast_cpp_proto_casters.h"],
@@ -66,12 +77,19 @@ pybind_library(
 )
 
 pybind_library(
-    name = "enum_type_caster",
-    hdrs = ["enum_type_caster.h"],
+    name = "native_proto_caster",
+    srcs = ["native_proto_caster.cc"],
+    hdrs = ["native_proto_caster.h"],
+    defines = [
+        # Force a build error when build variants are mixed.
+        "PYBIND11_PROTOBUF_MODE=native_protos",
+    ],
     visibility = [
         "//visibility:public",
     ],
     deps = [
+        ":enum_type_caster",
+        ":proto_cast_util",
         "@com_google_protobuf//:protobuf",
     ],
 )

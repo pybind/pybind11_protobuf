@@ -1,5 +1,5 @@
-#ifndef PYBIND11_PROTOBUF_FAST_CPP_PROTO_CASTERS_H_
-#define PYBIND11_PROTOBUF_FAST_CPP_PROTO_CASTERS_H_
+#ifndef PYBIND11_PROTOBUF_NATIVE_PROTO_CASTERS_H_
+#define PYBIND11_PROTOBUF_NATIVE_PROTO_CASTERS_H_
 
 #include <Python.h>
 #include <pybind11/cast.h>
@@ -24,47 +24,33 @@
 //   * proto_casters.h
 //   * native_proto_caster.h
 
-// pybind11::type_caster<> specialization for ::google::protobuf::Message types that works
-// in conjunction with python fast_cpp_proto implementation to convert protocol
-// buffers between C++ and python. This binder supports binaries linked with
-// both native python protos and fast cpp python protos.
+// pybind11::type_caster<> specialization for ::google::protobuf::Message types that
+// that convets protocol buffer objects between C++ and python representations.
+// This binder supports binaries linked with both native python protos
+// and fast cpp python protos.
 //
-// Supports by value, by const reference and unique_ptr types.
-// TODO: Enable std::shared_ptr of proto types.
+// When passing a proto from python to C++, if possible, an underlying C++
+// object is referenced. If not, the object is serialized and deserialized into
+// a native C++ protocol buffer object.
 //
-// Casting to `const ProtoType&` works without copying in most cases,
-// no submessage references should be held across language callsites,
-// since those submessage references may become invalid.
+// When passing a proto from C++ to python a copy to a python-native protocol
+// buffer is made, either using a pure python proto or a fast cpp proto.
 //
-// When returning a ::google::protobuf::Message (or derived class), python sees a
-// concrete type based on the message descriptor.
+// Dynamically generated protos are only partially supported at present.
 //
-// Passing dynamically generated message types is not yet supported.
-//
-// To use fast_cpp_proto_casters, include this file in the binding definition
+// To use native_proto_caster, include this file in the binding definition
 // file.
 //
 // Example:
 //
 // #include <pybind11/pybind11.h>
-// #include "pybind11_protobuf/fast_cpp_proto_casters.h"
+// #include "pybind11_protobuf/native_proto_caster.h"
 //
 // MyMessage GetMessage() { ... }
 // PYBIND11_MODULE(my_module, m) {
 //  m.def("get_message", &GetMessage);
 // }
 //
-
-// WARNING   WARNING   WARNING   WARNING   WARNING   WARNING  WARNING
-//
-// This is still a work in progress.
-//
-// Sharing the same C++ protocol buffers with python is dangerous. They are
-// currently permitted when return_value_policy::reference is used in a def(),
-// def_property(), and similar pybind11 constructs. Such usage may lead multiple
-// python objects pointing to the same C++ object (there is ongoing work to
-// address this), conflicting mutations from python and C++, C++ code deleting
-// an in-use python object, other potentially unsafe practices.
 
 namespace pybind11::detail {
 
@@ -73,7 +59,7 @@ namespace pybind11::detail {
 template <typename ProtoType>
 struct type_caster<
     ProtoType, std::enable_if_t<std::is_base_of_v<::google::protobuf::Message, ProtoType>>>
-    : public google::proto_caster<ProtoType, google::fast_cpp_cast_impl> {};
+    : public google::proto_caster<ProtoType, google::native_cast_impl> {};
 
 // NOTE: If smart_holders becomes the default we will need to change this to
 //    type_caster<std::unique_ptr<ProtoType, D>, ...

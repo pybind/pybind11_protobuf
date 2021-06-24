@@ -16,9 +16,12 @@
 #include "google/protobuf/message.h"
 #include "pybind11_protobuf/proto_utils.h"
 
-#if defined(PYBIND11_PROTOBUF_FAST_CPP_PROTO_CASTERS_H_)
-#error "fast_cpp_proto_casters.h and proto_casters.h conflict."
-#endif
+// NOTE: This directly currently contains 3 mutually incompatible
+// implementations of pybind11::type_caster<> for ::google::protobuf::Message types due to
+// C++ ODR violations.  Only one of the following is allowed:
+//   * fast_cpp_proto_casters.h
+//   * proto_casters.h
+//   * native_proto_caster.h
 
 namespace pybind11 {
 namespace google {
