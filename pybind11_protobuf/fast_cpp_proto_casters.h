@@ -193,125 +193,117 @@ struct proto_caster_load_impl<::google::protobuf::Message> {
   std::unique_ptr<::google::protobuf::Message> owned;
 };
 
+struct fast_cpp_cast_impl {
+  PYBIND11_NOINLINE static handle cast_impl(::google::protobuf::Message *src,
+                                            return_value_policy policy,
+                                            handle parent, bool is_const) {
+    if (src == nullptr) return none().release();
+
+    switch (policy) {
+      case return_value_policy::automatic:
+      case return_value_policy::copy: {
+        auto [result, result_message] =
+            pybind11_protobuf::AllocatePyFastCppProto(src->GetDescriptor());
+
+        if (result_message->GetDescriptor() == src->GetDescriptor()) {
+          // Only protos which actually have the same descriptor are copyable.
+          result_message->CopyFrom(*src);
+        } else {
+          auto serialized = src->SerializePartialAsString();
+          if (!result_message->ParseFromString(serialized)) {
+            throw type_error(
+                "Failed to copy protocol buffer with mismatched descriptor");
+          }
+        }
+        return result.release();
+      } break;
+
+      case return_value_policy::reference:
+      case return_value_policy::reference_internal: {
+        if (is_const) {
+          throw type_error(
+              "Cannot return a const reference to a ::google::protobuf::Message derived "
+              "type.  Consider setting return_value_policy::copy in the "
+              "pybind11 def().");
+        }
+
+        object result = pybind11_protobuf::ReferencePyFastCppProto(src);
+        if (policy == return_value_policy::reference_internal) {
+          pybind11::detail::keep_alive_impl(result, parent);
+        }
+        return result.release();
+      } break;
+
+      default:
+        throw cast_error("unhandled return_value_policy: should not happen!");
+    }
+  }
+};
+
 // pybind11 type_caster specialization for c++ protocol buffer types.
 template <typename ProtoType>
-struct fast_proto_caster : public proto_caster_load_impl<ProtoType> {
+struct fast_proto_caster : public proto_caster_load_impl<ProtoType>,
+                           fast_cpp_cast_impl {
  private:
-  using Base = proto_caster_load_impl<ProtoType>;
-  using Base::owned;
-  using Base::value;
+  using Loader = proto_caster_load_impl<ProtoType>;
+  using Caster = fast_cpp_cast_impl;
 
-  // returns whether the return_value_policy should create a reference.
-  // By default, only creates references when explicitly requested.
-  static bool is_reference_policy(return_value_policy policy) {
-    if (policy == return_value_policy::reference_internal) {
-      throw type_error(
-          "Policy reference_internal not allowed for protocol buffer type " +
-          std::string(name.text) + ". (Is this a def_property field?");
-    }
-
-#if PYBIND11_PROTOBUF_UNSAFE
-    return policy == return_value_policy::reference ||
-           policy == return_value_policy::reference_internal ||
-           policy == return_value_policy::automatic_reference;
-#else
-    return policy == return_value_policy::reference ||
-           policy == return_value_policy::reference_internal;
-#endif
-  }
-
-  // make allocates an returns a new python proto object which has the contents
-  // of the passed in message.
-  template <typename T,
-            std::enable_if_t<(!std::is_same_v<T, ::google::protobuf::Message>)> * = nullptr>
-  static pybind11::object make(T &&src) {
-    using P = pybind11::detail::intrinsic_t<T>;
-    auto [result, result_message] =
-        pybind11_protobuf::AllocatePyFastCppProto(src.GetDescriptor());
-    if (auto *cast = ::google::protobuf::DynamicCastToGenerated<P>(result_message);
-        cast != nullptr) {
-      *cast = std::forward<T>(src);
-    } else {
-      result_message->CopyFrom(src);
-    }
-    return result;
-  }
-
-  static pybind11::object make(const ::google::protobuf::Message &src) {
-    // We can't dynamic-cast to a concrete type, so no moving allowed.
-    auto [result, result_message] =
-        pybind11_protobuf::AllocatePyFastCppProto(src.GetDescriptor());
-    if (result_message->GetDescriptor() == src.GetDescriptor()) {
-      // Only protos which actually have the same descriptor are copyable.
-      result_message->CopyFrom(src);
-    } else {
-      auto serialized = src.SerializePartialAsString();
-      if (!result_message->ParseFromString(serialized)) {
-        throw pybind11::type_error(
-            "Failed to copy protocol buffer with mismatched descriptor");
-      }
-    }
-    return result;
-  }
-
-  static pybind11::object reference(::google::protobuf::Message *src) {
-    // We can't dynamic-cast to a concrete type, so no moving allowed.
-    return pybind11_protobuf::ReferencePyFastCppProto(src);
-  }
+  using Caster::cast_impl;
+  using Loader::owned;
+  using Loader::value;
 
  public:
   static constexpr auto name = pybind11::detail::_<ProtoType>();
 
   // cast converts from C++ -> Python
+  static handle cast(ProtoType &&src, return_value_policy policy,
+                     handle parent) {
+    return cast_impl(&src, return_value_policy::copy, parent, false);
+  }
+
   static handle cast(const ProtoType *src, return_value_policy policy,
                      handle parent) {
+    if (policy == return_value_policy::automatic ||
+        policy == return_value_policy::automatic_reference)
+      policy = return_value_policy::copy;
+
     if (!src) return none().release();
-    if (is_reference_policy(policy)) {
-      // There are situations where we'd like to return a single const
-      // object to Python (immutable_reference).
-      // TODO(b/174120876): Follow up and enable immutable references.
-      throw type_error("Cannot return an immutable pointer to type " +
-                       std::string(name.text) +
-                       ". Consider setting return_value_policy::copy in the "
-                       "pybind11 def().");
-    }
-    return make(*src).release();
+    return cast_impl(const_cast<ProtoType *>(src), policy, parent, true);
   }
 
   static handle cast(ProtoType *src, return_value_policy policy,
                      handle parent) {
+    if (policy == return_value_policy::automatic ||
+        policy == return_value_policy::automatic_reference)
+      policy = return_value_policy::copy;
+
     if (!src) return none().release();
+    std::unique_ptr<ProtoType> wrapper;
+
     if (policy == return_value_policy::take_ownership) {
-      std::unique_ptr<ProtoType> wrapper(src);
-      return make(std::move(*src)).release();
-    } else if (is_reference_policy(policy)) {
-      return reference(src).release();
+      wrapper.reset(src);
+      policy = return_value_policy::copy;
     }
-    return make(static_cast<const ProtoType &>(*src)).release();
+    return cast_impl(src, policy, parent, false);
   }
 
-  static handle cast(const ProtoType &src, return_value_policy policy, handle) {
-    if (is_reference_policy(policy)) {
-      // There are situations where we'd like to return a single const
-      // object to Python (immutable_reference).
-      // TODO(b/174120876): Follow up and enable immutable references.
-      throw type_error("Cannot return an immutable reference to type " +
-                       std::string(name.text) +
-                       ". Consider setting return_value_policy::copy in the "
-                       "pybind11 def().");
-    }
-    return make(src).release();
+  static handle cast(ProtoType const &src, return_value_policy policy,
+                     handle parent) {
+    if (policy == return_value_policy::automatic ||
+        policy == return_value_policy::automatic_reference)
+      policy = return_value_policy::copy;
+
+    return cast_impl(const_cast<ProtoType *>(&src), return_value_policy::copy,
+                     parent, true);
   }
 
-  static handle cast(ProtoType &src, return_value_policy policy, handle) {
-    if (is_reference_policy(policy)) {
-      return reference(&src).release();
-    }
-    return make(static_cast<const ProtoType &>(src)).release();
-  }
+  static handle cast(ProtoType &src, return_value_policy policy,
+                     handle parent) {
+    if (policy == return_value_policy::automatic ||
+        policy == return_value_policy::automatic_reference)
+      policy = return_value_policy::copy;
 
-  static handle cast(ProtoType &&src, return_value_policy policy, handle) {
-    return make(std::move(src)).release();
+    return cast_impl(&src, policy, parent, false);
   }
 
   // PYBIND11_TYPE_CASTER
@@ -328,6 +320,7 @@ struct fast_proto_caster : public proto_caster_load_impl<ProtoType> {
     }
     return std::move(*owned);
   }
+
 #if PYBIND11_PROTOBUF_UNSAFE
   // The following unsafe conversions are not enabled:
   explicit operator ProtoType *() { return const_cast<ProtoType *>(value); }
