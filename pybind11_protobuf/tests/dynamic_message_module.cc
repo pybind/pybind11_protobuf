@@ -19,7 +19,7 @@
 
 namespace py = ::pybind11;
 
-namespace pybind11_test {
+namespace {
 
 // GetDynamicPool contains a dynamic message that is wire-compatible with
 // with IntMessage; conversion using the fast_cpp_proto api will fail
@@ -51,13 +51,15 @@ namespace pybind11_test {
 
 void UpdateMessage(::google::protobuf::Message* message, int32 value) {
   auto* f = message->GetDescriptor()->FindFieldByName("value");
-  if (!f) f = message->GetDescriptor()->FindFieldByName("value_int32");
+  if (!f) f = message->GetDescriptor()->FindFieldByName("int_value");
+  if (!f) return;
   message->GetReflection()->SetInt32(message, f, value);
 }
 
 bool CheckMessage(const ::google::protobuf::Message& message, int32 value) {
   auto* f = message.GetDescriptor()->FindFieldByName("value");
-  if (!f) f = message.GetDescriptor()->FindFieldByName("value_int32");
+  if (!f) f = message.GetDescriptor()->FindFieldByName("int_value");
+  if (!f) return false;
   return message.GetReflection()->GetInt32(message, f) == value;
 }
 
@@ -135,4 +137,4 @@ PYBIND11_MODULE(dynamic_message_module, m) {
       py::arg("message"), py::return_value_policy::copy);
 }
 
-}  // namespace pybind11_test
+}  // namespace

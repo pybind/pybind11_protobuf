@@ -19,7 +19,7 @@
 
 namespace py = ::pybind11;
 
-namespace pybind11_test {
+namespace {
 
 using pybind11::test::IntMessage;
 
@@ -30,7 +30,8 @@ bool CheckIntMessage(const IntMessage* message, int32 value) {
 bool CheckMessage(const ::google::protobuf::Message* message, int32 value) {
   if (!message) return false;
   auto* f = message->GetDescriptor()->FindFieldByName("value");
-  if (!f) f = message->GetDescriptor()->FindFieldByName("value_int32");
+  if (!f) f = message->GetDescriptor()->FindFieldByName("int_value");
+  if (!f) return false;
   return message->GetReflection()->GetInt32(*message, f) == value;
 }
 
@@ -248,4 +249,4 @@ PYBIND11_MODULE(pass_by_module, m) {
 #endif
 }
 
-}  // namespace pybind11_test
+}  // namespace

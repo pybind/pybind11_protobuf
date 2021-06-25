@@ -16,7 +16,7 @@
 
 namespace py = ::pybind11;
 
-namespace pybind11_test {
+namespace {
 
 using pybind11::test::IntMessage;
 using pybind11::test::TestMessage;
@@ -80,4 +80,4 @@ nested {
       py::arg("value") = 123);
 }
 
-}  // namespace pybind11_test
+}  // namespace

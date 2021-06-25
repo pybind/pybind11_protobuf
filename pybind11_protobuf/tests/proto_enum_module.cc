@@ -12,8 +12,11 @@
 #include "pybind11_protobuf/enum_type_caster.h"
 #include "pybind11_protobuf/tests/test.pb.h"
 
-namespace pybind11 {
-namespace test {
+namespace py = ::pybind11;
+
+namespace {
+
+using pybind11::test::TestMessage;
 
 PYBIND11_MODULE(proto_enum_module, m) {
   // Though registering py::enum_ types for ::google::protobuf::Enum classes is not
@@ -38,8 +41,7 @@ PYBIND11_MODULE(proto_enum_module, m) {
             return TestMessage::ZERO;
         }
       },
-      arg("enum"));
+      py::arg("enum"));
 }
 
-}  // namespace test
-}  // namespace pybind11
+}  // namespace

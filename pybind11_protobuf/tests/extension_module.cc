@@ -16,7 +16,7 @@
 
 namespace py = ::pybind11;
 
-namespace pybind11_test {
+namespace {
 
 using pybind11::test::BaseMessage;
 using pybind11::test::IntMessage;
@@ -48,4 +48,4 @@ PYBIND11_MODULE(extension_module, m) {
       py::arg("message"), py::return_value_policy::copy);
 }
 
-}  // namespace pybind11_test
+}  // namespace
