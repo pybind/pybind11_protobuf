@@ -30,8 +30,8 @@
 // and fast cpp python protos.
 //
 // When passing a proto from python to C++, if possible, an underlying C++
-// object is referenced. If not, the object is serialized and deserialized into
-// a native C++ protocol buffer object.
+// object is referenced and/or copied. If not, the object is serialized and
+// deserialized into a native C++ protocol buffer object.
 //
 // When passing a proto from C++ to python a copy to a python-native protocol
 // buffer is made, either using a pure python proto or a fast cpp proto.
