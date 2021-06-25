@@ -155,8 +155,6 @@ struct copyable_holder_caster<
     return true;
   }
 
-  explicit operator ProtoType *() { return holder.get(); }
-  explicit operator ProtoType &() { return *holder.get(); }
   explicit operator HolderType &() { return holder; }
 
   template <typename>

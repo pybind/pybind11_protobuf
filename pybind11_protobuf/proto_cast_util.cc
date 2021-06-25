@@ -49,6 +49,7 @@ const GlobalState* GetGlobalState() {
       try {
         py::module_::import("google3.net.proto2.python.internal.cpp._message");
       } catch (...) {
+        // TODO(pybind11-infra): narrow down to expected exception(s).
         // Ignore any errors; they will appear immediately when the capsule
         // is requested below.
         PyErr_Clear();
@@ -63,8 +64,10 @@ const GlobalState* GetGlobalState() {
       try {
         auto m = py::module_::import("google3.net.proto2.python.public");
         state.global_pool = m.attr("descriptor_pool").attr("Default")();
-        state.factory = m.attr("MessageFactory")(state.global_pool);
+        state.factory =
+            m.attr("message_factory").attr("MessageFactory")(state.global_pool);
       } catch (...) {
+        // TODO(pybind11-infra): narrow down to expected exception(s).
         PyErr_Print();
         PyErr_Clear();
         state.global_pool = {};
@@ -202,28 +205,27 @@ py::handle GenericPyProtoCast(::google::protobuf::Message* src,
     auto* descriptor = src->GetDescriptor();
     auto* state = GetGlobalState();
 
-    // Attempt to load the descriptor from the global pool.
+    // First attempt to construct the proto from the global pool.
     if (state->global_pool) {
       try {
         auto d = state->global_pool.attr("FindMessageTypeByName")(
             descriptor->full_name());
-        return state->factory.attr("CreatePrototype")(d);
+        auto p = state->factory.attr("GetPrototype")(d);
+        return p();
       } catch (...) {
-        // We're going to create our own error message.
-        PyErr_Print();
+        // TODO(pybind11-infra): narrow down to expected exception(s).
         PyErr_Clear();
       }
     }
 
+    // If that fails, attempt to import the module.
     auto module_name = PythonPackageForDescriptor(descriptor->file());
-
     if (!module_name.empty()) {
       try {
         return ResolveDescriptor(py::module_::import(module_name.c_str()),
                                  descriptor)();
       } catch (...) {
-        // Ignore errors; we'll retry immediately.
-        PyErr_Print();
+        // TODO(pybind11-infra): narrow down to expected exception(s).
         PyErr_Clear();
       }
     }

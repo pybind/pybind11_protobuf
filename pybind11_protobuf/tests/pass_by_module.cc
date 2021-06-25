@@ -34,6 +34,12 @@ bool CheckMessage(const ::google::protobuf::Message* message, int32 value) {
   return message->GetReflection()->GetInt32(*message, f) == value;
 }
 
+IntMessage* GetStatic() {
+  static IntMessage* msg = new IntMessage();
+  msg->set_value(4);
+  return msg;
+}
+
 PYBIND11_MODULE(pass_by_module, m) {
   m.attr("PYBIND11_PROTOBUF_UNSAFE") = pybind11::int_(PYBIND11_PROTOBUF_UNSAFE);
 
@@ -45,6 +51,21 @@ PYBIND11_MODULE(pass_by_module, m) {
         return msg;
       },
       py::arg("value") = 123);
+
+  // constructors
+  m.def(
+      "make_ptr", []() -> IntMessage* { return new IntMessage(); },
+      py::return_value_policy::take_ownership);
+  m.def("make_uptr", []() { return std::make_shared<IntMessage>(); });
+  m.def("make_sptr",
+        []() { return std::unique_ptr<IntMessage>(new IntMessage()); });
+  m.def("static_cptr", []() -> const IntMessage* { return GetStatic(); });
+  m.def("static_cref", []() -> const IntMessage& { return *GetStatic(); });
+  m.def("static_ptr", []() -> IntMessage* { return GetStatic(); });
+  m.def("static_ref", []() -> IntMessage& { return *GetStatic(); });
+  m.def(
+      "static_ref_auto", []() -> IntMessage& { return *GetStatic(); },
+      py::return_value_policy::automatic_reference);
 
   // concrete.
   m.def(
@@ -84,6 +105,19 @@ PYBIND11_MODULE(pass_by_module, m) {
       },
       py::arg("message"), py::arg("value"));
   m.def(
+      "concrete_uptr_ref",
+      [](std::unique_ptr<IntMessage>& message, int value) {
+        return CheckIntMessage(message.get(), value);
+      },
+      py::arg("message"), py::arg("value"));
+  m.def(
+      "concrete_uptr_ptr",
+      [](std::unique_ptr<IntMessage>* message, int value) {
+        return CheckIntMessage(message->get(), value);
+      },
+      py::arg("message"), py::arg("value"));
+
+  m.def(
       "concrete_sptr",
       [](std::shared_ptr<IntMessage> message, int value) {
         return CheckIntMessage(message.get(), value);
@@ -95,6 +129,13 @@ PYBIND11_MODULE(pass_by_module, m) {
         return CheckIntMessage(message.get(), value);
       },
       py::arg("message"), py::arg("value"));
+  m.def(
+      "concrete_csptr_ref",
+      [](std::shared_ptr<const IntMessage>& message, int value) {
+        return CheckIntMessage(message.get(), value);
+      },
+      py::arg("message"), py::arg("value"));
+
   m.def(
       "concrete_cwref",
       [](std::reference_wrapper<const IntMessage> message, int value) {
