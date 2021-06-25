@@ -247,6 +247,14 @@ PYBIND11_MODULE(pass_by_module, m) {
       },
       py::arg("message"), py::arg("value"));
 #endif
+
+  // overloaded functions
+  m.def(
+      "fn_overload", [](const IntMessage&) -> int { return 2; },
+      py::arg("message"));
+  m.def(
+      "fn_overload", [](const ::google::protobuf::Message&) -> int { return 1; },
+      py::arg("message"));
 }
 
 }  // namespace

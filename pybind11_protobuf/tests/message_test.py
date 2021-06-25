@@ -12,6 +12,7 @@ import copy
 import pickle
 import re
 
+from google.protobuf import any_pb2
 from google3.testing.pybase import googletest
 from google3.testing.pybase import parameterized
 from pybind11_protobuf.tests import compare
@@ -521,13 +522,34 @@ class MessageTest(parameterized.TestCase, compare.ProtoAssertions):
       message.MergeFrom(other)
 
   @parameterized.named_parameters(
-      #      ('cast', get_cpp_message),
+      ('cast', get_cpp_message),
       ('native', get_py_message),)
   def test_pickle_roundtrip(self, factory):
     message = factory()
     pickled = pickle.dumps(message, pickle.HIGHEST_PROTOCOL)
     restored = pickle.loads(pickled)
     self.assertProtoEqual(restored, message)
+
+  @parameterized.named_parameters([
+      ('native_any_proto', any_pb2.Any, test_pb2.IntMessage),
+      ('native_any_proto_pybind_msg', any_pb2.Any, m.make_int_message)
+  ])
+  def test_any_special_fields(self, get_any_function, get_message_function):
+    message = get_message_function()
+    message.value = 5
+    any_proto = get_any_function()
+    any_proto.Pack(message)
+    self.assertEqual(any_proto.TypeName(), 'pybind11.test.IntMessage')
+    self.assertEqual(any_proto.type_url,
+                     'type.googleapis.com/pybind11.test.IntMessage')
+    self.assertEqual(any_proto.value, b'\x08\x05')
+    self.assertTrue(any_proto.Is(message.DESCRIPTOR))
+    self.assertFalse(any_proto.Is(test_pb2.TestMessage().DESCRIPTOR))
+
+    message.Clear()
+    self.assertEqual(message.value, 0)
+    self.assertTrue(any_proto.Unpack(message))
+    self.assertEqual(message.value, 5)
 
 
 if __name__ == '__main__':

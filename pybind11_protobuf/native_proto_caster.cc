@@ -2,7 +2,6 @@
 
 void pybind11_proto_casters_collision() {
   // This symbol intentionally defined to cause ODR violations. It exists in:
-  //   * fast_cpp_proto_casters.cc
   //   * proto_casters.cc
   //   * native_proto_caster.cc
 

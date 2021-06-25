@@ -162,34 +162,6 @@ py_test(
     ],
 )
 
-# Tests for fast_cpp_proto casters
-
-pybind_extension(
-    name = "fast_cpp_proto_example",
-    srcs = ["fast_cpp_proto_example.cc"],
-    deps = [
-        ":test_cc_proto",
-        "//net/proto2/contrib/parse_proto:parse_text_proto",
-        "//pybind11_protobuf:fast_cpp_proto_casters",
-        "@com_google_protobuf//:protobuf",
-    ],
-)
-
-py_test(
-    name = "fast_cpp_proto_test",
-    srcs = ["fast_cpp_proto_test.py"],
-    python_version = "PY3",
-    srcs_version = "PY3",
-    deps = [
-        ":compare",
-        ":fast_cpp_proto_example",
-        ":test_py_pb2",
-        "//testing/pybase",
-        "//testing/pybase:parameterized",
-        "@com_google_protobuf//:proto_api",
-    ],
-)
-
 pybind_extension(
     name = "dynamic_message_module",
     srcs = ["dynamic_message_module.cc"],

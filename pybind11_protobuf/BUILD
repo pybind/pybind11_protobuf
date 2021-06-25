@@ -59,24 +59,6 @@ pybind_library(
 )
 
 pybind_library(
-    name = "fast_cpp_proto_casters",
-    srcs = ["fast_cpp_proto_casters.cc"],
-    hdrs = ["fast_cpp_proto_casters.h"],
-    defines = [
-        # Force a build error when build variants are mixed.
-        "PYBIND11_PROTOBUF_MODE=fast_cpp_protos",
-    ],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        ":enum_type_caster",
-        ":proto_cast_util",
-        "@com_google_protobuf//:protobuf",
-    ],
-)
-
-pybind_library(
     name = "native_proto_caster",
     srcs = ["native_proto_caster.cc"],
     hdrs = ["native_proto_caster.h"],

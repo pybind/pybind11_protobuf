@@ -156,6 +156,14 @@ class PassByTest(parameterized.TestCase):
     with self.assertRaises(TypeError):
       check_method(fake, 4)
 
+  @parameterized.named_parameters(
+      ('make', m.make_int_message, 2),
+      ('int_message', test_pb2.IntMessage, 2),
+      ('test_message', test_pb2.TestMessage, 1),
+  )
+  def test_overload_fn(self, message_fn, expected):
+    self.assertEqual(expected, m.fn_overload(message_fn()))
+
 
 if __name__ == '__main__':
   googletest.main()
