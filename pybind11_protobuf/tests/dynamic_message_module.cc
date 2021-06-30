@@ -9,11 +9,11 @@
 #include <memory>
 #include <stdexcept>
 
-#include "net/proto2/contrib/parse_proto/parse_text_proto.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
+#include "google/protobuf/text_format.h"
 #include "pybind11_protobuf/native_proto_caster.h"
 #include "pybind11_protobuf/tests/test.pb.h"
 
@@ -27,19 +27,23 @@ namespace {
 // pool.
 ::google::protobuf::DescriptorPool* GetDynamicPool() {
   static ::google::protobuf::DescriptorPool* pool = [] {
-    ::google::protobuf::FileDescriptorProto file_proto =
-        ::google::protobuf::contrib::parse_proto::ParseTextProtoOrDie(R"pb(
-          name: 'pybind11_protobuf/tests'
-          package: 'pybind11.test'
-          message_type: {
-            name: 'DynamicMessage'
-            field: { name: 'value' number: 1 type: TYPE_INT32 }
-          }
-          message_type: {
-            name: 'IntMessage'
-            field: { name: 'value' number: 1 type: TYPE_INT32 }
-          }
-        )pb");
+    ::google::protobuf::FileDescriptorProto file_proto;
+    if (!::google::protobuf::TextFormat::ParseFromString(
+            R"pb(
+              name: 'pybind11_protobuf/tests'
+              package: 'pybind11.test'
+              message_type: {
+                name: 'DynamicMessage'
+                field: { name: 'value' number: 1 type: TYPE_INT32 }
+              }
+              message_type: {
+                name: 'IntMessage'
+                field: { name: 'value' number: 1 type: TYPE_INT32 }
+              }
+            )pb",
+            &file_proto)) {
+      throw std::invalid_argument("Failed to parse textproto.");
+    }
 
     ::google::protobuf::DescriptorPool* pool = new ::google::protobuf::DescriptorPool();
     pool->BuildFile(file_proto);
@@ -49,14 +53,14 @@ namespace {
   return pool;
 }
 
-void UpdateMessage(::google::protobuf::Message* message, int32 value) {
+void UpdateMessage(::google::protobuf::Message* message, int32_t value) {
   auto* f = message->GetDescriptor()->FindFieldByName("value");
   if (!f) f = message->GetDescriptor()->FindFieldByName("int_value");
   if (!f) return;
   message->GetReflection()->SetInt32(message, f, value);
 }
 
-bool CheckMessage(const ::google::protobuf::Message& message, int32 value) {
+bool CheckMessage(const ::google::protobuf::Message& message, int32_t value) {
   auto* f = message.GetDescriptor()->FindFieldByName("value");
   if (!f) f = message.GetDescriptor()->FindFieldByName("int_value");
   if (!f) return false;
