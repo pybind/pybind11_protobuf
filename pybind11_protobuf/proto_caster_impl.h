@@ -18,7 +18,6 @@
 #include "google/protobuf/message.h"
 #include "pybind11_protobuf/proto_cast_util.h"
 
-
 // Enables unsafe conversions; currently these are a work in progress.
 #if !defined(PYBIND11_PROTOBUF_UNSAFE)
 #define PYBIND11_PROTOBUF_UNSAFE 0
@@ -81,15 +80,14 @@ struct proto_caster_load_impl {
     return pybind11_protobuf::PyProtoCopyToCProto(src, owned.get());
   }
 
-  // as_unique_ptr returns a copy of the object owned by a std::unique_ptr<T>,
-  // which is suitable for move_only_holder_caster specializations.
-  std::unique_ptr<ProtoType> as_unique_ptr() {
-    if (!value) return nullptr;
-    if (!owned) {
+  // ensure_owned ensures that the owned member contains a copy of the
+  // ::google::protobuf::Message.
+  void ensure_owned() {
+    if (value && !owned) {
       owned = std::unique_ptr<ProtoType>(value->New());
       *owned = *value;
+      value = owned.get();
     }
-    return std::move(owned);
   }
 
   const ProtoType *value;
@@ -131,15 +129,14 @@ struct proto_caster_load_impl<::google::protobuf::Message> {
     return pybind11_protobuf::PyProtoCopyToCProto(src, owned.get());
   }
 
-  // as_unique_ptr returns a copy of the object owned by a std::unique_ptr<T>,
-  // which is suitable for move_only_holder_caster specializations.
-  std::unique_ptr<::google::protobuf::Message> as_unique_ptr() {
-    if (!value) return nullptr;
-    if (!owned) {
-      owned = std::unique_ptr<::google::protobuf::Message>(value->New());
+  // ensure_owned ensures that the owned member contains a copy of the
+  // ::google::protobuf::Message.
+  void ensure_owned() {
+    if (value && !owned) {
+      owned = std::unique_ptr<ProtoType>(value->New());
       owned->CopyFrom(*value);
+      value = owned.get();
     }
-    return std::move(owned);
   }
 
   const ::google::protobuf::Message *value;
@@ -180,10 +177,11 @@ struct native_cast_impl {
 // pybind11 type_caster specialization for c++ protocol buffer types.
 template <typename ProtoType, typename CastBase>
 struct proto_caster : public proto_caster_load_impl<ProtoType>,
-                      public CastBase {
+                      protected CastBase {
  private:
   using Loader = proto_caster_load_impl<ProtoType>;
   using CastBase::cast_impl;
+  using Loader::ensure_owned;
   using Loader::owned;
   using Loader::value;
 
@@ -238,6 +236,11 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
     return cast_impl(&src, policy, parent, false);
   }
 
+  std::unique_ptr<ProtoType> as_unique_ptr() {
+    ensure_owned();
+    return std::move(owned);
+  }
+
   // PYBIND11_TYPE_CASTER
   explicit operator const ProtoType *() { return value; }
   explicit operator const ProtoType &() {
@@ -246,10 +249,7 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
   }
   explicit operator ProtoType &&() && {
     if (!value) throw reference_cast_error();
-    if (!owned) {
-      owned.reset(value->New());
-      owned->CopyFrom(*value);
-    }
+    ensure_owned();
     return std::move(*owned);
   }
 

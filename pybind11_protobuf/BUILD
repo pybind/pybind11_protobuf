@@ -90,3 +90,15 @@ pybind_library(
         "@com_google_protobuf//:protobuf",
     ],
 )
+
+pybind_library(
+    name = "wrapped_proto_caster",
+    hdrs = ["wrapped_proto_caster.h"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":proto_cast_util",
+        "@com_google_protobuf//:protobuf",
+    ],
+)

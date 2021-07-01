@@ -162,13 +162,15 @@ py_test(
     ],
 )
 
+# Tests for native_proto_caster
+
 pybind_extension(
     name = "dynamic_message_module",
     srcs = ["dynamic_message_module.cc"],
     deps = [
         ":test_cc_proto",
-        "//net/proto2/contrib/parse_proto:parse_text_proto",
         "//pybind11_protobuf:native_proto_caster",
+        "@com_google_glog//:glog",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -267,6 +269,35 @@ py_test(
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
+        ":test_py_pb2",
+        "//testing/pybase",
+        "//testing/pybase:parameterized",
+    ],
+)
+
+# tests for wrapped_proto_caster
+
+pybind_extension(
+    name = "wrapped_proto_module",
+    srcs = ["wrapped_proto_module.cc"],
+    deps = [
+        ":test_cc_proto",
+        "//pybind11_protobuf:wrapped_proto_caster",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+py_test(
+    name = "wrapped_proto_module_test",
+    srcs = ["wrapped_proto_module_test.py"],
+    data = [
+        ":wrapped_proto_module.so",
+        "@com_google_protobuf//:proto_api",
+    ],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":compare",
         ":test_py_pb2",
         "//testing/pybase",
         "//testing/pybase:parameterized",
