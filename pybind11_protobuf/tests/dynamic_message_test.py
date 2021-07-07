@@ -80,7 +80,7 @@ class DynamicMessageTest(parameterized.TestCase, compare.ProtoAssertions):
       ('native_proto', test_pb2.IntMessage),
       ('py_dynamic_int', get_py_dynamic_int_message),
       ('cpp_dynamic_int', get_cpp_dynamic_int_message),
-      #  ('py_dynamic', get_py_dynamic_message),
+      ('py_dynamic', get_py_dynamic_message),
       #  ('cpp_dynamic', get_cpp_dynamic_message),
   )
   def test_check_message(self, get_message_function):

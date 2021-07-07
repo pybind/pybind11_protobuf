@@ -75,6 +75,7 @@ struct proto_caster_load_impl {
       // type mismatch.
       return false;
     }
+    // TODO(amauryfa): Only accept Python protos from descriptor_pool.Default().
     owned = std::unique_ptr<ProtoType>(new ProtoType());
     value = owned.get();
     return pybind11_protobuf::PyProtoCopyToCProto(src, owned.get());
@@ -104,27 +105,24 @@ struct proto_caster_load_impl<::google::protobuf::Message> {
       return true;
     }
 
+    // Use the PyProto_API to get an underlying C++ message pointer from the
+    // object, which returns non-null when the incoming proto message
+    // is a fast_cpp_proto instance.
     if (value = pybind11_protobuf::PyProtoGetCppMessagePointer(src);
         value != nullptr) {
       return true;
     }
 
+    // The incoming object is not a fast_cpp_proto, so find or create a native
+    // C++ proto which has the same descriptors.
     auto descriptor_name = pybind11_protobuf::PyProtoDescriptorName(src);
     if (!descriptor_name) {
       return false;
     }
-
-    owned = pybind11_protobuf::AllocateCProtoByName(*descriptor_name);
-    if (!owned) {
-      // NOTE: This is a dynamic proto, or at least one that doesn't exist in
-      // the C++ default pool. To import we need to do the equivalent of:
-      //   file_proto = descriptor_pb2.FileDescriptorProto()
-      //   src.DESCRIPTOR.file.CopyToProto(file_proto)
-      //   descriptor_pool.Add(file_proto)
-      //
-      // And retry creating the object.
-      return false;
-    }
+    owned.reset(static_cast<ProtoType *>(
+        pybind11_protobuf::AllocateCProtoFromPythonSymbolDatabase(
+            src, *descriptor_name)
+            .release()));
     value = owned.get();
     return pybind11_protobuf::PyProtoCopyToCProto(src, owned.get());
   }

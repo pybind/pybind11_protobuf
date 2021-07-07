@@ -23,8 +23,8 @@ const ::google::protobuf::Message *PyProtoGetCppMessagePointer(pybind11::handle 
 std::optional<std::string> PyProtoDescriptorName(pybind11::handle py_proto);
 
 // Allocates a C++ protocol buffer for a given name.
-std::unique_ptr<::google::protobuf::Message> AllocateCProtoByName(
-    const std::string &full_name);
+std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(
+    pybind11::handle src, const std::string &full_name);
 
 // Serialize the py_proto and deserialize it into the provided message.
 // Caller should enforce any type identity that is required.

@@ -14,8 +14,10 @@
 #include "glog/logging.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
+#include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
 #include "python/google/protobuf/proto_api.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_replace.h"
 
 namespace py = pybind11;
@@ -123,21 +125,188 @@ std::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
   return static_cast<std::string>(c);
 }
 
-std::unique_ptr<::google::protobuf::Message> AllocateCProtoByName(
-    const std::string& full_name) {
-  // Lookup the name in the PyProto_API descriptor pool, which uses the default
-  // pool as a fallback. Ideally we get the right message.
-  const auto* py_proto_api = GetPyProtoApi();
-  const auto* descriptor =
-      py_proto_api->GetDefaultDescriptorPool()->FindMessageTypeByName(
-          full_name);
+// Create C++ DescriptorPools based on Python DescriptorPools.
+// The Python pool will provide message definitions when they are needed.
+// This gives an efficient way to create C++ Messages from Python definitions.
+class PythonDescriptorPoolWrapper {
+ public:
+  // The singleton which handles multiple wrapped pools.
+  // It is never deallocated, but data corresponding to a Python pool
+  // is cleared when the pool is destroyed.
+  static PythonDescriptorPoolWrapper* instance() {
+    static auto instance = new PythonDescriptorPoolWrapper();
+    return instance;
+  }
+
+  // To build messages these 3 objects often come together:
+  // - a DescriptorDatabase provides the representation of .proto files.
+  // - a DescriptorPool manages the live descriptors with cross-linked pointers.
+  // - a MessageFactory manages the proto instances and their memory layout.
+  struct Data {
+    std::unique_ptr<::google::protobuf::DescriptorDatabase> database;
+    std::unique_ptr<const ::google::protobuf::DescriptorPool> pool;
+    std::unique_ptr<::google::protobuf::MessageFactory> factory;
+  };
+
+  // Return (and maybe create) a C++ DescriptorPool that corresponds to the
+  // given Python DescriptorPool.
+  // The returned pointer has the same lifetime as the Python DescriptorPool:
+  // its data will be deleted when the Python object is deleted.
+  const Data* GetPoolFromPythonPool(py::handle python_pool) {
+    PyObject* key = python_pool.ptr();
+    // Get or create an entry for this key.
+    auto& pool_entry = pools_map[key];
+    if (pool_entry.database) {
+      // Found in cache, return it.
+      return &pool_entry;
+    }
+
+    // We retain a weak reference to the python_pool.
+    // On deletion, the callback will remove the entry from the map,
+    // which will delete the Data instance.
+    auto pool_weakref = py::weakref(
+        python_pool,
+        py::cpp_function([this, key](py::handle weakref) {
+          pools_map.erase(key);
+        }));
+
+    auto database = absl::make_unique<DescriptorPoolDatabase>(pool_weakref);
+    auto pool = absl::make_unique<::google::protobuf::DescriptorPool>(database.get());
+    auto factory = absl::make_unique<::google::protobuf::DynamicMessageFactory>(pool.get());
+    // When wrapping the Python descriptor_poool.Default(), apply an important
+    // optimization:
+    // - the pool is based on the C++ generated_pool(), so that
+    //   compiled C++ modules can be found without using the DescriptorDatabase
+    //   and the Python DescriptorPool.
+    // - the MessageFactory returns instances of C++ compiled messages when
+    //   possible: some methods are much more optimized, and the created
+    //   ::google::protobuf::Message can be cast to the C++ class.  We use this last
+    //   property in the proto_caster class.
+    // This is done only for the Default pool, because generated C++ modules
+    // and generated Python modules are built from the same .proto sources.
+    if (python_pool.is(GetGlobalState()->global_pool)) {
+      pool->internal_set_underlay(::google::protobuf::DescriptorPool::generated_pool());
+      factory->SetDelegateToGeneratedFactory(true);
+    }
+
+    // Cache the created objects.
+    pool_entry = Data{std::move(database), std::move(pool), std::move(factory)};
+    return &pool_entry;
+  }
+
+ private:
+  PythonDescriptorPoolWrapper() = default;
+
+  // Similar to ::google::protobuf::DescriptorPoolDatabase: wraps a Python DescriptorPool
+  // as a DescriptorDatabase.
+  class DescriptorPoolDatabase : public ::google::protobuf::DescriptorDatabase {
+   public:
+    DescriptorPoolDatabase(py::weakref python_pool)
+        : pool_(python_pool) {
+    }
+
+    // These 3 methods implement ::google::protobuf::DescriptorDatabase and delegate to
+    // the Python DescriptorPool.
+
+    // Find a file by file name.
+    bool FindFileByName(const std::string& filename,
+                        ::google::protobuf::FileDescriptorProto* output) {
+      return CallActionAndFillProto("FindFileByName", output, [&]() {
+        return pool_().attr("FindFileByName")(filename);
+      });
+    }
+
+    // Find the file that declares the given fully-qualified symbol name.
+    bool FindFileContainingSymbol(
+        const std::string& symbol_name,
+        ::google::protobuf::FileDescriptorProto* output) override {
+      return CallActionAndFillProto("FindFileContainingSymbol", output, [&]() {
+        return pool_().attr("FindFileContainingSymbol")(symbol_name);
+      });
+    }
+
+    // Find the file which defines an extension extending the given message type
+    // with the given field number.
+    bool FindFileContainingExtension(
+        const std::string& containing_type, int field_number,
+        ::google::protobuf::FileDescriptorProto* output) override {
+      return CallActionAndFillProto(
+          "FindFileContainingExtension", output, [&]() {
+            auto descriptor =
+                pool_().attr("FindMessageTypeByName")(containing_type);
+            return pool_()
+                .attr("FindExtensionByNymber")(descriptor, field_number)
+                .attr("file");
+          });
+    }
+
+   private:
+    // The inner pool yields FileDescriptors, but this Database must return
+    // FileDescriptorProtos. This function does the conversion.
+    static bool GetFileDescriptorProto(py::handle py_descriptor,
+                                       ::google::protobuf::FileDescriptorProto* output) {
+      // This code is mostly useful when using the pure-python protos. Yet we
+      // can use the fast_cpp_protos api to wrap the output pointer in a Python
+      // object.
+      const auto* py_proto_api = GetPyProtoApi();
+      auto proto = py::reinterpret_steal<py::object>(
+          py_proto_api->NewMessageOwnedExternally(output, nullptr));
+      if (!proto) {
+        throw py::error_already_set();
+      }
+      py_descriptor.attr("CopyToProto")(proto);
+      return true;
+    }
+
+    // Helper method to handle exceptions.
+    template <typename F>
+    static bool CallActionAndFillProto(const char* method,
+                                       ::google::protobuf::FileDescriptorProto* output,
+                                       F f) {
+      try {
+        return GetFileDescriptorProto(f(), output);
+      } catch (py::error_already_set& e) {
+        LOG(ERROR) << "DescriptorDatabase::" << method << " raised an error";
+        // This prints and clears the error.
+        e.restore();
+        PyErr_Print();
+        return false;
+      }
+    }
+
+    py::weakref pool_;
+  };
+
+  // This map caches the wrapped objects, indexed by DescriptorPool address.
+  absl::flat_hash_map<PyObject*, Data> pools_map;
+};
+
+std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(
+    py::handle src, const std::string& full_name) {
+  py::object pool;
+  try {
+    pool = src.attr("DESCRIPTOR").attr("file").attr("pool");
+  } catch (py::error_already_set& e) {
+    if (e.matches(PyExc_AttributeError)) {
+      throw py::type_error("Object is not a valid protobuf");
+    } else {
+      throw;
+    }
+  }
+  auto pool_data =
+      PythonDescriptorPoolWrapper::instance()->GetPoolFromPythonPool(pool);
+  // The following call will query the DescriptorDatabase, which fetches the
+  // necessary Python descriptors and feeds them into the C++ pool.
+  // The result stays cached as long as the Python pool stays alive.
+  const ::google::protobuf::Descriptor* descriptor =
+      pool_data->pool->FindMessageTypeByName(full_name);
   if (!descriptor) {
-    return nullptr;
+    throw py::type_error("Could not find descriptor: " + full_name);
   }
   const ::google::protobuf::Message* prototype =
-      py_proto_api->GetDefaultMessageFactory()->GetPrototype(descriptor);
+      pool_data->factory->GetPrototype(descriptor);
   if (!prototype) {
-    return nullptr;
+    throw py::type_error("Unable to get prototype for " + full_name);
   }
   return std::unique_ptr<::google::protobuf::Message>(prototype->New());
 }
