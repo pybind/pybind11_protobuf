@@ -115,6 +115,11 @@ void PassReference(TestMessage&);
 void PassValue(TestMessage);
 void PassRValue(TestMessage&&);
 
+struct Struct {
+  TestMessage MemberFn();
+  TestMessage ConstMemberFn() const;
+};
+
 void test_static_asserts() {
   using pybind11::google::WithWrappedProtos;
   using pybind11::google::WrappedProto;
@@ -184,6 +189,21 @@ void test_static_asserts() {
       std::is_same_v<
           WrappedProto<TestMessage, WrappedProtoKind::kValue>,
           std::invoke_result_t<decltype(WithWrappedProtos(&GetRValue))>>,
+      "");
+
+  // members
+  static_assert(
+      std::is_same_v<
+          WrappedProto<TestMessage, WrappedProtoKind::kValue>,
+          std::invoke_result_t<decltype(WithWrappedProtos(&Struct::MemberFn)),
+                               Struct&>>,
+      "");
+
+  static_assert(
+      std::is_same_v<
+          WrappedProto<TestMessage, WrappedProtoKind::kValue>,
+          std::invoke_result_t<
+              decltype(WithWrappedProtos(&Struct::ConstMemberFn)), Struct&>>,
       "");
 
   // statusor

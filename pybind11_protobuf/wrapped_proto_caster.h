@@ -150,14 +150,32 @@ struct WrapHelper<absl::StatusOr<ProtoType>,  //
 /// with an equivalent signature as F, replacing ::google::protobuf::Message derived types
 /// with WrappedProto<T, ...> types.
 template <typename F, typename>
-struct WrappedProtoInvoker;
+struct WrappedInvoker;
 
 template <typename F, typename R, typename... Args>
-struct WrappedProtoInvoker<F, std::function<R(Args...)>> {
+struct WrappedInvoker<F, std::function<R(Args...)>> {
   F f;
   typename WrapHelper<R>::type operator()(
       typename WrapHelper<Args>::type... args) const {
     return f(std::forward<decltype(args)>(args)...);
+  }
+};
+
+template <typename C, typename R, typename... Args>
+struct ConstMemberInvoker {
+  R (C::*f)(Args...) const;
+  typename WrapHelper<R>::type operator()(
+      const C& c, typename WrapHelper<Args>::type... args) const {
+    return std::invoke(f, &c, std::forward<decltype(args)>(args)...);
+  }
+};
+
+template <typename C, typename R, typename... Args>
+struct MemberInvoker {
+  R (C::*f)(Args...);
+  typename WrapHelper<R>::type operator()(
+      C& c, typename WrapHelper<Args>::type... args) const {
+    return std::invoke(f, &c, std::forward<decltype(args)>(args)...);
   }
 };
 
@@ -168,8 +186,18 @@ struct WrappedProtoInvoker<F, std::function<R(Args...)>> {
 /// underlying proto2 type.
 template <typename F>
 auto WithWrappedProtos(F f)
-    -> impl::WrappedProtoInvoker<F, decltype(std::function(f))> {
+    -> impl::WrappedInvoker<F, decltype(std::function(f))> {
   return {std::move(f)};
+}
+
+template <typename R, typename C, typename... Args>
+auto WithWrappedProtos(R (C::*f)(Args...)) {
+  return impl::MemberInvoker<C, R, Args...>{f};
+}
+
+template <typename R, typename C, typename... Args>
+auto WithWrappedProtos(R (C::*f)(Args...) const) {
+  return impl::ConstMemberInvoker<C, R, Args...>{f};
 }
 
 // pybind11 type_caster specialization for pybind11::google::WrappedProto<T>
