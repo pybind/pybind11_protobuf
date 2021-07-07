@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "google/protobuf/message.h"
+#include "absl/status/statusor.h"
 #include "pybind11_protobuf/proto_cast_util.h"
 #include "pybind11_protobuf/proto_caster_impl.h"
 
@@ -131,6 +132,18 @@ struct WrapHelper<ProtoType,  //
                                                      intrinsic_t<ProtoType>>>> {
   using proto = intrinsic_t<ProtoType>;
   using type = WrappedProto<proto, DetectKind<ProtoType>()>;
+};
+
+// absl::StatusOr is a common wrapper so also propagate WrappedProto into
+// StatusOr types.  When wrapped by WithWrappedProtos, ensure that
+// pybind11_abseil/status_casters.h is included and follow the instructions
+// there.
+template <typename ProtoType>
+struct WrapHelper<absl::StatusOr<ProtoType>,  //
+                  std::enable_if_t<std::is_base_of_v<::google::protobuf::Message,
+                                                     intrinsic_t<ProtoType>>>> {
+  using proto = intrinsic_t<ProtoType>;
+  using type = absl::StatusOr<WrappedProto<proto, DetectKind<ProtoType>()>>;
 };
 
 /// WrappedProtoInvoker is an internal function object that exposes a call

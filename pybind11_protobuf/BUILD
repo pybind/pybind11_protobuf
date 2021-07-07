@@ -100,6 +100,7 @@ pybind_library(
     ],
     deps = [
         ":proto_cast_util",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_protobuf//:protobuf",
     ],
 )

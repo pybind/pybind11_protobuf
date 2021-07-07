@@ -282,6 +282,8 @@ pybind_extension(
     deps = [
         ":test_cc_proto",
         "//pybind11_protobuf:wrapped_proto_caster",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_protobuf//:protobuf",
     ],
 )

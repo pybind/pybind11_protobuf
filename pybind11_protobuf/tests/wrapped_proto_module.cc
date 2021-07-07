@@ -10,6 +10,7 @@
 #include <stdexcept>
 
 #include "google/protobuf/dynamic_message.h"
+#include "absl/status/statusor.h"
 #include "pybind11_protobuf/tests/test.pb.h"
 #include "pybind11_protobuf/wrapped_proto_caster.h"
 
@@ -104,6 +105,7 @@ TestMessage& GetReference();
 TestMessage* GetPtr();
 TestMessage GetValue();
 TestMessage&& GetRValue();
+absl::StatusOr<TestMessage> GetStatusOr();
 
 void PassInt(int);
 void PassConstReference(const TestMessage&);
@@ -182,6 +184,13 @@ void test_static_asserts() {
       std::is_same_v<
           WrappedProto<TestMessage, WrappedProtoKind::kValue>,
           std::invoke_result_t<decltype(WithWrappedProtos(&GetRValue))>>,
+      "");
+
+  // statusor
+  static_assert(
+      std::is_same_v<
+          absl::StatusOr<WrappedProto<TestMessage, WrappedProtoKind::kValue>>,
+          std::invoke_result_t<decltype(WithWrappedProtos(&GetStatusOr))>>,
       "");
 
   /// calling
