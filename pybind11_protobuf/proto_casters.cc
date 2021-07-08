@@ -15,5 +15,11 @@ void pybind11_proto_casters_collision() {
   // type_caster<::google::protobuf::Message> as well as other potential types, and can lead
   // to hard to diagnose bugs, crashes, and other mysterious bad behavior.
 
+  // To investigate duplicate symbol errors, try:
+  /*
+  bazel query somepath(//x, //third_party/pybind11_protobuf:native_proto_caster)
+  bazel query somepath(//x, //third_party/pybind11_protobuf:proto_casters)
+  */
+
   // See https://github.com/pybind/pybind11/issues/2695 for more details.
 }
