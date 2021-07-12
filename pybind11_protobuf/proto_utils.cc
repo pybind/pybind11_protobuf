@@ -37,7 +37,7 @@ struct GenericEnum {};
 template <template <typename> class Handler, typename... Args>
 auto DispatchFieldDescriptor(const ::google::protobuf::FieldDescriptor* field_desc,
                              Args... args)
-    -> decltype(Handler<int32>::HandleField(field_desc, args...)) {
+    -> decltype(Handler<int32_t>::HandleField(field_desc, args...)) {
   // If this field is a map, the field_desc always describes a message with
   // 2 fields: key and value. In that case, dispatch based on the value type.
   // In all other cases, the value type is the same as the field type.
@@ -46,13 +46,13 @@ auto DispatchFieldDescriptor(const ::google::protobuf::FieldDescriptor* field_de
     field_value_desc = field_desc->message_type()->FindFieldByName("value");
   switch (field_value_desc->cpp_type()) {
     case ::google::protobuf::FieldDescriptor::CPPTYPE_INT32:
-      return Handler<int32>::HandleField(field_desc, args...);
+      return Handler<int32_t>::HandleField(field_desc, args...);
     case ::google::protobuf::FieldDescriptor::CPPTYPE_INT64:
-      return Handler<int64>::HandleField(field_desc, args...);
+      return Handler<int64_t>::HandleField(field_desc, args...);
     case ::google::protobuf::FieldDescriptor::CPPTYPE_UINT32:
-      return Handler<uint32>::HandleField(field_desc, args...);
+      return Handler<uint32_t>::HandleField(field_desc, args...);
     case ::google::protobuf::FieldDescriptor::CPPTYPE_UINT64:
-      return Handler<uint64>::HandleField(field_desc, args...);
+      return Handler<uint64_t>::HandleField(field_desc, args...);
     case ::google::protobuf::FieldDescriptor::CPPTYPE_FLOAT:
       return Handler<float>::HandleField(field_desc, args...);
     case ::google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE:
@@ -202,10 +202,10 @@ class ProtoFieldContainer {};
     }                                                                          \
   }
 
-NUMERIC_FIELD_REFLECTION_SPECIALIZATION(Int32, int32);
-NUMERIC_FIELD_REFLECTION_SPECIALIZATION(Int64, int64);
-NUMERIC_FIELD_REFLECTION_SPECIALIZATION(UInt32, uint32);
-NUMERIC_FIELD_REFLECTION_SPECIALIZATION(UInt64, uint64);
+NUMERIC_FIELD_REFLECTION_SPECIALIZATION(Int32, int32_t);
+NUMERIC_FIELD_REFLECTION_SPECIALIZATION(Int64, int64_t);
+NUMERIC_FIELD_REFLECTION_SPECIALIZATION(UInt32, uint32_t);
+NUMERIC_FIELD_REFLECTION_SPECIALIZATION(UInt64, uint64_t);
 NUMERIC_FIELD_REFLECTION_SPECIALIZATION(Float, float);
 NUMERIC_FIELD_REFLECTION_SPECIALIZATION(Double, double);
 NUMERIC_FIELD_REFLECTION_SPECIALIZATION(Bool, bool);
@@ -863,10 +863,10 @@ class MapFieldIteratorBindings
 // supported by protobuffers.
 template <template <typename> class Bindings>
 void BindEachFieldType(module& module, const std::string& name) {
-  Bindings<int32>(module, name + "Int32");
-  Bindings<int64>(module, name + "Int64");
-  Bindings<uint32>(module, name + "UInt32");
-  Bindings<uint64>(module, name + "UInt64");
+  Bindings<int32_t>(module, name + "Int32");
+  Bindings<int64_t>(module, name + "Int64");
+  Bindings<uint32_t>(module, name + "UInt32");
+  Bindings<uint64_t>(module, name + "UInt64");
   Bindings<float>(module, name + "Float");
   Bindings<double>(module, name + "Double");
   Bindings<bool>(module, name + "Bool");

@@ -252,7 +252,6 @@ pybind_extension(
     srcs = ["pass_by_module.cc"],
     deps = [
         ":test_cc_proto",
-        "//net/proto2/contrib/parse_proto:parse_text_proto",
         "//pybind11_protobuf:native_proto_caster",
         "@com_google_protobuf//:protobuf",
     ],

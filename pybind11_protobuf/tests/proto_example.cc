@@ -14,15 +14,15 @@
 namespace pybind11 {
 namespace test {
 
-bool CheckIntMessage(const IntMessage& message, int32 value) {
+bool CheckIntMessage(const IntMessage& message, int32_t value) {
   return message.value() == value;
 }
 
-bool CheckIntMessagePtr(const IntMessage* message, int32 value) {
+bool CheckIntMessagePtr(const IntMessage* message, int32_t value) {
   return message ? (message->value() == value) : false;
 }
 
-void MutateIntMessage(int32 value, IntMessage* message) {
+void MutateIntMessage(int32_t value, IntMessage* message) {
   message->set_value(value);
 }
 

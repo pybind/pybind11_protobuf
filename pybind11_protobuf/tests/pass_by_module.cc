@@ -9,7 +9,6 @@
 #include <memory>
 #include <stdexcept>
 
-#include "net/proto2/contrib/parse_proto/parse_text_proto.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
@@ -23,11 +22,11 @@ namespace {
 
 using pybind11::test::IntMessage;
 
-bool CheckIntMessage(const IntMessage* message, int32 value) {
+bool CheckIntMessage(const IntMessage* message, int32_t value) {
   return message ? message->value() == value : false;
 }
 
-bool CheckMessage(const ::google::protobuf::Message* message, int32 value) {
+bool CheckMessage(const ::google::protobuf::Message* message, int32_t value) {
   if (!message) return false;
   auto* f = message->GetDescriptor()->FindFieldByName("value");
   if (!f) f = message->GetDescriptor()->FindFieldByName("int_value");

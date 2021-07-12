@@ -17,6 +17,26 @@ http_archive(
     ],
 )
 
+http_archive(
+    name = "com_google_absl_py",
+    strip_prefix = "abseil-py-9954557f9df0b346a57ff82688438c55202d2188",
+    urls = [
+        "https://github.com/abseil/abseil-py/archive/9954557f9df0b346a57ff82688438c55202d2188.tar.gz",
+    ],
+)
+
+# Six is a dependency of com_google_absl_py
+http_archive(
+    name = "six_archive",
+    urls = [
+        "http://mirror.bazel.build/pypi.python.org/packages/source/s/six/six-1.10.0.tar.gz",
+        "https://pypi.python.org/packages/source/s/six/six-1.10.0.tar.gz",
+    ],
+    sha256 = "105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",
+    strip_prefix = "six-1.10.0",
+    build_file = "@com_google_absl_py//third_party:six.BUILD",
+)
+
 ## `pybind11_bazel`
 # See https://github.com/pybind/pybind11_bazel
 http_archive(
@@ -48,6 +68,20 @@ git_repository(
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 protobuf_deps()
+
+# GRPC v1.38, for proto rules.
+# For a related discussion of the pro/cons of various open-source py proto rule
+# repositories, see b/189457935.
+http_archive(
+    name = "com_github_grpc_grpc",
+    sha256 = "abd9e52c69000f2c051761cfa1f12d52d8b7647b6c66828a91d462e796f2aede",
+    urls = [
+        "https://github.com/grpc/grpc/archive/v1.38.0.tar.gz",
+    ],
+    strip_prefix = "grpc-1.38.0",
+)
+load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+grpc_deps()
 
 # Google logging
 git_repository(
