@@ -64,6 +64,7 @@ git_repository(
     name = "com_google_protobuf",
     remote = "https://github.com/protocolbuffers/protobuf.git",
     tag = "v3.15.4",
+    patches = ["com_google_protobuf_build.patch"],
 )
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
@@ -98,5 +99,5 @@ git_repository(
 
 bind(
     name = "python_headers",
-    actual = "@com_google_protobuf//util/python:python_headers",
+    actual = "@local_config_python//:python_headers",
 )

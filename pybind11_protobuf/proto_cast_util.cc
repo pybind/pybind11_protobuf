@@ -53,7 +53,7 @@ const GlobalState* GetGlobalState() {
 
       PyErr_Clear();
       try {
-        py::module_::import("google3.net.proto2.python.internal.cpp._message");
+        py::module_::import("google.protobuf.pyext._message");
       } catch (...) {
         // TODO(pybind11-infra): narrow down to expected exception(s).
         // Ignore any errors; they will appear immediately when the capsule
@@ -68,7 +68,7 @@ const GlobalState* GetGlobalState() {
       // When not using fast protos, we may construct protos from the default
       // pool.
       try {
-        auto m = py::module_::import("google3.net.proto2.python.public");
+        auto m = py::module_::import("google.protobuf");
         state->global_pool = m.attr("descriptor_pool").attr("Default")();
         state->factory = m.attr("message_factory")
                              .attr("MessageFactory")(state->global_pool);
