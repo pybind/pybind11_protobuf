@@ -213,6 +213,7 @@ py_test(
     srcs_version = "PY3",
     deps = [
         ":extension_py_pb2",
+        ":test_py_pb2",  # fixdeps: keep - Direct dependency needed in open-source version, see https://github.com/grpc/grpc/issues/22811
         "//testing/pybase",
         "//testing/pybase:parameterized",
     ],
