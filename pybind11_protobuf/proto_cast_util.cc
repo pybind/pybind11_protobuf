@@ -35,17 +35,21 @@ struct GlobalState {
 };
 
 const GlobalState* GetGlobalState() {
-  static GlobalState state = [&]() {
-    GlobalState state;
-    state.py_proto_api = static_cast<const ::google::protobuf::python::PyProto_API*>(
+  // Global state intentionally leaks at program termination.
+  // If destructed along with other static variables, it causes segfaults
+  // due to order of destruction conflict with python threads. See
+  // https://github.com/pybind/pybind11/issues/1598
+  static GlobalState* state = [&]() {
+    auto state = new GlobalState();
+    state->py_proto_api = static_cast<const ::google::protobuf::python::PyProto_API*>(
         PyCapsule_Import(::google::protobuf::python::PyProtoAPICapsuleName(), 0));
-    if (state.py_proto_api) {
-      state.using_fast_cpp = true;
+    if (state->py_proto_api) {
+      state->using_fast_cpp = true;
     } else {
       // The module implementing fast cpp protos is not loaded, so evidently
       // they are not the default. Fast protos are still available as a fallback
       // by importing the capsule.
-      state.using_fast_cpp = false;
+      state->using_fast_cpp = false;
 
       PyErr_Clear();
       try {
@@ -56,30 +60,30 @@ const GlobalState* GetGlobalState() {
         // is requested below.
         PyErr_Clear();
       }
-      state.py_proto_api = static_cast<const ::google::protobuf::python::PyProto_API*>(
+      state->py_proto_api = static_cast<const ::google::protobuf::python::PyProto_API*>(
           PyCapsule_Import(::google::protobuf::python::PyProtoAPICapsuleName(), 0));
     }
 
-    if (!state.using_fast_cpp) {
+    if (!state->using_fast_cpp) {
       // When not using fast protos, we may construct protos from the default
       // pool.
       try {
         auto m = py::module_::import("google3.net.proto2.python.public");
-        state.global_pool = m.attr("descriptor_pool").attr("Default")();
-        state.factory =
-            m.attr("message_factory").attr("MessageFactory")(state.global_pool);
+        state->global_pool = m.attr("descriptor_pool").attr("Default")();
+        state->factory = m.attr("message_factory")
+                             .attr("MessageFactory")(state->global_pool);
       } catch (...) {
         // TODO(pybind11-infra): narrow down to expected exception(s).
         PyErr_Print();
         PyErr_Clear();
-        state.global_pool = {};
-        state.factory = {};
+        state->global_pool = {};
+        state->factory = {};
       }
     }
     return state;
   }();
 
-  return &state;
+  return state;
 }
 
 const ::google::protobuf::python::PyProto_API* GetPyProtoApi() {
