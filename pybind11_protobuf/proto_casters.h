@@ -34,7 +34,7 @@ namespace google {
 // passing "-DPYBIND11_PROTOBUF_MODULE_PATH=..." on the commandline.
 #ifndef PYBIND11_PROTOBUF_MODULE_PATH
 #define PYBIND11_PROTOBUF_MODULE_PATH \
-  google3.third_party.pybind11_protobuf.proto
+  pybind11_protobuf.proto
 #endif
 
 // Imports the bindings for the proto base types. This not thread safe and

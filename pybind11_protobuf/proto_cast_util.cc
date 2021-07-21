@@ -94,8 +94,7 @@ std::string PythonPackageForDescriptor(const ::google::protobuf::FileDescriptor*
   std::vector<std::pair<const absl::string_view, std::string>> replacements;
   replacements.emplace_back("/", ".");
   replacements.emplace_back(".proto", "_pb2");
-
-  std::string name = "google3/" + file->name();
+  std::string name = file->name();
   return absl::StrReplaceAll(name, replacements);
 }
 
