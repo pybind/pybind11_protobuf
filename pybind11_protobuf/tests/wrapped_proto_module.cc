@@ -79,14 +79,6 @@ PYBIND11_MODULE(wrapped_proto_module, m) {
           return CheckMessage(msg, value);
         }),
         py::arg("proto"), py::arg("value"));
-  m.def("check_ref", WithWrappedProtos([](TestMessage& msg, int32_t value) {
-          return CheckMessage(&msg, value);
-        }),
-        py::arg("proto"), py::arg("value"));
-  m.def("check_ptr", WithWrappedProtos([](TestMessage* msg, int32_t value) {
-          return CheckMessage(msg, value);
-        }),
-        py::arg("proto"), py::arg("value"));
   m.def("check_val", WithWrappedProtos([](TestMessage msg, int32_t value) {
           return CheckMessage(&msg, value);
         }),
@@ -95,14 +87,23 @@ PYBIND11_MODULE(wrapped_proto_module, m) {
           return CheckMessage(&msg, value);
         }),
         py::arg("proto"), py::arg("value"));
+
+  // WithWrappedProto does not auto-wrap mutable protos, but constructing a
+  // wrapper manually will still work. Note, however, that the proto will be
+  // copied.
+  m.def(
+      "check_mutable",
+      [](WrappedProto<TestMessage, WrappedProtoKind::kMutable> msg,
+         int32_t value) {
+        return CheckMessage(static_cast<TestMessage*>(msg), value);
+      },
+      py::arg("proto"), py::arg("value"));
 }
 
 /// Below here are compile tests for fast_cpp_proto_casters
 int GetInt();
 const TestMessage& GetConstReference();
 const TestMessage* GetConstPtr();
-TestMessage& GetReference();
-TestMessage* GetPtr();
 TestMessage GetValue();
 TestMessage&& GetRValue();
 absl::StatusOr<TestMessage> GetStatusOr();
@@ -110,8 +111,6 @@ absl::StatusOr<TestMessage> GetStatusOr();
 void PassInt(int);
 void PassConstReference(const TestMessage&);
 void PassConstPtr(const TestMessage*);
-void PassPtr(TestMessage*);
-void PassReference(TestMessage&);
 void PassValue(TestMessage);
 void PassRValue(TestMessage&&);
 
@@ -155,17 +154,6 @@ void test_static_asserts() {
       std::is_same_v<
           int, std::invoke_result_t<decltype(WithWrappedProtos(&GetInt))>>,
       "");
-
-  static_assert(
-      std::is_same_v<
-          WrappedProto<TestMessage, WrappedProtoKind::kMutable>,
-          std::invoke_result_t<decltype(WithWrappedProtos(&GetReference))>>,
-      "");
-
-  static_assert(std::is_same_v<
-                    WrappedProto<TestMessage, WrappedProtoKind::kMutable>,
-                    std::invoke_result_t<decltype(WithWrappedProtos(&GetPtr))>>,
-                "");
 
   static_assert(
       std::is_same_v<WrappedProto<TestMessage, WrappedProtoKind::kConst>,
@@ -227,16 +215,6 @@ void test_static_asserts() {
                           WrappedProto<TestMessage, WrappedProtoKind::kConst>>,
       "");
 
-  static_assert(std::is_invocable_v<
-                    decltype(WithWrappedProtos(&PassReference)),
-                    WrappedProto<TestMessage, WrappedProtoKind::kMutable>>,
-                "");
-
-  static_assert(std::is_invocable_v<
-                    decltype(WithWrappedProtos(&PassPtr)),
-                    WrappedProto<TestMessage, WrappedProtoKind::kMutable>>,
-                "");
-
   static_assert(
       std::is_invocable_v<decltype(WithWrappedProtos(&PassValue)),
                           WrappedProto<TestMessage, WrappedProtoKind::kValue>>,
@@ -247,5 +225,42 @@ void test_static_asserts() {
                           WrappedProto<TestMessage, WrappedProtoKind::kValue>>,
       "");
 }
+
+#if defined(WRAPPED_PROTO_CASTER_NONCOMPILE_TEST)
+// This code could be added as a non-compile test.
+//
+// It exercises the WithWrappedProtos(...) codepaths when called with mutable
+// protos, and is expected to fail with a static_assert.
+//
+TestMessage& GetReference();
+TestMessage* GetPtr();
+void PassPtr(TestMessage*);
+void PassReference(TestMessage&);
+
+void test_wrapping_disabled() {
+  // Automatically wrapping mutable methods fails.
+
+  static_assert(
+      std::is_same_v<
+          WrappedProto<TestMessage, WrappedProtoKind::kMutable>,
+          std::invoke_result_t<decltype(WithWrappedProtos(&GetReference))>>,
+      "");
+
+  static_assert(std::is_same_v<
+                    WrappedProto<TestMessage, WrappedProtoKind::kMutable>,
+                    std::invoke_result_t<decltype(WithWrappedProtos(&GetPtr))>>,
+                "");
+
+  static_assert(std::is_invocable_v<
+                    decltype(WithWrappedProtos(&PassReference)),
+                    WrappedProto<TestMessage, WrappedProtoKind::kMutable>>,
+                "");
+
+  static_assert(std::is_invocable_v<
+                    decltype(WithWrappedProtos(&PassPtr)),
+                    WrappedProto<TestMessage, WrappedProtoKind::kMutable>>,
+                "");
+}
+#endif  // WRAPPED_PROTO_CASTER_NONCOMPILE_TEST
 
 }  // namespace

@@ -37,16 +37,30 @@
 //   m.def("get_message", WithWrappedProtos(&GetMessage));
 // }
 //
-
+// Under the covers, WithWrappedProtos(...) maps by-const or by-value
+// proto::Message subtype method argument and return types to a transparent
+// wrapper, WrappedProto<T, Kind> types which are then handled by a specialized
+// pybind11::type_caster.
+//
+// Mutable types are not automatically converted, as the always-copy
+// semantics may be misleading for this conversion, and callers likely need to
+// make adjustments to the caller or return types of such code. Of particluar
+// note, builder-style classes may be better implemented independently in
+// python rather than attempting to wrap C++ counterparts.
+//
 namespace pybind11::google {
 
 /// Tag types for WrappedProto specialization.
-enum WrappedProtoKind : int { kValue, kConst, kMutable };
+enum WrappedProtoKind : int { kConst, kValue, kMutable };
 
 /// WrappedProto<T, kind> wraps a ::google::protobuf::Message subtype, exposing implicit
 /// constructors and implicit cast operators. The ConstTag variant allows
 /// conversion to const; the MutableTag allows mutable conversion and enables
 /// the type-caster specialization to enforce that a copy is made.
+///
+/// WrappedProto<T, kMutable> ALWAYS creates a copy.
+/// WrappedProto<T, kValue> ALWAYS creates a copy.
+/// WrappedProto<T, kConst> may either copy or share the underlying class.
 template <typename ProtoType, WrappedProtoKind Kind>
 struct WrappedProto;
 
@@ -130,8 +144,13 @@ template <typename ProtoType>
 struct WrapHelper<ProtoType,  //
                   std::enable_if_t<std::is_base_of_v<::google::protobuf::Message,
                                                      intrinsic_t<ProtoType>>>> {
+  static constexpr auto kKind = DetectKind<ProtoType>();
+  static_assert(kKind != WrappedProtoKind::kMutable,
+                "WithWrappedProtos() does not support mutable ::google::protobuf::Message "
+                "parameters.");
+
   using proto = intrinsic_t<ProtoType>;
-  using type = WrappedProto<proto, DetectKind<ProtoType>()>;
+  using type = WrappedProto<proto, kKind>;
 };
 
 // absl::StatusOr is a common wrapper so also propagate WrappedProto into
@@ -142,8 +161,13 @@ template <typename ProtoType>
 struct WrapHelper<absl::StatusOr<ProtoType>,  //
                   std::enable_if_t<std::is_base_of_v<::google::protobuf::Message,
                                                      intrinsic_t<ProtoType>>>> {
+  static constexpr auto kKind = DetectKind<ProtoType>();
+  static_assert(kKind != WrappedProtoKind::kMutable,
+                "WithWrappedProtos() does not support mutable ::google::protobuf::Message "
+                "parameters.");
+
   using proto = intrinsic_t<ProtoType>;
-  using type = absl::StatusOr<WrappedProto<proto, DetectKind<ProtoType>()>>;
+  using type = absl::StatusOr<WrappedProto<proto, kKind>>;
 };
 
 /// WrappedProtoInvoker is an internal function object that exposes a call
@@ -232,19 +256,25 @@ struct wrapped_proto_caster
     if (policy == return_value_policy::take_ownership) {
       owned.reset(const_cast<ProtoType*>(src.get()));
     }
-    return cast_impl(src.get(), return_value_policy::copy, parent,
-                     WrappedProtoKind::kConst == WrappedProtoType::kind);
+    // The underlying implementation always creates a copy of non-const
+    // messages because otherwise sharing memory between C++ and Python allow
+    // risky and unsafe access.
+    return cast_impl(
+        src.get(), return_value_policy::copy, parent,
+        /*is_const*/ WrappedProtoKind::kConst == WrappedProtoType::kind);
   }
 
   // PYBIND11_TYPE_CASTER
   explicit operator WrappedProtoType() {
     if constexpr (WrappedProtoKind::kValue == WrappedProtoType::kind) {
+      // WrappedProto<T, kValue> ALWAYS creates a copy.
       if (owned) {
         return std::move(*owned);
       } else {
         return ProtoType(*value);
       }
     } else if constexpr (WrappedProtoKind::kMutable == WrappedProtoType::kind) {
+      // WrappedProto<T, kMutable> ALWAYS creates a copy.
       ensure_owned();
       return owned.get();
     } else {

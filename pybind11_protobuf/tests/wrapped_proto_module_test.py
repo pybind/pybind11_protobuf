@@ -42,10 +42,9 @@ class FastProtoTest(parameterized.TestCase, compare.ProtoAssertions):
       ('check', m.check),
       ('check_cref', m.check_cref),
       ('check_cptr', m.check_cptr),
-      ('check_ref', m.check_ref),
-      ('check_ptr', m.check_ptr),
       ('check_val', m.check_val),
       ('check_rval', m.check_rval),
+      ('check_mutable', m.check_mutable),
   )
   def test_native(self, check):
     a = test_pb2.TestMessage()
@@ -56,10 +55,9 @@ class FastProtoTest(parameterized.TestCase, compare.ProtoAssertions):
       ('check', m.check),
       ('check_cref', m.check_cref),
       ('check_cptr', m.check_cptr),
-      ('check_ref', m.check_ref),
-      ('check_ptr', m.check_ptr),
       ('check_val', m.check_val),
       ('check_rval', m.check_rval),
+      ('check_mutable', m.check_mutable),
   )
   def test_wrapped(self, check):
     a = m.get_test_message()
