@@ -329,26 +329,41 @@ std::pair<py::object, ::google::protobuf::Message*> AllocatePyFastCppProto(
     const ::google::protobuf::Descriptor* descriptor) {
   CHECK(descriptor != nullptr);
   const auto* py_proto_api = GetPyProtoApi();
-  auto* found_descriptor =
-      py_proto_api->GetDefaultDescriptorPool()->FindMessageTypeByName(
-          descriptor->full_name());
 
-  if (found_descriptor == nullptr) {
-    // This typically indicates a descriptor from a non-default pool, such as
-    // a dynamically generated pool. It may be possible to resolve the type
-    // by adding a DescriptorProto to the python pool for this type.
-    throw py::type_error(
-        "Cannot construct python proto; descriptor not found in pool for " +
-        descriptor->full_name());
+  // Create a PyDescriptorPool, temporarily, it will be used by the NewMessage
+  // API call which will store it in the classes it creates.
+  //
+  // Note: Creating Python classes is a bit expensive, it might be a good idea
+  // for client code to create the pool once, and store it somewhere along with
+  // the C++ pool; then Python pools and classes are cached and reused.
+  // Otherwise, consecutives calls to this function may or may not reuse
+  // previous classes, depending on whether the returned instance has been
+  // kept alive.
+  //
+  // IMPORTANT CAVEAT: The C++ DescriptorPool must not be deallocated while
+  // there are any messages using it.
+  // Furthermore, since the cache uses the DescriptorPool address, allocating
+  // a new DescriptorPool with the same address is likely to use dangling
+  // pointers.
+  // It is probably better for client code to keep the C++ DescriptorPool alive
+  // until the end of the process.
+  // TODO(amauryfa): Add weakref or on-deletion callbacks to C++ DescriptorPool.
+  py::object descriptor_pool = py::reinterpret_steal<py::object>(
+      py_proto_api->DescriptorPool_FromPool(descriptor->file()->pool()));
+  if (descriptor_pool.ptr() == nullptr) {
+    throw py::error_already_set();
   }
 
   py::object result = py::reinterpret_steal<py::object>(
-      py_proto_api->NewMessage(found_descriptor, nullptr));
+      py_proto_api->NewMessage(descriptor, nullptr));
   if (result.ptr() == nullptr) {
     throw py::error_already_set();
   }
   ::google::protobuf::Message* message =
       py_proto_api->GetMutableMessagePointer(result.ptr());
+  if (message == nullptr) {
+    throw py::error_already_set();
+  }
   return {std::move(result), message};
 }
 
