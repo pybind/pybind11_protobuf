@@ -26,7 +26,7 @@ if str is bytes:  # PY2
 def get_fully_populated_test_message():
   """Returns a wrapped TestMessage with all fields set."""
   # This tests initializing a proto by keyword argument.
-  return proto_example.TestMessage(
+  return proto_example.make_test_message(
       string_value='test',
       int_value=4,
       double_value=4.5,
@@ -69,7 +69,8 @@ double_value: 4.5
 def named_parameters_test_special_copy_methods():
   for copy_fn in ('copy', 'deepcopy'):
     for proto_kind, make_proto, proto_attr in (
-        ('registered', 'make_int_message', 'value'),
+        ('registered', 'make_int_message', 'value'),  #
+        ('generic', 'make_test_message', 'int_value'),  #
         ('concrete', 'TestMessage', 'int_value')):
       yield ('_'.join((copy_fn, proto_kind)),
              getattr(copy, copy_fn),
@@ -80,7 +81,8 @@ def named_parameters_test_special_copy_methods():
 class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
 
   NATIVE_AND_WRAPPED_TEST_MESSAGES = (('wrapped',
-                                       proto_example.TestMessage(int_value=5)),
+                                       proto_example.make_test_message(
+                                           int_value=5)),
                                       ('native',
                                        test_pb2.TestMessage(int_value=5)))
 
@@ -564,14 +566,14 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
 
   @parameterized.named_parameters(*NATIVE_AND_WRAPPED_TEST_MESSAGES)
   def test_copy_from(self, other):
-    message = proto_example.TestMessage(double_value=5.5)
+    message = proto_example.make_test_message(double_value=5.5)
     message.CopyFrom(other)
     self.assertEqual(message.int_value, 5)
     self.assertEqual(message.double_value, 0)  # Should have been overwritten.
 
   @parameterized.named_parameters(*NATIVE_AND_WRAPPED_TEST_MESSAGES)
   def test_merge_from(self, other):
-    message = proto_example.TestMessage(double_value=5.5)
+    message = proto_example.make_test_message(double_value=5.5)
     message.MergeFrom(other)
     self.assertEqual(message.int_value, 5)
     self.assertEqual(message.double_value, 5.5)  # Should have been preserved.
@@ -636,11 +638,11 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
       ('deterministic_true', {'deterministic': True}))
   def test_serialize_and_parse(self, kwargs):
     message = get_fully_populated_test_message()
-    message_copy = proto_example.TestMessage()
+    message_copy = proto_example.make_test_message()
     message_copy.ParseFromString(message.SerializeToString(**kwargs))
     self.assertProtoEqual(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT,
                           message_copy)
-    message_copy = proto_example.TestMessage()
+    message_copy = proto_example.make_test_message()
     message_copy.ParseFromString(message.SerializePartialToString(**kwargs))
     self.assertProtoEqual(FULLY_POPULATED_TEST_MESSAGE_TEXT_FORMAT,
                           message_copy)

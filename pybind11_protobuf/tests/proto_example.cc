@@ -9,7 +9,10 @@
 #include <stdexcept>
 
 #include "pybind11_protobuf/proto_casters.h"
+#include "pybind11_protobuf/proto_utils.h"
 #include "pybind11_protobuf/tests/test.pb.h"
+
+namespace py = ::pybind11;
 
 namespace pybind11 {
 namespace test {
@@ -73,7 +76,13 @@ PYBIND11_MODULE(proto_example, m) {
   // Register TestMessage but not IntMessage to demonstrate the effect.
   google::RegisterProtoMessageType<TestMessage>(m);
 
-  m.def("make_test_message", []() { return TestMessage(); });
+  m.def("make_test_message", [](py::kwargs kwargs) {
+    TestMessage x;
+    if (kwargs) {
+      py::google::ProtoInitFields(&x, kwargs);
+    }
+    return x;
+  });
   m.def("make_int_message", []() { return IntMessage(); });
   m.def("check_int_message", &CheckIntMessage, arg("message"), arg("value"));
   m.def("check_int_message_ptr", &CheckIntMessagePtr, arg("message"),

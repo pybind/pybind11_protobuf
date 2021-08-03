@@ -41,6 +41,7 @@ pybind_extension(
     deps = [
         ":test_cc_proto",
         "//pybind11_protobuf:proto_casters",
+        "//pybind11_protobuf:proto_utils",
     ],
 )
 

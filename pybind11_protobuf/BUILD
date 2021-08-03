@@ -12,6 +12,9 @@ pybind_library(
     hdrs = [
         "proto_utils.h",
     ],
+    visibility = [
+        "//pybind11_protobuf:__subpackages__",
+    ],
     deps = [
         "@com_google_protobuf//:protobuf",  # copybara:strip
     ],
