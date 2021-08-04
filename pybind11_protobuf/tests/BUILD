@@ -31,7 +31,7 @@ py_test(
     srcs_version = "PY3",
     deps = [
         ":test_py_pb2",
-        "//testing/pybase",
+        "@com_google_absl_py//absl/testing:absltest",
     ],
 )
 
@@ -57,8 +57,8 @@ py_test(
     deps = [
         ":compare",
         ":test_py_pb2",
-        "//testing/pybase",
-        "//testing/pybase:parameterized",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_absl_py//absl/testing:parameterized",
     ],
 )
 
@@ -101,7 +101,7 @@ py_test(
         "//pybind11_protobuf:proto.so",
     ],
     python_version = "PY3",
-    deps = ["//testing/pybase"],
+    deps = ["@com_google_absl_py//absl/testing:absltest"],
 )
 
 py_test(
@@ -112,7 +112,7 @@ py_test(
         "//pybind11_protobuf:proto.so",
     ],
     python_version = "PY3",
-    deps = ["//testing/pybase"],
+    deps = ["@com_google_absl_py//absl/testing:absltest"],
 )
 
 # An example (and test) of using an alternative path for the protobuf module.
@@ -137,7 +137,7 @@ py_test(
     data = [":alternate_module_path_example.so"],
     python_version = "PY3",
     srcs_version = "PY3",
-    deps = ["//testing/pybase"],
+    deps = ["@com_google_absl_py//absl/testing:absltest"],
 )
 
 pybind_extension(
@@ -158,7 +158,7 @@ py_test(
     srcs_version = "PY3",
     deps = [
         ":test_py_pb2",
-        "//testing/pybase",
+        "@com_google_absl_py//absl/testing:absltest",
     ],
 )
 
@@ -187,8 +187,8 @@ py_test(
     deps = [
         ":compare",
         ":test_py_pb2",
-        "//testing/pybase",
-        "//testing/pybase:parameterized",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_absl_py//absl/testing:parameterized",
     ],
 )
 
@@ -215,8 +215,8 @@ py_test(
     deps = [
         ":extension_py_pb2",
         ":test_py_pb2",  # fixdeps: keep - Direct dependency needed in open-source version, see https://github.com/grpc/grpc/issues/22811
-        "//testing/pybase",
-        "//testing/pybase:parameterized",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_absl_py//absl/testing:parameterized",
     ],
 )
 
@@ -244,8 +244,8 @@ py_test(
     deps = [
         ":compare",
         ":test_py_pb2",
-        "//testing/pybase",
-        "//testing/pybase:parameterized",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_absl_py//absl/testing:parameterized",
     ],
 )
 
@@ -270,8 +270,8 @@ py_test(
     srcs_version = "PY3",
     deps = [
         ":test_py_pb2",
-        "//testing/pybase",
-        "//testing/pybase:parameterized",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_absl_py//absl/testing:parameterized",
     ],
 )
 
@@ -301,7 +301,7 @@ py_test(
     deps = [
         ":compare",
         ":test_py_pb2",
-        "//testing/pybase",
-        "//testing/pybase:parameterized",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_absl_py//absl/testing:parameterized",
     ],
 )

@@ -12,9 +12,10 @@ import copy
 import pickle
 import re
 
+from absl.testing import absltest
+from absl.testing import parameterized
+
 from google.protobuf import any_pb2
-from google3.testing.pybase import googletest
-from google3.testing.pybase import parameterized
 from pybind11_protobuf.tests import compare
 from pybind11_protobuf.tests import message_module as m
 from pybind11_protobuf.tests import test_pb2
@@ -553,4 +554,4 @@ class MessageTest(parameterized.TestCase, compare.ProtoAssertions):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()

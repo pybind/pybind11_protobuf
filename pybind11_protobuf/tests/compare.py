@@ -24,11 +24,11 @@ output than assertEqual() for proto2 messages, e.g. this:
 
 AssertionError: <my.Msg object at 0x9fb353c> != <my.Msg object at 0x9fb35cc>
 
-Call it inside your unit test's googletest.TestCase subclasses like this:
+Call it inside your unit test's absltest.TestCase subclasses like this:
 
   from tensorflow.python.util.protobuf import compare
 
-  class MyTest(googletest.TestCase):
+  class MyTest(absltest.TestCase):
     ...
     def testXXX(self):
       ...
@@ -38,7 +38,7 @@ Alternatively:
 
   from tensorflow.python.util.protobuf import compare
 
-  class MyTest(compare.ProtoAssertions, googletest.TestCase):
+  class MyTest(compare.ProtoAssertions, absltest.TestCase):
     ...
     def testXXX(self):
       ...
@@ -61,7 +61,7 @@ def assertProtoEqual(self, a, b, check_initialized=True,  # pylint: disable=inva
   unittest.TestCase.assertEqual(), ie order and extra duplicates fields matter.
 
   Args:
-    self: googletest.TestCase
+    self: absltest.TestCase
     a: proto2 PB instance, or text string representing one.
     b: proto2 PB instance -- message.Message or subclass thereof.
     check_initialized: boolean, whether to fail if either a or b isn't
@@ -235,11 +235,11 @@ def ProtoEq(a, b):
 
 
 class ProtoAssertions(object):
-  """Mix this into a googletest.TestCase class to get proto2 assertions.
+  """Mix this into a absltest.TestCase class to get proto2 assertions.
 
   Usage:
 
-  class SomeTestCase(compare.ProtoAssertions, googletest.TestCase):
+  class SomeTestCase(compare.ProtoAssertions, absltest.TestCase):
     ...
     def testSomething(self):
       ...

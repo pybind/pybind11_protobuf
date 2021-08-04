@@ -6,12 +6,13 @@
 
 from __future__ import absolute_import
 
-from google3.testing.pybase import googletest
+from absl.testing import absltest
+
 from pybind11_protobuf.tests import proto_enum_module as m
 from pybind11_protobuf.tests import test_pb2
 
 
-class ProtoEnumTest(googletest.TestCase):
+class ProtoEnumTest(absltest.TestCase):
 
   def test_enum(self):
     self.assertEqual(m.adjust_enum(0), 1)
@@ -23,4 +24,4 @@ class ProtoEnumTest(googletest.TestCase):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()

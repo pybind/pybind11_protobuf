@@ -1,11 +1,12 @@
 """Tests for pybind11_protobuf.tests.missing_import."""
 
-from google3.testing.pybase import googletest
+from absl.testing import absltest
+
 from pybind11_protobuf.tests import missing_import
 from pybind11_protobuf.tests import test_pb2
 
 
-class MissingImportTest(googletest.TestCase):
+class MissingImportTest(absltest.TestCase):
 
   message_regex = 'Proto module has not been imported.*'
 
@@ -20,4 +21,4 @@ class MissingImportTest(googletest.TestCase):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()

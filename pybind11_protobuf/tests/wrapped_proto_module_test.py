@@ -8,8 +8,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from google3.testing.pybase import googletest
-from google3.testing.pybase import parameterized
+from absl.testing import absltest
+from absl.testing import parameterized
+
 from pybind11_protobuf.tests import compare
 from pybind11_protobuf.tests import test_pb2
 from pybind11_protobuf.tests import wrapped_proto_module as m
@@ -84,4 +85,4 @@ class FastProtoTest(parameterized.TestCase, compare.ProtoAssertions):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()

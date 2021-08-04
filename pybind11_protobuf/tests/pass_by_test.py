@@ -7,8 +7,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from google3.testing.pybase import googletest
-from google3.testing.pybase import parameterized
+from absl.testing import absltest
+from absl.testing import parameterized
+
 from pybind11_protobuf.tests import pass_by_module as m
 from pybind11_protobuf.tests import test_pb2
 from google.protobuf import descriptor_pool
@@ -166,4 +167,4 @@ class PassByTest(parameterized.TestCase):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()

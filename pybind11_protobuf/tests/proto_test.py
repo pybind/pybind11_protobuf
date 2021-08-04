@@ -11,9 +11,10 @@ from __future__ import print_function
 import copy
 import pickle
 
+from absl.testing import absltest
+from absl.testing import parameterized
+
 from google.protobuf import text_format
-from google3.testing.pybase import googletest
-from google3.testing.pybase import parameterized
 from pybind11_protobuf import proto
 from pybind11_protobuf.tests import compare
 from pybind11_protobuf.tests import proto_example
@@ -672,4 +673,4 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()

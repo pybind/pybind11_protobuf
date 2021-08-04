@@ -8,11 +8,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from absl.testing import absltest
+from absl.testing import parameterized
+
 from google.protobuf import descriptor_pb2
 from google.protobuf import descriptor_pool
 from google.protobuf import message_factory
-from google3.testing.pybase import googletest
-from google3.testing.pybase import parameterized
 from pybind11_protobuf.tests import compare
 from pybind11_protobuf.tests import dynamic_message_module as m
 from pybind11_protobuf.tests import test_pb2
@@ -115,4 +116,4 @@ class DynamicMessageTest(parameterized.TestCase, compare.ProtoAssertions):
 
 
 if __name__ == '__main__':
-  googletest.main()
+  absltest.main()
