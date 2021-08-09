@@ -1,0 +1,10 @@
+// This is the kokoro build configuration for the
+// google3/pybind11_protobuf/ project which is being exported to
+// https://github.com/pybind/pybind11_protobuf.
+
+template build_tmpl = {
+  gfile_resources = [
+    '/google_src/files/head/depot/google3/devtools/kokoro/vanadium/linux_scripts/usr/local/bin/use_bazel.sh',
+    '/google_src/files/head/depot/google3/pybind11_protobuf/google/kokoro/common.sh',
+  ]
+}

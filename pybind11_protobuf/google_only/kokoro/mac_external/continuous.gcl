@@ -1,0 +1,3 @@
+import '//pybind11_protobuf/google/kokoro/mac_external/common.gcl' as common
+
+template build_tmpl = common.build_tmpl {}
