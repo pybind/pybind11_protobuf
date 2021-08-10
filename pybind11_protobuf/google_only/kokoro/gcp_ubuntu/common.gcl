@@ -1,6 +1,6 @@
 import '//pybind11_protobuf/google_only/kokoro/common.gcl' as common
 
-config build = common.build_tmpl {
+template build_tmpl = common.build_tmpl {
   build_file = '../gfile/build.sh'
 
   gfile_resources = super.gfile_resources + [
