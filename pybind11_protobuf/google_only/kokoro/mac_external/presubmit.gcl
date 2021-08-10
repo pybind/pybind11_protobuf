@@ -1,3 +1,0 @@
-import '//pybind11_protobuf/google_only/kokoro/mac_external/common.gcl' as common
-
-config build = common.build_tmpl {}
