@@ -5,3 +5,7 @@ github_init() {
   cd "${KOKORO_ROOT}/src/github/pybind11_protobuf"
   pwd
 }
+
+bazel_init() {
+  bazel version
+}

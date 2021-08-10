@@ -5,6 +5,7 @@ main() {
   source "${KOKORO_GFILE_DIR}/common.sh"
 
   github_init
+  bazel_init
 
   # TODO(b/193511932): Open source `pybind11_protobuf` unit tests.
   bazel test \
