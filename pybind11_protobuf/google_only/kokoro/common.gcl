@@ -5,6 +5,6 @@
 template build_tmpl = {
   gfile_resources = [
     '/google_src/files/head/depot/google3/devtools/kokoro/vanadium/linux_scripts/usr/local/bin/use_bazel.sh',
-    '/google_src/files/head/depot/google3/pybind11_protobuf/google/kokoro/common.sh',
+    '/google_src/files/head/depot/google3/pybind11_protobuf/google_only/kokoro/common.sh',
   ]
 }
