@@ -53,6 +53,15 @@ inline module ImportProtoModule() {
 }
 
 // Registers the given concrete ProtoType with pybind11.
+//
+// DEPRECATED
+//
+// The only benefit of this method is the ability to construct a wrapped
+// proto using kwargs and a pybind11 type name for use with instanceof.
+// As native_proto_caster.h/wrapped_proto_caster.h are the preferred mechanisms
+// for writing pybind11 bindings, please avoid.
+//
+// DEPRECATED
 template <typename ProtoType>
 void RegisterProtoMessageType(module m = module()) {
   CheckProtoModuleImported();
