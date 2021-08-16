@@ -36,7 +36,9 @@ PYBIND11_MODULE(extension_module, m) {
 
   m.def(
       "get_message",
-      [](int32_t value) -> BaseMessage { return *GetMessage(value).release(); },
+      [](int32_t value) -> BaseMessage {
+        return std::move(*GetMessage(value));
+      },
       py::arg("value") = 123);
 
   m.def("get_extension", &GetExtension, py::arg("message"));

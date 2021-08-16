@@ -61,7 +61,9 @@ PYBIND11_MODULE(pass_by_module, m) {
         []() { return std::unique_ptr<IntMessage>(new IntMessage()); });
   m.def("static_cptr", []() -> const IntMessage* { return GetStatic(); });
   m.def("static_cref", []() -> const IntMessage& { return *GetStatic(); });
-  m.def("static_ptr", []() -> IntMessage* { return GetStatic(); });
+  m.def(
+      "static_ptr", []() -> IntMessage* { return GetStatic(); },
+      py::return_value_policy::copy);
   m.def("static_ref", []() -> IntMessage& { return *GetStatic(); });
   m.def(
       "static_ref_auto", []() -> IntMessage& { return *GetStatic(); },

@@ -187,6 +187,12 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
   static constexpr auto name = pybind11::detail::_<ProtoType>();
 
   // cast converts from C++ -> Python
+  //
+  // return_value_policy handling differs from the behavior for
+  // py::class_-wrapped objects because because protocol buffer objects usually
+  // need to be copied across the C++/python boundary as they contain internal
+  // pointers which are unsafe to modify. See:
+  // https://pybind11.readthedocs.io/en/stable/advanced/functions.html#return-value-policies
   static handle cast(ProtoType &&src, return_value_policy policy,
                      handle parent) {
     return cast_impl(&src, return_value_policy::copy, parent, false);
@@ -194,8 +200,12 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
 
   static handle cast(const ProtoType *src, return_value_policy policy,
                      handle parent) {
-    if (policy == return_value_policy::automatic ||
-        policy == return_value_policy::automatic_reference) {
+    std::unique_ptr<const ProtoType> wrapper;
+    if (policy == return_value_policy::take_ownership) {
+      wrapper.reset(src);
+      policy = return_value_policy::copy;
+    } else if (policy == return_value_policy::automatic ||
+               policy == return_value_policy::automatic_reference) {
       policy = return_value_policy::copy;
     }
     return cast_impl(const_cast<ProtoType *>(src), policy, parent, true);
@@ -203,13 +213,12 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
 
   static handle cast(ProtoType *src, return_value_policy policy,
                      handle parent) {
-    if (policy == return_value_policy::automatic ||
-        policy == return_value_policy::automatic_reference) {
-      policy = return_value_policy::copy;
-    }
     std::unique_ptr<ProtoType> wrapper;
-    if (policy == return_value_policy::take_ownership) {
+    if (policy == return_value_policy::take_ownership ||
+        policy == return_value_policy::automatic) {
       wrapper.reset(src);
+      policy = return_value_policy::copy;
+    } else if (policy == return_value_policy::automatic_reference) {
       policy = return_value_policy::copy;
     }
     return cast_impl(src, policy, parent, false);

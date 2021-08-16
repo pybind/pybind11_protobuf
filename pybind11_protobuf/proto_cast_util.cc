@@ -382,6 +382,27 @@ py::object ResolveDescriptor(py::object p, const ::google::protobuf::Descriptor*
                               : p.attr(d->name().c_str());
 }
 
+std::string ReturnValuePolicyName(py::return_value_policy policy) {
+  switch (policy) {
+    case py::return_value_policy::automatic:
+      return "automatic";
+    case py::return_value_policy::automatic_reference:
+      return "automatic_reference";
+    case py::return_value_policy::take_ownership:
+      return "take_ownership";
+    case py::return_value_policy::copy:
+      return "copy";
+    case py::return_value_policy::move:
+      return "move";
+    case py::return_value_policy::reference:
+      return "reference";
+    case py::return_value_policy::reference_internal:
+      return "reference_internal";
+    default:
+      return "INVALID_ENUM_VALUE";
+  }
+}
+
 }  // namespace
 
 py::handle GenericPyProtoCast(::google::protobuf::Message* src,
@@ -436,7 +457,6 @@ py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
                                    py::handle parent, bool is_const) {
   assert(src != nullptr);
   switch (policy) {
-    case py::return_value_policy::automatic:
     case py::return_value_policy::copy: {
       auto [result, result_message] =
           pybind11_protobuf::AllocatePyFastCppProto(src->GetDescriptor());
@@ -465,7 +485,8 @@ py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
     } break;
 
     default:
-      throw py::cast_error("unhandled return_value_policy: should not happen!");
+      std::string message("pybind11_protobuf unhandled return_value_policy::");
+      throw py::cast_error(message + ReturnValuePolicyName(policy));
   }
 }
 
