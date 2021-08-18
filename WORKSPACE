@@ -69,19 +69,6 @@ git_repository(
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 grpc_deps()
 
-# Google logging
-git_repository(
-    name = "com_google_glog",
-    remote = "https://github.com/google/glog.git",
-    branch = "master"
-)
-# Dependency for glog
-git_repository(
-    name = "com_github_gflags_gflags",
-    remote = "https://github.com/mchinen/gflags.git",
-    branch = "android_linking_fix"
-)
-
 bind(
     name = "python_headers",
     actual = "@com_google_protobuf//util/python:python_headers",

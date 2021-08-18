@@ -169,8 +169,8 @@ pybind_extension(
     srcs = ["dynamic_message_module.cc"],
     deps = [
         ":test_cc_proto",
+        "//base:logging",
         "//pybind11_protobuf:native_proto_caster",
-        "@com_google_glog//:glog",
         "@com_google_protobuf//:protobuf",
     ],
 )

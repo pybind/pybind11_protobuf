@@ -11,7 +11,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "glog/logging.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
