@@ -162,6 +162,8 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     self.assertLen(message.repeated_int_value, 2)
     self.assertEqual(message.repeated_int_value[0], 6)
     self.assertEqual(message.repeated_int_value[1], 7)
+    self.assertEqual(message.repeated_int_value[-2], 6)
+    self.assertEqual(message.repeated_int_value[-1], 7)
     for value, expected in zip(message.repeated_int_value, [6, 7]):
       self.assertEqual(value, expected)
 
@@ -194,6 +196,19 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     del message.repeated_int_value[1:3]
     self.assertSequenceEqual(message.repeated_int_value, [8, 5])
 
+    message.repeated_int_value.insert(-1, 3)
+    self.assertSequenceEqual(message.repeated_int_value, [8, 3, 5])
+
+    # Out of range indexes should be clamped for insertions.
+    message.repeated_int_value.insert(-1000, 1)
+    self.assertSequenceEqual(message.repeated_int_value, [1, 8, 3, 5])
+
+    message.repeated_int_value.insert(1000, 2)
+    self.assertSequenceEqual(message.repeated_int_value, [1, 8, 3, 5, 2])
+
+    del message.repeated_int_value[-2]
+    self.assertSequenceEqual(message.repeated_int_value, [1, 8, 3, 2])
+
     del message.repeated_int_value[:]
     self.assertEmpty(message.repeated_int_value)
 
@@ -203,6 +218,12 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
       message.repeated_int_value = [1]
     with self.assertRaises(IndexError):
       print(message.repeated_int_value[1000])
+    with self.assertRaises(IndexError):
+      print(message.repeated_int_value[-1000])
+    with self.assertRaises(IndexError):
+      del message.repeated_int_value[1000]
+    with self.assertRaises(IndexError):
+      del message.repeated_int_value[-1000]
 
   def test_access_wrapped_message_repeated_int_message(self):
     message = proto_example.make_test_message()
@@ -222,6 +243,8 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     self.assertLen(message.repeated_int_message, 2)
     self.assertEqual(message.repeated_int_message[0].value, 6)
     self.assertEqual(message.repeated_int_message[1].value, 7)
+    self.assertEqual(message.repeated_int_message[-2].value, 6)
+    self.assertEqual(message.repeated_int_message[-1].value, 7)
     check_values(message.repeated_int_message, [6, 7])
 
     self.assertEqual(str(message.repeated_int_message), '[value: 6, value: 7]')
@@ -274,6 +297,8 @@ class ProtoTest(parameterized.TestCase, compare.ProtoAssertions):
       message.repeated_int_message[0] = test_pb2.IntMessage()
     with self.assertRaises(IndexError):
       print(message.repeated_int_message[1000])
+    with self.assertRaises(IndexError):
+      print(message.repeated_int_message[-1000])
 
   def test_access_wrapped_message_map_string_int(self):
     message = proto_example.make_test_message()

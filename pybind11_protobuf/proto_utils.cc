@@ -108,14 +108,27 @@ class ProtoFieldContainerBase {
   void Add() { std::abort(); }
 
  protected:
-  // Throws an exception if the index is bad.
-  void CheckIndex(int idx, int allowed_size = -1) const {
-    if (allowed_size < 0) allowed_size = Size();
-    if (idx < 0 || idx >= allowed_size) {
+  // Throws an exception if the index is bad, adjusting for negative indexes
+  // (which are relative to the end of the list). Returns the adjusted index.
+  int CheckIndex(int idx) const {
+    int size = Size();
+    if (idx < 0) idx += size;  // Negative numbers index from the end.
+    if (idx < 0 || idx >= size) {
       // This is faster than throwing a std::out_of_range exception.
       PyErr_SetString(PyExc_IndexError, "list index out of range");
       throw error_already_set();
     }
+    return idx;
+  }
+
+  // Adjusts the index for negative values and clamps it to 0 or Size, which is
+  // the standard logic for inserting list values. Returns the adjusted index.
+  int ClampIndex(int idx) const {
+    int size = Size();
+    if (idx < 0) idx += size;  // Negative numbers index from the end.
+    if (idx < 0) idx = 0;
+    if (idx > size) idx = size;
+    return idx;
   }
 
   // Cast `inst` and keep its parent alive until `inst` is no longer referenced.
@@ -168,38 +181,38 @@ class ProtoFieldContainer {};
 // Create specializations of that template class for each numeric type.
 // Unfortunately the type name is in the function names used to access the
 // field, so the only way to do this is with a macro.
-#define NUMERIC_FIELD_REFLECTION_SPECIALIZATION(func_type, cpp_type)           \
-  template <>                                                                  \
-  class ProtoFieldContainer<cpp_type> : public ProtoFieldContainerBase {       \
-   public:                                                                     \
-    using ProtoFieldContainerBase::ProtoFieldContainerBase;                    \
-    cpp_type Get(int idx) const {                                              \
-      if (field_desc_->is_repeated()) {                                        \
-        CheckIndex(idx);                                                       \
-        return reflection_->GetRepeated##func_type(*proto_, field_desc_, idx); \
-      } else {                                                                 \
-        return reflection_->Get##func_type(*proto_, field_desc_);              \
-      }                                                                        \
-    }                                                                          \
-    object GetPython(int idx) const { return cast(Get(idx)); }                 \
-    void Set(int idx, cpp_type value) {                                        \
-      if (field_desc_->is_repeated()) {                                        \
-        CheckIndex(idx);                                                       \
-        reflection_->SetRepeated##func_type(proto_, field_desc_, idx, value);  \
-      } else {                                                                 \
-        reflection_->Set##func_type(proto_, field_desc_, value);               \
-      }                                                                        \
-    }                                                                          \
-    void SetPython(int idx, handle value) {                                    \
-      Set(idx, CastOrTypeError<cpp_type>(value));                              \
-    }                                                                          \
-    void Append(handle value) {                                                \
-      reflection_->Add##func_type(proto_, field_desc_,                         \
-                                  CastOrTypeError<cpp_type>(value));           \
-    }                                                                          \
-    std::string ElementRepr(int idx) const {                                   \
-      return std::to_string(Get(idx));                                         \
-    }                                                                          \
+#define NUMERIC_FIELD_REFLECTION_SPECIALIZATION(func_type, cpp_type)     \
+  template <>                                                            \
+  class ProtoFieldContainer<cpp_type> : public ProtoFieldContainerBase { \
+   public:                                                               \
+    using ProtoFieldContainerBase::ProtoFieldContainerBase;              \
+    cpp_type Get(int idx) const {                                        \
+      if (field_desc_->is_repeated()) {                                  \
+        return reflection_->GetRepeated##func_type(*proto_, field_desc_, \
+                                                   CheckIndex(idx));     \
+      } else {                                                           \
+        return reflection_->Get##func_type(*proto_, field_desc_);        \
+      }                                                                  \
+    }                                                                    \
+    object GetPython(int idx) const { return cast(Get(idx)); }           \
+    void Set(int idx, cpp_type value) {                                  \
+      if (field_desc_->is_repeated()) {                                  \
+        reflection_->SetRepeated##func_type(proto_, field_desc_,         \
+                                            CheckIndex(idx), value);     \
+      } else {                                                           \
+        reflection_->Set##func_type(proto_, field_desc_, value);         \
+      }                                                                  \
+    }                                                                    \
+    void SetPython(int idx, handle value) {                              \
+      Set(idx, CastOrTypeError<cpp_type>(value));                        \
+    }                                                                    \
+    void Append(handle value) {                                          \
+      reflection_->Add##func_type(proto_, field_desc_,                   \
+                                  CastOrTypeError<cpp_type>(value));     \
+    }                                                                    \
+    std::string ElementRepr(int idx) const {                             \
+      return std::to_string(Get(idx));                                   \
+    }                                                                    \
   }
 
 NUMERIC_FIELD_REFLECTION_SPECIALIZATION(Int32, int32_t);
@@ -218,9 +231,8 @@ class ProtoFieldContainer<std::string> : public ProtoFieldContainerBase {
   using ProtoFieldContainerBase::ProtoFieldContainerBase;
   const std::string& Get(int idx) const {
     if (field_desc_->is_repeated()) {
-      CheckIndex(idx);
-      return reflection_->GetRepeatedStringReference(*proto_, field_desc_, idx,
-                                                     &scratch);
+      return reflection_->GetRepeatedStringReference(*proto_, field_desc_,
+                                                     CheckIndex(idx), &scratch);
     } else {
       return reflection_->GetStringReference(*proto_, field_desc_, &scratch);
     }
@@ -238,8 +250,7 @@ class ProtoFieldContainer<std::string> : public ProtoFieldContainerBase {
   }
   void Set(int idx, std::string value) {
     if (field_desc_->is_repeated()) {
-      CheckIndex(idx);
-      reflection_->SetRepeatedString(proto_, field_desc_, idx,
+      reflection_->SetRepeatedString(proto_, field_desc_, CheckIndex(idx),
                                      std::move(value));
     } else {
       reflection_->SetString(proto_, field_desc_, std::move(value));
@@ -271,8 +282,8 @@ class ProtoFieldContainer<::google::protobuf::Message> : public ProtoFieldContai
   ::google::protobuf::Message* Get(int idx) const {
     ::google::protobuf::Message* message;
     if (field_desc_->is_repeated()) {
-      CheckIndex(idx);
-      message = reflection_->MutableRepeatedMessage(proto_, field_desc_, idx);
+      message = reflection_->MutableRepeatedMessage(proto_, field_desc_,
+                                                    CheckIndex(idx));
     } else {
       message = reflection_->MutableMessage(proto_, field_desc_);
     }
@@ -328,8 +339,8 @@ class ProtoFieldContainer<GenericEnum> : public ProtoFieldContainerBase {
   using ProtoFieldContainerBase::ProtoFieldContainerBase;
   const ::google::protobuf::EnumValueDescriptor* GetDesc(int idx) const {
     if (field_desc_->is_repeated()) {
-      CheckIndex(idx);
-      return reflection_->GetRepeatedEnum(*proto_, field_desc_, idx);
+      return reflection_->GetRepeatedEnum(*proto_, field_desc_,
+                                          CheckIndex(idx));
     } else {
       return reflection_->GetEnum(*proto_, field_desc_);
     }
@@ -338,8 +349,8 @@ class ProtoFieldContainer<GenericEnum> : public ProtoFieldContainerBase {
   object GetPython(int idx) const { return cast(Get(idx)); }
   void Set(int idx, int value) {
     if (field_desc_->is_repeated()) {
-      CheckIndex(idx);
-      reflection_->SetRepeatedEnumValue(proto_, field_desc_, idx, value);
+      reflection_->SetRepeatedEnumValue(proto_, field_desc_, CheckIndex(idx),
+                                        value);
     } else {
       reflection_->SetEnumValue(proto_, field_desc_, value);
     }
@@ -368,7 +379,7 @@ class RepeatedFieldContainer : public ProtoFieldContainer<T> {
     for (auto value : values) this->Append(value);
   }
   void Insert(int idx, handle value) {
-    this->CheckIndex(idx, this->Size() + 1);
+    idx = this->ClampIndex(idx);
     // Append a new element to the end.
     this->Append(value);
     // Slide all existing values up one index.
@@ -376,7 +387,7 @@ class RepeatedFieldContainer : public ProtoFieldContainer<T> {
       SwapElements(dst, dst - 1);
   }
   void Delete(int idx) {
-    this->CheckIndex(idx);
+    idx = this->CheckIndex(idx);
     // Slide all existing values down one index.
     for (int dst = idx; dst < this->Size() - 1; ++dst)
       SwapElements(dst, dst + 1);
