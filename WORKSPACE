@@ -52,7 +52,7 @@ python_configure(name = "local_config_python")
 git_repository(
     name = "com_google_protobuf",
     remote = "https://github.com/protocolbuffers/protobuf.git",
-    tag = "v3.15.4",
+    tag = "v3.18.0-rc1",
 )
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")

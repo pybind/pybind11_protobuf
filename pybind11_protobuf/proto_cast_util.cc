@@ -5,6 +5,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
+#include <iostream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -268,7 +269,8 @@ class PythonDescriptorPoolWrapper {
       try {
         return GetFileDescriptorProto(f(), output);
       } catch (py::error_already_set& e) {
-        LOG(ERROR) << "DescriptorDatabase::" << method << " raised an error";
+        std::cerr << "DescriptorDatabase::" << method << " raised an error";
+
         // This prints and clears the error.
         e.restore();
         PyErr_Print();
@@ -326,7 +328,7 @@ bool PyProtoCopyToCProto(py::handle py_proto, ::google::protobuf::Message* messa
 
 std::pair<py::object, ::google::protobuf::Message*> AllocatePyFastCppProto(
     const ::google::protobuf::Descriptor* descriptor) {
-  CHECK(descriptor != nullptr);
+  assert(descriptor != nullptr);
   const auto* py_proto_api = GetPyProtoApi();
 
   // Create a PyDescriptorPool, temporarily, it will be used by the NewMessage
