@@ -20,23 +20,6 @@ pybind_library(
     ],
 )
 
-pybind_library(
-    name = "proto_casters",
-    srcs = ["proto_casters.cc"],
-    hdrs = ["proto_casters.h"],
-    defines = [
-        # Force a build error when build variants are mixed.
-        "PYBIND11_PROTOBUF_MODE=pybind11_protos",
-    ],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        ":proto_utils",
-        "@com_google_protobuf//:protobuf",
-    ],
-)
-
 pybind_extension(
     name = "proto",
     srcs = ["proto.cc"],
