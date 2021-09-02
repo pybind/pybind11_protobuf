@@ -208,3 +208,27 @@ py_test(
         "@com_google_absl_py//absl/testing:parameterized",
     ],
 )
+
+pybind_extension(
+    name = "thread_module",
+    srcs = ["thread_module.cc"],
+    deps = [
+        ":test_cc_proto",
+        "//pybind11_protobuf:native_proto_caster",
+        "@com_google_absl//absl/time",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+py_test(
+    name = "thread_module_test",
+    srcs = ["thread_module_test.py"],
+    data = [":thread_module.so"],
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = [
+        ":test_py_pb2",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_absl_py//absl/testing:parameterized",
+    ],
+)
