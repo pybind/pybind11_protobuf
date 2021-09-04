@@ -32,9 +32,7 @@ class ThreadTest(parameterized.TestCase):
       ('make_message', make_message),
       ('make_message_string_view', make_message_string_view),
       ('make_message_no_gil', make_message_no_gil),
-      # BUG: https://github.com/pybind/pybind11/issues/2765
-      # The following fails due to std::string_view casting in pybind11
-      # ('make_message_string_view_no_gil', make_message_string_view_no_gil),
+      ('make_message_string_view_no_gil', make_message_string_view_no_gil),
   )
   def test_parallel(self, fn):
     fn('a')

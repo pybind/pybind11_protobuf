@@ -1066,6 +1066,10 @@ void ProtoSetField(::google::protobuf::Message* message,
 }
 
 void ProtoInitFields(::google::protobuf::Message* message, kwargs kwargs_in) {
+  // NOTE: This uses pybind11 casters to construct strings, so it needs to
+  // be wrapped by loader_life_support.
+  pybind11::detail::loader_life_support life_support;
+
   for (auto& item : kwargs_in) {
     DispatchFieldDescriptor<TemplatedProtoSetField>(
         GetFieldDescriptor(message, cast<std::string_view>(item.first)),
