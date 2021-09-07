@@ -213,7 +213,7 @@ class PythonDescriptorPoolWrapper {
 
     // Find a file by file name.
     bool FindFileByName(const std::string& filename,
-                        ::google::protobuf::FileDescriptorProto* output) {
+                        ::google::protobuf::FileDescriptorProto* output) override {
       return CallActionAndFillProto("FindFileByName", output, [&]() {
         return pool_().attr("FindFileByName")(filename);
       });
@@ -317,8 +317,7 @@ std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatab
 
 bool PyProtoCopyToCProto(py::handle py_proto, ::google::protobuf::Message* message) {
   py::object wire = py_proto.attr("SerializePartialToString")();
-  const char* bytes =
-      (wire == nullptr) ? nullptr : PYBIND11_BYTES_AS_STRING(wire.ptr());
+  const char* bytes = PYBIND11_BYTES_AS_STRING(wire.ptr());
   if (!bytes) {
     throw py::type_error("Object.SerializePartialToString failed; is this a " +
                          message->GetDescriptor()->full_name());
@@ -447,9 +446,13 @@ py::handle GenericPyProtoCast(::google::protobuf::Message* src,
   }();
 
   auto serialized = src->SerializePartialAsString();
-  py::object buffer = py::reinterpret_steal<py::object>(PyMemoryView_FromMemory(
-      const_cast<char*>(serialized.data()), serialized.size(), PyBUF_READ));
-  py_proto.attr("MergeFromString")(buffer);
+#if PY_MAJOR_VERSION >= 3
+  auto view =
+      py::memoryview::from_memory(serialized.data(), serialized.size(), true);
+#else
+  py::bytearray view(serialized);
+#endif
+  py_proto.attr("MergeFromString")(view);
   return py_proto.release();
 }
 

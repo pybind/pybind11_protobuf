@@ -75,7 +75,7 @@ struct WrappedProto<ProtoType, WrappedProtoKind::kMutable> {
   ProtoType* get() noexcept { return proto; }
 
   operator ProtoType*() noexcept { return proto; }
-  operator ProtoType&() noexcept {
+  operator ProtoType&() {
     if (!proto) throw reference_cast_error();
     return *proto;
   }
@@ -92,7 +92,7 @@ struct WrappedProto<ProtoType, WrappedProtoKind::kConst> {
   ProtoType* get() noexcept { return const_cast<ProtoType*>(proto); }
 
   operator const ProtoType*() const noexcept { return proto; }
-  operator const ProtoType&() const noexcept {
+  operator const ProtoType&() const {
     if (!proto) throw reference_cast_error();
     return *proto;
   }
@@ -220,6 +220,11 @@ template <typename F>
 auto WithWrappedProtos(F f)
     -> impl::WrappedInvoker<F, decltype(std::function(f))> {
   return {std::move(f)};
+}
+
+template <typename R, typename... Args>
+auto WithWrappedProtos(R (*f)(Args...)) {
+  return impl::WrappedInvoker<decltype(f), std::function<R(Args...)>>{f};
 }
 
 template <typename R, typename C, typename... Args>
