@@ -5,6 +5,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
+#include <initializer_list>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -27,69 +28,6 @@ using ::google::protobuf::python::PyProto_API;
 namespace pybind11_protobuf {
 namespace {
 
-struct GlobalState {
-  bool using_fast_cpp = false;
-  const ::google::protobuf::python::PyProto_API* py_proto_api = nullptr;
-  py::object global_pool;
-  py::object factory;
-};
-
-const GlobalState* GetGlobalState() {
-  // Global state intentionally leaks at program termination.
-  // If destructed along with other static variables, it causes segfaults
-  // due to order of destruction conflict with python threads. See
-  // https://github.com/pybind/pybind11/issues/1598
-  static GlobalState* state = [&]() {
-    auto state = new GlobalState();
-    state->py_proto_api = static_cast<const ::google::protobuf::python::PyProto_API*>(
-        PyCapsule_Import(::google::protobuf::python::PyProtoAPICapsuleName(), 0));
-    if (state->py_proto_api) {
-      state->using_fast_cpp = true;
-    } else {
-      // The module implementing fast cpp protos is not loaded, so evidently
-      // they are not the default. Fast protos are still available as a fallback
-      // by importing the capsule.
-      state->using_fast_cpp = false;
-
-      PyErr_Clear();
-      try {
-        py::module_::import("google.protobuf.pyext._message");
-      } catch (...) {
-        // TODO(pybind11-infra): narrow down to expected exception(s).
-        // Ignore any errors; they will appear immediately when the capsule
-        // is requested below.
-        PyErr_Clear();
-      }
-      state->py_proto_api = static_cast<const ::google::protobuf::python::PyProto_API*>(
-          PyCapsule_Import(::google::protobuf::python::PyProtoAPICapsuleName(), 0));
-    }
-
-    if (!state->using_fast_cpp) {
-      // When not using fast protos, we may construct protos from the default
-      // pool.
-      try {
-        auto m = py::module_::import("google.protobuf");
-        state->global_pool = m.attr("descriptor_pool").attr("Default")();
-        state->factory = m.attr("message_factory")
-                             .attr("MessageFactory")(state->global_pool);
-      } catch (...) {
-        // TODO(pybind11-infra): narrow down to expected exception(s).
-        PyErr_Print();
-        PyErr_Clear();
-        state->global_pool = {};
-        state->factory = {};
-      }
-    }
-    return state;
-  }();
-
-  return state;
-}
-
-const ::google::protobuf::python::PyProto_API* GetPyProtoApi() {
-  return GetGlobalState()->py_proto_api;
-}
-
 std::string PythonPackageForDescriptor(const ::google::protobuf::FileDescriptor* file) {
   std::vector<std::pair<const absl::string_view, std::string>> replacements;
   replacements.emplace_back("/", ".");
@@ -98,34 +36,215 @@ std::string PythonPackageForDescriptor(const ::google::protobuf::FileDescriptor*
   return absl::StrReplaceAll(name, replacements);
 }
 
-}  // namespace
-
-const ::google::protobuf::Message* PyProtoGetCppMessagePointer(py::handle src) {
-  auto* ptr = GetPyProtoApi()->GetMessagePointer(src.ptr());
-  if (ptr == nullptr) {
-    // GetMessagePointer sets a type_error when the object is not a
-    // c++ wrapped proto message.
-    PyErr_Clear();
-    return nullptr;
-  }
-  return ptr;
+// Resolves the class name of a descriptor via d->containing_type()
+py::object ResolveDescriptor(py::object p, const ::google::protobuf::Descriptor* d) {
+  return d->containing_type() ? ResolveDescriptor(p, d->containing_type())
+                                    .attr(d->name().c_str())
+                              : p.attr(d->name().c_str());
 }
 
-std::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
-  if (!py::hasattr(py_proto, "DESCRIPTOR")) {
-    return std::nullopt;
+// Resolves a sequence of python attrs starting from obj.
+// If any does not exist, returns nullopt.
+inline std::optional<py::object> ResolveAttrs(
+    py::handle obj, std::initializer_list<const char*> names) {
+  py::object tmp;
+  for (const char* name : names) {
+    PyObject *attr = PyObject_GetAttrString(obj.ptr(), name);
+    if (attr == nullptr) {
+      PyErr_Clear();
+      return std::nullopt;
+    }
+    tmp = py::reinterpret_steal<py::object>(attr);
+    obj = py::handle(attr);
   }
-  auto py_descriptor = py_proto.attr("DESCRIPTOR");
-  if (!py::hasattr(py_descriptor, "full_name")) {
-    return std::nullopt;
-  }
-  auto py_full_name = py_descriptor.attr("full_name");
+  return tmp;
+}
 
-  pybind11::detail::make_caster<std::string> c;
-  if (!c.load(py_full_name, false)) {
-    return std::nullopt;
+class GlobalState {
+ public:
+  // Global state singleton intentionally leaks at program termination.
+  // If destructed along with other static variables, it causes segfaults
+  // due to order of destruction conflict with python threads. See
+  // https://github.com/pybind/pybind11/issues/1598
+  static GlobalState* instance() {
+    static auto instance = new GlobalState();
+    return instance;
   }
-  return static_cast<std::string>(c);
+
+  py::handle global_pool() { return global_pool_; }
+  const ::google::protobuf::python::PyProto_API* py_proto_api() { return py_proto_api_; }
+  bool using_fast_cpp() const { return using_fast_cpp_; }
+
+  // Allocate a python proto message instance using the native python
+  // allocations.
+  py::object PyMessageInstance(const ::google::protobuf::Descriptor* descriptor);
+
+  // Allocates a fast cpp proto python object, also returning
+  // the embedded c++ proto2 message type. The returned message
+  // pointer cannot be null.
+  std::pair<py::object, ::google::protobuf::Message*> PyFastCppProtoMessageInstance(
+      const ::google::protobuf::Descriptor* descriptor);
+
+  // Import (and cache) a python module.
+  py::module_ ImportCached(const std::string& module_name);
+
+ private:
+  GlobalState();
+
+  const ::google::protobuf::python::PyProto_API* py_proto_api_ = nullptr;
+  bool using_fast_cpp_ = false;
+  py::object global_pool_;
+  py::object factory_;
+  py::object find_message_type_by_name_;
+  py::object get_prototype_;
+
+  absl::flat_hash_map<std::string, py::module_> import_cache;
+};
+
+GlobalState::GlobalState() {
+  py::gil_scoped_acquire scoped_gil;  // Ensure python GIL is held.
+  py_proto_api_ = static_cast<const ::google::protobuf::python::PyProto_API*>(
+      PyCapsule_Import(::google::protobuf::python::PyProtoAPICapsuleName(), 0));
+  if (py_proto_api_) {
+    using_fast_cpp_ = true;
+  } else {
+    // The module implementing fast cpp protos is not loaded, so evidently
+    // they are not the default. We still need the PyProto api, so attempt
+    // to import the capsule.
+    using_fast_cpp_ = false;
+
+    PyErr_Clear();
+    try {
+      py::module_::import("google.protobuf.pyext._message");
+    } catch (py::error_already_set& e) {
+      // TODO(pybind11-infra): narrow down to expected exception(s).
+
+      // e matches PyExc_ModuleNotFoundError if the module could not be loaded.
+      // Ignore any errors; they will appear immediately when the capsule
+      // is requested below.
+      PyErr_Clear();
+    }
+    py_proto_api_ = static_cast<const ::google::protobuf::python::PyProto_API*>(
+        PyCapsule_Import(::google::protobuf::python::PyProtoAPICapsuleName(), 0));
+  }
+
+  // When not using fast protos, we may construct protos from the default
+  // pool.
+  try {
+    auto m = py::module_::import("google.protobuf");
+    global_pool_ = m.attr("descriptor_pool").attr("Default")();
+    factory_ = m.attr("message_factory").attr("MessageFactory")(global_pool_);
+
+    find_message_type_by_name_ = global_pool_.attr("FindMessageTypeByName");
+    get_prototype_ = factory_.attr("GetPrototype");
+  } catch (py::error_already_set& e) {
+    // TODO(pybind11-infra): narrow down to expected exception(s).
+    PyErr_Print();
+
+    global_pool_ = {};
+    factory_ = {};
+    find_message_type_by_name_ = {};
+    get_prototype_ = {};
+  }
+
+  try {
+    // pybind11 generally needs a dependency on descriptor_pb2 to work smoothly.
+    ImportCached("google3.net.proto2.proto.descriptor_pb2");
+  } catch (py::error_already_set& e) {
+    e.restore();
+  }
+}
+
+py::module_ GlobalState::ImportCached(const std::string& module_name) {
+  auto cached = import_cache.find(module_name);
+  if (cached != import_cache.end()) {
+    return cached->second;
+  }
+  auto module = py::module_::import(module_name.c_str());
+  import_cache[module_name] = module;
+  return module;
+}
+
+py::object GlobalState::PyMessageInstance(
+    const ::google::protobuf::Descriptor* descriptor) {
+  auto module_name = PythonPackageForDescriptor(descriptor->file());
+  if (!module_name.empty()) {
+    auto cached = import_cache.find(module_name);
+    if (cached != import_cache.end()) {
+      return ResolveDescriptor(cached->second, descriptor)();
+    }
+  }
+
+  // First attempt to construct the proto from the global pool.
+  if (global_pool_) {
+    try {
+      auto d = find_message_type_by_name_(descriptor->full_name());
+      auto p = get_prototype_(d);
+      return p();
+    } catch (...) {
+      // TODO(pybind11-infra): narrow down to expected exception(s).
+      PyErr_Clear();
+    }
+  }
+
+  // If that fails, attempt to import the module.
+  if (!module_name.empty()) {
+    py::gil_scoped_acquire scoped_gil;  // Ensure python GIL is held.
+    try {
+      return ResolveDescriptor(ImportCached(module_name), descriptor)();
+    } catch (py::error_already_set& e) {
+      // TODO(pybind11-infra): narrow down to expected exception(s).
+      e.restore();
+      PyErr_Print();
+    }
+  }
+
+  throw py::type_error("Cannot construct a protocol buffer message type " +
+                       descriptor->full_name() +
+                       " in python. Is there a missing dependency on module " +
+                       module_name + "?");
+}
+
+std::pair<py::object, ::google::protobuf::Message*>
+GlobalState::PyFastCppProtoMessageInstance(
+    const ::google::protobuf::Descriptor* descriptor) {
+  assert(descriptor != nullptr);
+
+  // Create a PyDescriptorPool, temporarily, it will be used by the NewMessage
+  // API call which will store it in the classes it creates.
+  //
+  // Note: Creating Python classes is a bit expensive, it might be a good idea
+  // for client code to create the pool once, and store it somewhere along with
+  // the C++ pool; then Python pools and classes are cached and reused.
+  // Otherwise, consecutives calls to this function may or may not reuse
+  // previous classes, depending on whether the returned instance has been
+  // kept alive.
+  //
+  // IMPORTANT CAVEAT: The C++ DescriptorPool must not be deallocated while
+  // there are any messages using it.
+  // Furthermore, since the cache uses the DescriptorPool address, allocating
+  // a new DescriptorPool with the same address is likely to use dangling
+  // pointers.
+  // It is probably better for client code to keep the C++ DescriptorPool alive
+  // until the end of the process.
+  // TODO(amauryfa): Add weakref or on-deletion callbacks to C++ DescriptorPool.
+  py::object descriptor_pool = py::reinterpret_steal<py::object>(
+      py_proto_api_->DescriptorPool_FromPool(descriptor->file()->pool()));
+  if (descriptor_pool.ptr() == nullptr) {
+    throw py::error_already_set();
+  }
+
+  py::object result = py::reinterpret_steal<py::object>(
+      py_proto_api_->NewMessage(descriptor, nullptr));
+  if (result.ptr() == nullptr) {
+    throw py::error_already_set();
+  }
+  ::google::protobuf::Message* message =
+      py_proto_api_->GetMutableMessagePointer(result.ptr());
+  if (message == nullptr) {
+    throw py::error_already_set();
+  }
+  return {std::move(result), message};
 }
 
 // Create C++ DescriptorPools based on Python DescriptorPools.
@@ -168,8 +287,7 @@ class PythonDescriptorPoolWrapper {
     // On deletion, the callback will remove the entry from the map,
     // which will delete the Data instance.
     auto pool_weakref = py::weakref(
-        python_pool,
-        py::cpp_function([this, key](py::handle weakref) {
+        python_pool, py::cpp_function([this, key](py::handle weakref) {
           pools_map.erase(key);
         }));
 
@@ -187,7 +305,7 @@ class PythonDescriptorPoolWrapper {
     //   property in the proto_caster class.
     // This is done only for the Default pool, because generated C++ modules
     // and generated Python modules are built from the same .proto sources.
-    if (python_pool.is(GetGlobalState()->global_pool)) {
+    if (python_pool.is(GlobalState::instance()->global_pool())) {
       pool->internal_set_underlay(::google::protobuf::DescriptorPool::generated_pool());
       factory->SetDelegateToGeneratedFactory(true);
     }
@@ -204,9 +322,7 @@ class PythonDescriptorPoolWrapper {
   // as a DescriptorDatabase.
   class DescriptorPoolDatabase : public ::google::protobuf::DescriptorDatabase {
    public:
-    DescriptorPoolDatabase(py::weakref python_pool)
-        : pool_(python_pool) {
-    }
+    DescriptorPoolDatabase(py::weakref python_pool) : pool_(python_pool) {}
 
     // These 3 methods implement ::google::protobuf::DescriptorDatabase and delegate to
     // the Python DescriptorPool.
@@ -214,18 +330,36 @@ class PythonDescriptorPoolWrapper {
     // Find a file by file name.
     bool FindFileByName(const std::string& filename,
                         ::google::protobuf::FileDescriptorProto* output) override {
-      return CallActionAndFillProto("FindFileByName", output, [&]() {
-        return pool_().attr("FindFileByName")(filename);
-      });
+      try {
+        auto file = pool_().attr("FindFileByName")(filename);
+        return CopyToFileDescriptorProto(file, output);
+      } catch (py::error_already_set& e) {
+            std::cerr
+            << "FindFileByName " << filename << " raised an error";
+
+        // This prints and clears the error.
+        e.restore();
+        PyErr_Print();
+      }
+      return false;
     }
 
     // Find the file that declares the given fully-qualified symbol name.
     bool FindFileContainingSymbol(
         const std::string& symbol_name,
         ::google::protobuf::FileDescriptorProto* output) override {
-      return CallActionAndFillProto("FindFileContainingSymbol", output, [&]() {
-        return pool_().attr("FindFileContainingSymbol")(symbol_name);
-      });
+      try {
+        auto file = pool_().attr("FindFileContainingSymbol")(symbol_name);
+        return CopyToFileDescriptorProto(file, output);
+      } catch (py::error_already_set& e) {
+            std::cerr
+            << "FindFileContainingSymbol " << symbol_name << " raised an error";
+
+        // This prints and clears the error.
+        e.restore();
+        PyErr_Print();
+      }
+      return false;
     }
 
     // Find the file which defines an extension extending the given message type
@@ -233,49 +367,48 @@ class PythonDescriptorPoolWrapper {
     bool FindFileContainingExtension(
         const std::string& containing_type, int field_number,
         ::google::protobuf::FileDescriptorProto* output) override {
-      return CallActionAndFillProto(
-          "FindFileContainingExtension", output, [&]() {
-            auto descriptor =
-                pool_().attr("FindMessageTypeByName")(containing_type);
-            return pool_()
-                .attr("FindExtensionByNymber")(descriptor, field_number)
-                .attr("file");
-          });
-    }
-
-   private:
-    // The inner pool yields FileDescriptors, but this Database must return
-    // FileDescriptorProtos. This function does the conversion.
-    static bool GetFileDescriptorProto(py::handle py_descriptor,
-                                       ::google::protobuf::FileDescriptorProto* output) {
-      // This code is mostly useful when using the pure-python protos. Yet we
-      // can use the fast_cpp_protos api to wrap the output pointer in a Python
-      // object.
-      const auto* py_proto_api = GetPyProtoApi();
-      auto proto = py::reinterpret_steal<py::object>(
-          py_proto_api->NewMessageOwnedExternally(output, nullptr));
-      if (!proto) {
-        throw py::error_already_set();
-      }
-      py_descriptor.attr("CopyToProto")(proto);
-      return true;
-    }
-
-    // Helper method to handle exceptions.
-    template <typename F>
-    static bool CallActionAndFillProto(const char* method,
-                                       ::google::protobuf::FileDescriptorProto* output,
-                                       F f) {
       try {
-        return GetFileDescriptorProto(f(), output);
+        auto descriptor =
+            pool_().attr("FindMessageTypeByName")(containing_type);
+        auto file = pool_()
+                        .attr("FindExtensionByNymber")(descriptor, field_number)
+                        .attr("file");
+        return CopyToFileDescriptorProto(file, output);
       } catch (py::error_already_set& e) {
-        std::cerr << "DescriptorDatabase::" << method << " raised an error";
+            std::cerr
+            << "FindFileContainingExtension " << containing_type << " "
+            << field_number << " raised an error";
 
         // This prints and clears the error.
         e.restore();
         PyErr_Print();
-        return false;
       }
+      return false;
+    }
+
+   private:
+    bool CopyToFileDescriptorProto(py::handle py_file_descriptor,
+                                   ::google::protobuf::FileDescriptorProto* output) {
+      try {
+        py::object c_proto = py::reinterpret_steal<py::object>(
+            GlobalState::instance()->py_proto_api()->NewMessageOwnedExternally(
+                output, nullptr));
+        if (c_proto) {
+          py_file_descriptor.attr("CopyToProto")(c_proto);
+        }
+      } catch (py::error_already_set& e) {
+            std::cerr
+            << "CopyToFileDescriptorProto raised an error";
+
+        // This prints and clears the error.
+        e.restore();
+        PyErr_Print();
+      }
+
+      py::object wire = py_file_descriptor.attr("serialized_pb");
+      const char* bytes = PYBIND11_BYTES_AS_STRING(wire.ptr());
+      return output->ParsePartialFromArray(bytes,
+                                           PYBIND11_BYTES_SIZE(wire.ptr()));
     }
 
     py::weakref pool_;
@@ -285,20 +418,71 @@ class PythonDescriptorPoolWrapper {
   absl::flat_hash_map<PyObject*, Data> pools_map;
 };
 
-std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(
-    py::handle src, const std::string& full_name) {
-  py::object pool;
+}  // namespace
+
+void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor* descriptor) {
+  if (!descriptor) return;
+  auto module_name = PythonPackageForDescriptor(descriptor->file());
+  if (module_name.empty()) return;
   try {
-    pool = src.attr("DESCRIPTOR").attr("file").attr("pool");
+    GlobalState::instance()->ImportCached(module_name);
   } catch (py::error_already_set& e) {
-    if (e.matches(PyExc_AttributeError)) {
-      throw py::type_error("Object is not a valid protobuf");
+    if (e.matches(PyExc_ImportError)) {  //  PyExc_ModuleNotFoundError
+          std::cerr
+          << "Python module " << module_name << " unavailable." << std::endl;
     } else {
-      throw;
+          std::cerr
+          << "ImportDescriptorModule raised an error";
+
+      // This prints and clears the error.
+      e.restore();
+      PyErr_Print();
     }
   }
+}
+
+const ::google::protobuf::Message* PyProtoGetCppMessagePointer(py::handle src) {
+  auto* ptr =
+      GlobalState::instance()->py_proto_api()->GetMessagePointer(src.ptr());
+  if (ptr == nullptr) {
+    // GetMessagePointer sets a type_error when the object is not a
+    // c++ wrapped proto message.
+    PyErr_Clear();
+    return nullptr;
+  }
+  return ptr;
+}
+
+std::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
+  auto py_full_name = ResolveAttrs(py_proto, {"DESCRIPTOR", "full_name"});
+  if (py_full_name) {
+    pybind11::detail::make_caster<std::string> c;
+    if (c.load(*py_full_name, false)) {
+      return static_cast<std::string>(c);
+    }
+  }
+  return std::nullopt;
+}
+
+bool PyProtoCopyToCProto(py::handle py_proto, ::google::protobuf::Message* message) {
+  py::object wire = py_proto.attr("SerializePartialToString")();
+  const char* bytes = PYBIND11_BYTES_AS_STRING(wire.ptr());
+  if (!bytes) {
+    throw py::type_error("Object.SerializePartialToString failed; is this a " +
+                         message->GetDescriptor()->full_name());
+  }
+  return message->ParsePartialFromArray(bytes, PYBIND11_BYTES_SIZE(wire.ptr()));
+}
+
+std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(
+    py::handle src, const std::string& full_name) {
+  auto pool = ResolveAttrs(src, {"DESCRIPTOR", "file", "pool"});
+  if (!pool) {
+    throw py::type_error("Object is not a valid protobuf");
+  }
+
   auto pool_data =
-      PythonDescriptorPoolWrapper::instance()->GetPoolFromPythonPool(pool);
+      PythonDescriptorPoolWrapper::instance()->GetPoolFromPythonPool(*pool);
   // The following call will query the DescriptorDatabase, which fetches the
   // necessary Python descriptors and feeds them into the C++ pool.
   // The result stays cached as long as the Python pool stays alive.
@@ -315,72 +499,7 @@ std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatab
   return std::unique_ptr<::google::protobuf::Message>(prototype->New());
 }
 
-bool PyProtoCopyToCProto(py::handle py_proto, ::google::protobuf::Message* message) {
-  py::object wire = py_proto.attr("SerializePartialToString")();
-  const char* bytes = PYBIND11_BYTES_AS_STRING(wire.ptr());
-  if (!bytes) {
-    throw py::type_error("Object.SerializePartialToString failed; is this a " +
-                         message->GetDescriptor()->full_name());
-  }
-  return message->ParsePartialFromArray(bytes, PYBIND11_BYTES_SIZE(wire.ptr()));
-}
-
-std::pair<py::object, ::google::protobuf::Message*> AllocatePyFastCppProto(
-    const ::google::protobuf::Descriptor* descriptor) {
-  assert(descriptor != nullptr);
-  const auto* py_proto_api = GetPyProtoApi();
-
-  // Create a PyDescriptorPool, temporarily, it will be used by the NewMessage
-  // API call which will store it in the classes it creates.
-  //
-  // Note: Creating Python classes is a bit expensive, it might be a good idea
-  // for client code to create the pool once, and store it somewhere along with
-  // the C++ pool; then Python pools and classes are cached and reused.
-  // Otherwise, consecutives calls to this function may or may not reuse
-  // previous classes, depending on whether the returned instance has been
-  // kept alive.
-  //
-  // IMPORTANT CAVEAT: The C++ DescriptorPool must not be deallocated while
-  // there are any messages using it.
-  // Furthermore, since the cache uses the DescriptorPool address, allocating
-  // a new DescriptorPool with the same address is likely to use dangling
-  // pointers.
-  // It is probably better for client code to keep the C++ DescriptorPool alive
-  // until the end of the process.
-  // TODO(amauryfa): Add weakref or on-deletion callbacks to C++ DescriptorPool.
-  py::object descriptor_pool = py::reinterpret_steal<py::object>(
-      py_proto_api->DescriptorPool_FromPool(descriptor->file()->pool()));
-  if (descriptor_pool.ptr() == nullptr) {
-    throw py::error_already_set();
-  }
-
-  py::object result = py::reinterpret_steal<py::object>(
-      py_proto_api->NewMessage(descriptor, nullptr));
-  if (result.ptr() == nullptr) {
-    throw py::error_already_set();
-  }
-  ::google::protobuf::Message* message =
-      py_proto_api->GetMutableMessagePointer(result.ptr());
-  if (message == nullptr) {
-    throw py::error_already_set();
-  }
-  return {std::move(result), message};
-}
-
-py::object ReferencePyFastCppProto(::google::protobuf::Message* message) {
-  const auto* py_proto_api = GetPyProtoApi();
-  return py::reinterpret_steal<py::object>(
-      py_proto_api->NewMessageOwnedExternally(message, nullptr));
-}
-
 namespace {
-
-// Resolves the class name of a descriptor via d->containing_type()
-py::object ResolveDescriptor(py::object p, const ::google::protobuf::Descriptor* d) {
-  return d->containing_type() ? ResolveDescriptor(p, d->containing_type())
-                                    .attr(d->name().c_str())
-                              : p.attr(d->name().c_str());
-}
 
 std::string ReturnValuePolicyName(py::return_value_policy policy) {
   switch (policy) {
@@ -409,41 +528,8 @@ py::handle GenericPyProtoCast(::google::protobuf::Message* src,
                               py::return_value_policy policy, py::handle parent,
                               bool is_const) {
   assert(src != nullptr);
-  auto py_proto = [src]() -> py::object {
-    auto* descriptor = src->GetDescriptor();
-    auto* state = GetGlobalState();
-
-    // First attempt to construct the proto from the global pool.
-    if (state->global_pool) {
-      try {
-        auto d = state->global_pool.attr("FindMessageTypeByName")(
-            descriptor->full_name());
-        auto p = state->factory.attr("GetPrototype")(d);
-        return p();
-      } catch (...) {
-        // TODO(pybind11-infra): narrow down to expected exception(s).
-        PyErr_Clear();
-      }
-    }
-
-    // If that fails, attempt to import the module.
-    auto module_name = PythonPackageForDescriptor(descriptor->file());
-    if (!module_name.empty()) {
-      try {
-        return ResolveDescriptor(py::module_::import(module_name.c_str()),
-                                 descriptor)();
-      } catch (...) {
-        // TODO(pybind11-infra): narrow down to expected exception(s).
-        PyErr_Clear();
-      }
-    }
-
-    throw py::type_error(
-        "Cannot construct a protocol buffer message type " +
-        descriptor->full_name() +
-        " in python. Is there a missing dependency on module " + module_name +
-        "?");
-  }();
+  auto py_proto =
+      GlobalState::instance()->PyMessageInstance(src->GetDescriptor());
 
   auto serialized = src->SerializePartialAsString();
 #if PY_MAJOR_VERSION >= 3
@@ -463,7 +549,8 @@ py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
   switch (policy) {
     case py::return_value_policy::copy: {
       auto [result, result_message] =
-          pybind11_protobuf::AllocatePyFastCppProto(src->GetDescriptor());
+          GlobalState::instance()->PyFastCppProtoMessageInstance(
+              src->GetDescriptor());
 
       if (result_message->GetDescriptor() == src->GetDescriptor()) {
         // Only protos which actually have the same descriptor are copyable.
@@ -481,7 +568,9 @@ py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
     case py::return_value_policy::reference:
     case py::return_value_policy::reference_internal: {
       // NOTE: Reference to const are currently unsafe to return.
-      pybind11::object result = pybind11_protobuf::ReferencePyFastCppProto(src);
+      py::object result = py::reinterpret_steal<py::object>(
+          GlobalState::instance()->py_proto_api()->NewMessageOwnedExternally(
+              src, nullptr));
       if (policy == py::return_value_policy::reference_internal) {
         py::detail::keep_alive_impl(result, parent);
       }
@@ -500,7 +589,7 @@ py::handle GenericProtoCast(::google::protobuf::Message* src,
   assert(src != nullptr);
   if (src->GetDescriptor()->file()->pool() ==
           ::google::protobuf::DescriptorPool::generated_pool() &&
-      !GetGlobalState()->using_fast_cpp) {
+      !GlobalState::instance()->using_fast_cpp()) {
     // Return a native python-allocated proto when the C++ proto is from
     // the default pool, and the binary is not using fast_cpp_protos.
     return GenericPyProtoCast(src, policy, parent, is_const);

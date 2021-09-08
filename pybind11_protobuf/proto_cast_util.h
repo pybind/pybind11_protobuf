@@ -16,6 +16,9 @@
 
 namespace pybind11_protobuf {
 
+// Imports a module pertaining to a given ::google::protobuf::Descriptor, if possible.
+void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor *);
+
 // Returns a ::google::protobuf::Message* from a cpp_fast_proto.
 const ::google::protobuf::Message *PyProtoGetCppMessagePointer(pybind11::handle src);
 
@@ -29,16 +32,6 @@ std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatab
 // Serialize the py_proto and deserialize it into the provided message.
 // Caller should enforce any type identity that is required.
 bool PyProtoCopyToCProto(pybind11::handle py_proto, ::google::protobuf::Message *message);
-
-// Allocates a fast cpp proto python object, also returning
-// the embedded c++ proto2 message type. The returned message
-// pointer cannot be null.
-std::pair<pybind11::object, ::google::protobuf::Message *> AllocatePyFastCppProto(
-    const ::google::protobuf::Descriptor *descriptor);
-
-// Returns a python object that references an existing c++ proto
-// message. This is potentially unsafe.
-pybind11::object ReferencePyFastCppProto(::google::protobuf::Message *message);
 
 // Returns a handle to a python protobuf suitably
 pybind11::handle GenericFastCppProtoCast(::google::protobuf::Message *src,
