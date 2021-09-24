@@ -14,6 +14,7 @@
 
 #include "google/protobuf/message.h"
 #include "absl/status/statusor.h"
+#include "absl/types/optional.h"
 #include "pybind11_protobuf/proto_cast_util.h"
 #include "pybind11_protobuf/proto_caster_impl.h"
 
@@ -168,6 +169,20 @@ struct WrapHelper<absl::StatusOr<ProtoType>,  //
 
   using proto = intrinsic_t<ProtoType>;
   using type = absl::StatusOr<WrappedProto<proto, kKind>>;
+};
+
+// absl::optional is also sometimes used as a wrapper for optional protos.
+template <typename ProtoType>
+struct WrapHelper<absl::optional<ProtoType>,  //
+                  std::enable_if_t<std::is_base_of_v<::google::protobuf::Message,
+                                                     intrinsic_t<ProtoType>>>> {
+  static constexpr auto kKind = DetectKind<ProtoType>();
+  static_assert(kKind != WrappedProtoKind::kMutable,
+                "WithWrappedProtos() does not support mutable ::google::protobuf::Message "
+                "parameters.");
+
+  using proto = intrinsic_t<ProtoType>;
+  using type = absl::optional<WrappedProto<proto, kKind>>;
 };
 
 /// WrappedProtoInvoker is an internal function object that exposes a call

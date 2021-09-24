@@ -11,6 +11,7 @@
 
 #include "google/protobuf/dynamic_message.h"
 #include "absl/status/statusor.h"
+#include "absl/types/optional.h"
 #include "pybind11_protobuf/tests/test.pb.h"
 #include "pybind11_protobuf/wrapped_proto_caster.h"
 
@@ -107,12 +108,14 @@ const TestMessage* GetConstPtr();
 TestMessage GetValue();
 TestMessage&& GetRValue();
 absl::StatusOr<TestMessage> GetStatusOr();
+absl::optional<TestMessage> GetOptional();
 
 void PassInt(int);
 void PassConstReference(const TestMessage&);
 void PassConstPtr(const TestMessage*);
 void PassValue(TestMessage);
 void PassRValue(TestMessage&&);
+void PassOptional(absl::optional<TestMessage>);
 
 struct Struct {
   TestMessage MemberFn();
@@ -199,6 +202,18 @@ void test_static_asserts() {
       std::is_same_v<
           absl::StatusOr<WrappedProto<TestMessage, WrappedProtoKind::kValue>>,
           std::invoke_result_t<decltype(WithWrappedProtos(&GetStatusOr))>>,
+      "");
+
+  // optional
+  static_assert(
+      std::is_same_v<
+          absl::optional<WrappedProto<TestMessage, WrappedProtoKind::kValue>>,
+          std::invoke_result_t<decltype(WithWrappedProtos(&GetOptional))>>,
+      "");
+
+  static_assert(
+      std::is_invocable_v<decltype(WithWrappedProtos(&PassOptional)),
+                          WrappedProto<TestMessage, WrappedProtoKind::kValue>>,
       "");
 
   /// calling
