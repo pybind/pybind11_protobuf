@@ -6,13 +6,13 @@
 
 #include <functional>
 #include <memory>
-#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
 
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
+#include "absl/types/optional.h"
 
 namespace pybind11_protobuf {
 
@@ -23,7 +23,7 @@ void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor *);
 const ::google::protobuf::Message *PyProtoGetCppMessagePointer(pybind11::handle src);
 
 // Returns the protocol buffer's py_proto.DESCRIPTOR.full_name attribute.
-std::optional<std::string> PyProtoDescriptorName(pybind11::handle py_proto);
+absl::optional<std::string> PyProtoDescriptorName(pybind11::handle py_proto);
 
 // Allocates a C++ protocol buffer for a given name.
 std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(
