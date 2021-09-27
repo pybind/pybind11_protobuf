@@ -8,7 +8,6 @@
 #include <initializer_list>
 #include <iostream>
 #include <memory>
-#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -20,6 +19,7 @@
 #include "python/google/protobuf/proto_api.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_replace.h"
+#include "absl/types/optional.h"
 
 namespace py = pybind11;
 
@@ -45,14 +45,14 @@ py::object ResolveDescriptor(py::object p, const ::google::protobuf::Descriptor*
 
 // Resolves a sequence of python attrs starting from obj.
 // If any does not exist, returns nullopt.
-inline std::optional<py::object> ResolveAttrs(
+inline absl::optional<py::object> ResolveAttrs(
     py::handle obj, std::initializer_list<const char*> names) {
   py::object tmp;
   for (const char* name : names) {
     PyObject *attr = PyObject_GetAttrString(obj.ptr(), name);
     if (attr == nullptr) {
       PyErr_Clear();
-      return std::nullopt;
+      return absl::nullopt;
     }
     tmp = py::reinterpret_steal<py::object>(attr);
     obj = py::handle(attr);
@@ -453,7 +453,7 @@ const ::google::protobuf::Message* PyProtoGetCppMessagePointer(py::handle src) {
   return ptr;
 }
 
-std::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
+absl::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
   auto py_full_name = ResolveAttrs(py_proto, {"DESCRIPTOR", "full_name"});
   if (py_full_name) {
     pybind11::detail::make_caster<std::string> c;
@@ -461,7 +461,7 @@ std::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
       return static_cast<std::string>(c);
     }
   }
-  return std::nullopt;
+  return absl::nullopt;
 }
 
 bool PyProtoCopyToCProto(py::handle py_proto, ::google::protobuf::Message* message) {
