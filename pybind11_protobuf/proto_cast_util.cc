@@ -534,7 +534,7 @@ py::handle GenericPyProtoCast(::google::protobuf::Message* src,
   auto serialized = src->SerializePartialAsString();
 #if PY_MAJOR_VERSION >= 3
   auto view =
-      py::memoryview::from_memory(serialized.data(), serialized.size(), true);
+      py::memoryview::from_memory(serialized.data(), serialized.size());
 #else
   py::bytearray view(serialized);
 #endif
