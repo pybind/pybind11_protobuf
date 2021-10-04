@@ -32,6 +32,8 @@ const IntMessage& GetExtension(const BaseMessage& msg) {
 }
 
 PYBIND11_MODULE(extension_module, m) {
+  pybind11_protobuf::RegisterNativeProtoCasters();
+
   m.def("get_base_message", []() -> BaseMessage { return {}; });
 
   m.def(

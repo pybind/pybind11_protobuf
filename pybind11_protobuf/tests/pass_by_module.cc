@@ -41,6 +41,8 @@ IntMessage* GetStatic() {
 }
 
 PYBIND11_MODULE(pass_by_module, m) {
+  pybind11_protobuf::RegisterNativeProtoCasters();
+
   m.attr("PYBIND11_PROTOBUF_UNSAFE") = pybind11::int_(PYBIND11_PROTOBUF_UNSAFE);
 
   m.def(

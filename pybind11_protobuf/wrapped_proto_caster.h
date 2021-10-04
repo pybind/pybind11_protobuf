@@ -35,6 +35,8 @@
 //
 // PYBIND11_MODULE(my_module, m) {
 //   using ::pybind11::google::WithWrappedProtos;
+//   pybind11_protobuf::RegisterWrappedProtoCasters();
+//
 //   m.def("get_message", WithWrappedProtos(&GetMessage));
 // }
 //
@@ -49,6 +51,11 @@
 // note, builder-style classes may be better implemented independently in
 // python rather than attempting to wrap C++ counterparts.
 //
+namespace pybind11_protobuf {
+
+inline void RegisterWrappedProtoCasters() { InitializePybindProtoCastUtil(); }
+
+}  // namespace pybind11_protobuf
 namespace pybind11::google {
 
 /// Tag types for WrappedProto specialization.

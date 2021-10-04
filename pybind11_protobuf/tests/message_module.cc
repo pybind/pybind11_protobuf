@@ -22,6 +22,8 @@ using pybind11::test::IntMessage;
 using pybind11::test::TestMessage;
 
 PYBIND11_MODULE(message_module, m) {
+  pybind11_protobuf::RegisterNativeProtoCasters();
+
   m.attr("TEXT_FORMAT_MESSAGE") = R"(string_value: "test"
 int_value: 4
 int_message {

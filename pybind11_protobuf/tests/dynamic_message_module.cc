@@ -83,6 +83,8 @@ std::unique_ptr<::google::protobuf::Message> GetDynamicMessage(const std::string
 }
 
 PYBIND11_MODULE(dynamic_message_module, m) {
+  pybind11_protobuf::RegisterNativeProtoCasters();
+
   m.def(
       "dynamic_message_ptr",
       [](std::string name, int32_t value) -> ::google::protobuf::Message* {

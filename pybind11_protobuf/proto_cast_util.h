@@ -16,6 +16,9 @@
 
 namespace pybind11_protobuf {
 
+// Initialize internal proto cast dependencies.
+void InitializePybindProtoCastUtil();
+
 // Imports a module pertaining to a given ::google::protobuf::Descriptor, if possible.
 void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor *);
 

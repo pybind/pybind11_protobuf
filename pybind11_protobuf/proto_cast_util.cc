@@ -420,6 +420,11 @@ class PythonDescriptorPoolWrapper {
 
 }  // namespace
 
+void InitializePybindProtoCastUtil() {
+  GlobalState::instance();
+  PythonDescriptorPoolWrapper::instance();
+}
+
 void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor* descriptor) {
   if (!descriptor) return;
   auto module_name = PythonPackageForDescriptor(descriptor->file());

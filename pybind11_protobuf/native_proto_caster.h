@@ -50,10 +50,13 @@
 //
 // MyMessage GetMessage() { ... }
 // PYBIND11_MODULE(my_module, m) {
-//  m.def("get_message", &GetMessage);
+//   pybind11_protobuf::RegisterNativeProtoCasters();
+//   m.def("get_message", &GetMessage);
 // }
 //
-
+namespace pybind11_protobuf {
+inline void RegisterNativeProtoCasters() { InitializePybindProtoCastUtil(); }
+}  // namespace pybind11_protobuf
 namespace pybind11::detail {
 
 // pybind11 type_caster<> specialization for c++ protocol buffer types using
