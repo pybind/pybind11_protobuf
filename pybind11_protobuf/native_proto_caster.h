@@ -50,10 +50,18 @@
 //
 // MyMessage GetMessage() { ... }
 // PYBIND11_MODULE(my_module, m) {
-//  m.def("get_message", &GetMessage);
+//   pybind11_protobuf::ImportNativeProtoCasters();
+//
+//   m.def("get_message", &GetMessage);
 // }
 //
+namespace pybind11_protobuf {
 
+// Imports modules for protobuf conversion. This not thread safe and
+// is required to be called from a PYBIND11_MODULE definition before use.
+inline void ImportNativeProtoCasters() { InitializePybindProtoCastUtil(); }
+
+}  // namespace pybind11_protobuf
 namespace pybind11::detail {
 
 // pybind11 type_caster<> specialization for c++ protocol buffer types using

@@ -48,6 +48,8 @@ bool CheckIntMessage(const IntMessage* message, int32_t value) {
 }
 
 PYBIND11_MODULE(wrapped_proto_module, m) {
+  pybind11_protobuf::ImportWrappedProtoCasters();
+
   m.def("get_test_message", WithWrappedProtos(GetStatic));
 
   m.def("make_int_message", WithWrappedProtos([](int value) -> IntMessage {

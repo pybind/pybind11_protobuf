@@ -49,7 +49,7 @@ inline absl::optional<py::object> ResolveAttrs(
     py::handle obj, std::initializer_list<const char*> names) {
   py::object tmp;
   for (const char* name : names) {
-    PyObject *attr = PyObject_GetAttrString(obj.ptr(), name);
+    PyObject* attr = PyObject_GetAttrString(obj.ptr(), name);
     if (attr == nullptr) {
       PyErr_Clear();
       return absl::nullopt;
@@ -102,7 +102,18 @@ class GlobalState {
 };
 
 GlobalState::GlobalState() {
-  py::gil_scoped_acquire scoped_gil;  // Ensure python GIL is held.
+  assert(PyGILState_Check());
+
+  // pybind11 protobuf casting needs a dependency on proto internals to work.
+  try {
+    ImportCached("google3.net.proto2.proto.descriptor_pb2");
+    ImportCached("google.protobuf.descriptor_pool");
+    ImportCached("google.protobuf.message_factory");
+  } catch (py::error_already_set& e) {
+    e.restore();
+  }
+
+  // Now we can check
   py_proto_api_ = static_cast<const ::google::protobuf::python::PyProto_API*>(
       PyCapsule_Import(::google::protobuf::python::PyProtoAPICapsuleName(), 0));
   if (py_proto_api_) {
@@ -131,10 +142,11 @@ GlobalState::GlobalState() {
   // When not using fast protos, we may construct protos from the default
   // pool.
   try {
-    auto m = py::module_::import("google.protobuf");
-    global_pool_ = m.attr("descriptor_pool").attr("Default")();
-    factory_ = m.attr("message_factory").attr("MessageFactory")(global_pool_);
-
+    global_pool_ =
+        ImportCached("google.protobuf.descriptor_pool")
+            .attr("Default")();
+    factory_ = ImportCached("google.protobuf.message_factory")
+                   .attr("MessageFactory")(global_pool_);
     find_message_type_by_name_ = global_pool_.attr("FindMessageTypeByName");
     get_prototype_ = factory_.attr("GetPrototype");
   } catch (py::error_already_set& e) {
@@ -145,13 +157,6 @@ GlobalState::GlobalState() {
     factory_ = {};
     find_message_type_by_name_ = {};
     get_prototype_ = {};
-  }
-
-  try {
-    // pybind11 generally needs a dependency on descriptor_pb2 to work smoothly.
-    ImportCached("google3.net.proto2.proto.descriptor_pb2");
-  } catch (py::error_already_set& e) {
-    e.restore();
   }
 }
 
@@ -189,7 +194,6 @@ py::object GlobalState::PyMessageInstance(
 
   // If that fails, attempt to import the module.
   if (!module_name.empty()) {
-    py::gil_scoped_acquire scoped_gil;  // Ensure python GIL is held.
     try {
       return ResolveDescriptor(ImportCached(module_name), descriptor)();
     } catch (py::error_already_set& e) {
@@ -420,7 +424,13 @@ class PythonDescriptorPoolWrapper {
 
 }  // namespace
 
+void InitializePybindProtoCastUtil() {
+  assert(PyGILState_Check());
+  GlobalState::instance();
+}
+
 void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor* descriptor) {
+  assert(PyGILState_Check());
   if (!descriptor) return;
   auto module_name = PythonPackageForDescriptor(descriptor->file());
   if (module_name.empty()) return;
@@ -442,6 +452,7 @@ void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor* descripto
 }
 
 const ::google::protobuf::Message* PyProtoGetCppMessagePointer(py::handle src) {
+  assert(PyGILState_Check());
   auto* ptr =
       GlobalState::instance()->py_proto_api()->GetMessagePointer(src.ptr());
   if (ptr == nullptr) {
@@ -454,6 +465,7 @@ const ::google::protobuf::Message* PyProtoGetCppMessagePointer(py::handle src) {
 }
 
 absl::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
+  assert(PyGILState_Check());
   auto py_full_name = ResolveAttrs(py_proto, {"DESCRIPTOR", "full_name"});
   if (py_full_name) {
     pybind11::detail::make_caster<std::string> c;
@@ -465,6 +477,7 @@ absl::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
 }
 
 bool PyProtoCopyToCProto(py::handle py_proto, ::google::protobuf::Message* message) {
+  assert(PyGILState_Check());
   py::object wire = py_proto.attr("SerializePartialToString")();
   const char* bytes = PYBIND11_BYTES_AS_STRING(wire.ptr());
   if (!bytes) {
@@ -476,6 +489,7 @@ bool PyProtoCopyToCProto(py::handle py_proto, ::google::protobuf::Message* messa
 
 std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(
     py::handle src, const std::string& full_name) {
+  assert(PyGILState_Check());
   auto pool = ResolveAttrs(src, {"DESCRIPTOR", "file", "pool"});
   if (!pool) {
     throw py::type_error("Object is not a valid protobuf");
@@ -528,13 +542,13 @@ py::handle GenericPyProtoCast(::google::protobuf::Message* src,
                               py::return_value_policy policy, py::handle parent,
                               bool is_const) {
   assert(src != nullptr);
+  assert(PyGILState_Check());
   auto py_proto =
       GlobalState::instance()->PyMessageInstance(src->GetDescriptor());
 
   auto serialized = src->SerializePartialAsString();
 #if PY_MAJOR_VERSION >= 3
-  auto view =
-      py::memoryview::from_memory(serialized.data(), serialized.size());
+  auto view = py::memoryview::from_memory(serialized.data(), serialized.size());
 #else
   py::bytearray view(serialized);
 #endif
@@ -546,6 +560,7 @@ py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
                                    py::return_value_policy policy,
                                    py::handle parent, bool is_const) {
   assert(src != nullptr);
+  assert(PyGILState_Check());
   switch (policy) {
     case py::return_value_policy::copy: {
       auto [result, result_message] =
@@ -587,6 +602,7 @@ py::handle GenericProtoCast(::google::protobuf::Message* src,
                             py::return_value_policy policy, py::handle parent,
                             bool is_const) {
   assert(src != nullptr);
+  assert(PyGILState_Check());
   if (src->GetDescriptor()->file()->pool() ==
           ::google::protobuf::DescriptorPool::generated_pool() &&
       !GlobalState::instance()->using_fast_cpp()) {

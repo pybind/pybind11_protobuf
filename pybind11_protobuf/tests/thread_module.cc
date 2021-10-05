@@ -21,6 +21,8 @@ using pybind11::test::TestMessage;
 namespace {
 
 PYBIND11_MODULE(thread_module, m) {
+  pybind11_protobuf::ImportNativeProtoCasters();
+
   m.def(
       "make_message",
       [](std::string text) -> TestMessage {
