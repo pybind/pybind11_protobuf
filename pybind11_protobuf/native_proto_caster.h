@@ -62,7 +62,8 @@ namespace pybind11_protobuf {
 inline void ImportNativeProtoCasters() { InitializePybindProtoCastUtil(); }
 
 }  // namespace pybind11_protobuf
-namespace pybind11::detail {
+namespace pybind11 {
+namespace detail {
 
 // pybind11 type_caster<> specialization for c++ protocol buffer types using
 // inheritance from google::proto_caster<>.
@@ -184,6 +185,7 @@ struct copyable_holder_caster<
 //  ::google::protobuf::FieldDescriptor
 //
 
-}  // namespace pybind11::detail
+}  // namespace detail
+}  // namespace pybind11
 
 #endif  // PYBIND11_PROTOBUF_FAST_CPP_PROTO_CASTERS_H_

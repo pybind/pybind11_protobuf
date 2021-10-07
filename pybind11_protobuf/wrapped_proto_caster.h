@@ -59,7 +59,8 @@ namespace pybind11_protobuf {
 inline void ImportWrappedProtoCasters() { InitializePybindProtoCastUtil(); }
 
 }  // namespace pybind11_protobuf
-namespace pybind11::google {
+namespace pybind11 {
+namespace google {
 
 /// Tag types for WrappedProto specialization.
 enum WrappedProtoKind : int { kConst, kValue, kMutable };
@@ -332,8 +333,8 @@ struct wrapped_proto_caster : public pybind11_protobuf::proto_caster_load_impl<
   using cast_op_type = WrappedProtoType;
 };
 
-}  // namespace pybind11::google
-namespace pybind11::detail {
+}  // namespace google
+namespace detail {
 
 // pybind11 type_caster<> specialization for c++ protocol buffer types using
 // inheritance from google::wrapped_proto_caster<>.
@@ -344,6 +345,7 @@ struct type_caster<
     : public google::wrapped_proto_caster<
           pybind11::google::WrappedProto<ProtoType, Kind>> {};
 
-}  // namespace pybind11::detail
+}  // namespace detail
+}  // namespace pybind11
 
 #endif  // PYBIND11_PROTOBUF_WRAPPED_PROTO_CASTER_H_
