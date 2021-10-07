@@ -69,7 +69,8 @@ namespace pybind11::detail {
 template <typename ProtoType>
 struct type_caster<
     ProtoType, std::enable_if_t<std::is_base_of_v<::google::protobuf::Message, ProtoType>>>
-    : public google::proto_caster<ProtoType, google::native_cast_impl> {};
+    : public pybind11_protobuf::proto_caster<
+          ProtoType, pybind11_protobuf::native_cast_impl> {};
 
 // NOTE: If smart_holders becomes the default we will need to change this to
 //    type_caster<std::unique_ptr<ProtoType, D>, ...

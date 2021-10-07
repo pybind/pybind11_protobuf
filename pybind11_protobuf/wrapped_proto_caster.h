@@ -265,15 +265,16 @@ auto WithWrappedProtos(R (C::*f)(Args...) const) {
 // pybind11 type_caster specialization for pybind11::google::WrappedProto<T>
 // c++ protocol buffer types.
 template <typename WrappedProtoType>
-struct wrapped_proto_caster
-    : public proto_caster_load_impl<typename WrappedProtoType::type>,
-      protected native_cast_impl {
-  using Base = proto_caster_load_impl<typename WrappedProtoType::type>;
+struct wrapped_proto_caster : public pybind11_protobuf::proto_caster_load_impl<
+                                  typename WrappedProtoType::type>,
+                              protected pybind11_protobuf::native_cast_impl {
+  using Base = pybind11_protobuf::proto_caster_load_impl<
+      typename WrappedProtoType::type>;
   using ProtoType = typename WrappedProtoType::type;
   using Base::ensure_owned;
   using Base::owned;
   using Base::value;
-  using native_cast_impl::cast_impl;
+  using pybind11_protobuf::native_cast_impl::cast_impl;
 
  public:
   static constexpr auto name = pybind11::detail::_<WrappedProtoType>();

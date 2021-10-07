@@ -30,32 +30,35 @@
 //  PYBIND11_MODULE(my_module, m) {
 //    m.def("get_message_enum", &GetMessageEnum);
 //  }
-namespace pybind11::google {
+namespace pybind11_protobuf {
 
 // Implementation details for pybind11 enum casting.
 template <typename EnumType>
 struct enum_type_caster {
  private:
   using T = std::underlying_type_t<EnumType>;
-  using base_caster = detail::make_caster<T>;
+  using base_caster = pybind11::detail::make_caster<T>;
 
  public:
   static constexpr auto name = pybind11::detail::_<EnumType>();
 
   // cast converts from C++ -> Python
-  static handle cast(EnumType src, return_value_policy policy, handle p) {
+  static pybind11::handle cast(EnumType src,
+                               pybind11::return_value_policy policy,
+                               pybind11::handle p) {
     return base_caster::cast(static_cast<T>(src), policy, p);
   }
 
   // load converts from Python -> C++
-  bool load(handle src, bool convert) {
+  bool load(pybind11::handle src, bool convert) {
     base_caster base;
     if (base.load(src, convert)) {
       T v = static_cast<T>(base);
       if (::google::protobuf::GetEnumDescriptor<EnumType>()->FindValueByNumber(v) ==
           nullptr) {
-        throw value_error("Invalid value " + std::to_string(v) +
-                          " for ::google::protobuf::Enum " + std::string(name.text));
+        throw pybind11::value_error("Invalid value " + std::to_string(v) +
+                                    " for ::google::protobuf::Enum " +
+                                    std::string(name.text));
       }
       value = static_cast<EnumType>(v);
       return true;
@@ -72,16 +75,18 @@ struct enum_type_caster {
   EnumType value;
 };
 
-}  // namespace pybind11::google
-namespace pybind11::detail {
+}  // namespace pybind11_protobuf
+namespace pybind11 {
+namespace detail {
 
 // Specialization of pybind11::detail::type_caster<T> for types satisfying
 // ::google::protobuf::is_proto_enum.
 template <typename EnumType>
 struct type_caster<EnumType,
                    std::enable_if_t<::google::protobuf::is_proto_enum<EnumType>::value>>
-    : public google::enum_type_caster<EnumType> {};
+    : public pybind11_protobuf::enum_type_caster<EnumType> {};
 
-}  // namespace pybind11::detail
+}  // namespace detail
+}  // namespace pybind11
 
 #endif  // PYBIND11_PROTOBUF_ENUM_TYPE_CASTER_H_
