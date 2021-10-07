@@ -8,13 +8,13 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <string_view>
 #include <typeindex>
 
 #include "google/protobuf/any.pb.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
+#include "absl/strings/string_view.h"
 
 namespace pybind11 {
 namespace google {
@@ -613,13 +613,13 @@ class MapFieldContainer : public RepeatedFieldContainer<::google::protobuf::Mess
 };
 
 const ::google::protobuf::FieldDescriptor* GetFieldDescriptor(
-    ::google::protobuf::Message* message, std::string_view name,
+    ::google::protobuf::Message* message, absl::string_view name,
     PyObject* error_type = PyExc_AttributeError) {
   auto* field_desc = message->GetDescriptor()->FindFieldByName(std::string(name));
   if (!field_desc) {
     std::string error_str =
         "'" + message->GetTypeName() + "' object has no attribute '";
-    error_str.append(name);
+    error_str.append(std::string(name));
     error_str.append("'");
     PyErr_SetString(error_type, error_str.c_str());
     throw error_already_set();
@@ -686,7 +686,7 @@ std::vector<tuple> MessageListFields(::google::protobuf::Message* message) {
 }
 
 // Wrapper around ::google::protobuf::Message::HasField.
-bool MessageHasField(::google::protobuf::Message* message, std::string_view field_name) {
+bool MessageHasField(::google::protobuf::Message* message, absl::string_view field_name) {
   auto* oneof_desc = message->GetDescriptor()->FindOneofByName(std::string(field_name));
   if (oneof_desc)
     return message->GetReflection()->HasOneof(*message, oneof_desc);
@@ -695,7 +695,7 @@ bool MessageHasField(::google::protobuf::Message* message, std::string_view fiel
   return message->GetReflection()->HasField(*message, field_desc);
 }
 
-void MessageClearField(::google::protobuf::Message* message, std::string_view field_name) {
+void MessageClearField(::google::protobuf::Message* message, absl::string_view field_name) {
   auto* oneof_desc = message->GetDescriptor()->FindOneofByName(std::string(field_name));
   if (oneof_desc) {
     message->GetReflection()->ClearOneof(message, oneof_desc);
@@ -707,11 +707,11 @@ void MessageClearField(::google::protobuf::Message* message, std::string_view fi
 }
 
 const std::string* MessageWhichOneof(::google::protobuf::Message* message,
-                                     std::string_view oneof_group) {
+                                     absl::string_view oneof_group) {
   auto* oneof_desc = message->GetDescriptor()->FindOneofByName(std::string(oneof_group));
   if (!oneof_desc) {
     std::string error_str = "Requested oneof does not exist: ";
-    error_str.append(oneof_group);
+    error_str.append(std::string(oneof_group));
     throw std::invalid_argument(error_str);
   }
 
@@ -801,7 +801,7 @@ class RepeatedFieldBindings : public class_<RepeatedFieldContainer<T>> {
   RepeatedFieldBindings(handle scope, const std::string& name)
       : class_<RepeatedFieldContainer<T>>(scope, name.c_str()) {
     // Repeated message fields support `add` but not `__setitem__`.
-    if (std::is_same_v<T, ::google::protobuf::Message>) {
+    if (std::is_same<T, ::google::protobuf::Message>::value) {
       this->def("add", &RepeatedFieldContainer<T>::Add,
                 return_value_policy::reference_internal);
     } else {
@@ -830,7 +830,7 @@ class MapFieldBindings : public class_<MapFieldContainer<T>> {
   MapFieldBindings(handle scope, const std::string& name)
       : class_<MapFieldContainer<T>>(scope, name.c_str()) {
     // Mapped message fields don't support item assignment.
-    if (std::is_same_v<T, ::google::protobuf::Message>) {
+    if (std::is_same<T, ::google::protobuf::Message>::value) {
       this->def("__setitem__", [](void*, int, handle) {
         throw value_error("Cannot assign to message in a map field.");
       });
@@ -937,8 +937,8 @@ bool PyProtoFullName(handle py_proto, std::string* name) {
 }
 
 bool PyProtoCheckType(handle py_proto, const std::string& expected_type) {
-  if (std::string name; PyProtoFullName(py_proto, &name))
-    return name == expected_type;
+  std::string name;
+  if (PyProtoFullName(py_proto, &name)) return name == expected_type;
   return false;
 }
 
@@ -1018,16 +1018,16 @@ bool AnyUnpackToPyProto(const ::google::protobuf::Any& any_proto,
                         handle py_proto) {
   // Check that py_proto is a proto message of the same type that is stored
   // in the any_proto.
-  if (std::string any_type, proto_type;
-      !(PyProtoFullName(py_proto, &proto_type) &&
+  std::string any_type, proto_type;
+  if (!(PyProtoFullName(py_proto, &proto_type) &&
         ::google::protobuf::Any::ParseAnyTypeUrl(
             std::string(any_proto.type_url()), &any_type) &&
         proto_type == any_type))
     return false;
   // Unpack. The serialized string is not copied if py_proto is a wrapped C
   // proto, and copied once if py_proto is a native python proto.
-  if (detail::type_caster_base<::google::protobuf::Message> caster;
-      caster.load(py_proto, false)) {
+  detail::type_caster_base<::google::protobuf::Message> caster;
+  if (caster.load(py_proto, false)) {
     return static_cast<::google::protobuf::Message&>(caster).ParseFromString(
         std::string(any_proto.value()));
   } else {
@@ -1039,7 +1039,7 @@ bool AnyUnpackToPyProto(const ::google::protobuf::Any& any_proto,
   }
 }
 
-object ProtoGetField(::google::protobuf::Message* message, std::string_view name) {
+object ProtoGetField(::google::protobuf::Message* message, absl::string_view name) {
   return ProtoGetField(message, GetFieldDescriptor(message, name));
 }
 
@@ -1048,7 +1048,7 @@ object ProtoGetField(::google::protobuf::Message* message,
   return DispatchFieldDescriptor<TemplatedProtoGetField>(field_desc, message);
 }
 
-void ProtoSetField(::google::protobuf::Message* message, std::string_view name,
+void ProtoSetField(::google::protobuf::Message* message, absl::string_view name,
                    handle value) {
   ProtoSetField(message, GetFieldDescriptor(message, name), value);
 }
@@ -1072,7 +1072,7 @@ void ProtoInitFields(::google::protobuf::Message* message, kwargs kwargs_in) {
 
   for (auto& item : kwargs_in) {
     DispatchFieldDescriptor<TemplatedProtoSetField>(
-        GetFieldDescriptor(message, cast<std::string_view>(item.first)),
+        GetFieldDescriptor(message, cast<absl::string_view>(item.first)),
         message, item.second);
   }
 }
@@ -1212,9 +1212,9 @@ void RegisterProtoBindings(module m) {
       .def_property_readonly(kIsWrappedCProtoAttr, [](void*) { return true; })
       .def("__repr__", &::google::protobuf::Message::DebugString)
       .def("__getattr__",
-           (object(*)(::google::protobuf::Message*, std::string_view)) & ProtoGetField)
+           (object(*)(::google::protobuf::Message*, absl::string_view)) & ProtoGetField)
       .def("__setattr__",
-           (void (*)(::google::protobuf::Message*, std::string_view, handle)) &
+           (void (*)(::google::protobuf::Message*, absl::string_view, handle)) &
                ProtoSetField)
       .def("SerializeToString",
            [](::google::protobuf::Message* msg, kwargs kwargs_in) {

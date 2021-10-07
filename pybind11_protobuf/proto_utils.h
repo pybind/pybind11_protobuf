@@ -21,13 +21,14 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
 #include "google/protobuf/reflection.h"
+#include "absl/strings/string_view.h"
 
 namespace pybind11 {
 namespace google {
 
 // Alias for checking whether a c++ type is a proto.
 template <typename T>
-inline constexpr bool is_proto_v = std::is_base_of_v<::google::protobuf::Message, T>;
+static constexpr bool is_proto_v = std::is_base_of<::google::protobuf::Message, T>::value;
 
 // copybara:strip_begin(core pybind11 patch required)
 // For limitations without this code, see README.md#protocol-buffer-holder.
@@ -44,7 +45,8 @@ struct move_only_holder_caster<
   static handle cast(HolderType&& src, return_value_policy policy,
                      handle handle) {
     return copyable_holder_caster<ProtoType, std::shared_ptr<ProtoType>>::cast(
-        std::shared_ptr(std::move(src)), policy, handle);
+        std::shared_ptr<typename HolderType::element_type>(std::move(src)),
+        policy, handle);
   }
   static constexpr auto name = type_caster_base<type>::name;
 };
@@ -63,13 +65,13 @@ inline bool IsWrappedCProto(handle handle) {
 }
 
 // Gets the field with the given name from the given message as a python object.
-object ProtoGetField(::google::protobuf::Message* message, std::string_view name);
+object ProtoGetField(::google::protobuf::Message* message, absl::string_view name);
 object ProtoGetField(::google::protobuf::Message* message,
                      const ::google::protobuf::FieldDescriptor* field_desc);
 
 // Sets the field with the given name in the given message from a python object.
 // As in the native API, message, repeated, and map fields cannot be set.
-void ProtoSetField(::google::protobuf::Message* message, std::string_view name,
+void ProtoSetField(::google::protobuf::Message* message, absl::string_view name,
                    handle value);
 void ProtoSetField(::google::protobuf::Message* message,
                    const ::google::protobuf::FieldDescriptor* field_desc, handle value);

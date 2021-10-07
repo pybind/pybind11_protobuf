@@ -215,8 +215,8 @@ pybind_extension(
     deps = [
         ":test_cc_proto",
         "//pybind11_protobuf:native_proto_caster",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 

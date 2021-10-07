@@ -104,24 +104,26 @@ PYBIND11_MODULE(wrapped_proto_module, m) {
 }
 
 /// Below here are compile tests for fast_cpp_proto_casters
-int GetInt();
-const TestMessage& GetConstReference();
-const TestMessage* GetConstPtr();
-TestMessage GetValue();
-TestMessage&& GetRValue();
-absl::StatusOr<TestMessage> GetStatusOr();
-absl::optional<TestMessage> GetOptional();
+int GetInt() { return 0; }
+static TestMessage kMessage;
+const TestMessage& GetConstReference() { return kMessage; }
+const TestMessage* GetConstPtr() { return &kMessage; }
+TestMessage GetValue() { return TestMessage(); }
+// Note that this should never actually run.
+TestMessage&& GetRValue() { return std::move(kMessage); }
+absl::StatusOr<TestMessage> GetStatusOr() { return TestMessage(); }
+absl::optional<TestMessage> GetOptional() { return TestMessage(); }
 
-void PassInt(int);
-void PassConstReference(const TestMessage&);
-void PassConstPtr(const TestMessage*);
-void PassValue(TestMessage);
-void PassRValue(TestMessage&&);
-void PassOptional(absl::optional<TestMessage>);
+void PassInt(int) {}
+void PassConstReference(const TestMessage&) {}
+void PassConstPtr(const TestMessage*) {}
+void PassValue(TestMessage) {}
+void PassRValue(TestMessage&&) {}
+void PassOptional(absl::optional<TestMessage>) {}
 
 struct Struct {
-  TestMessage MemberFn();
-  TestMessage ConstMemberFn() const;
+  TestMessage MemberFn() { return kMessage; }
+  TestMessage ConstMemberFn() const { return kMessage; }
 };
 
 void test_static_asserts() {
@@ -132,115 +134,45 @@ void test_static_asserts() {
   using pybind11::test::IntMessage;
   using pybind11::test::TestMessage;
 
-  static_assert(
-      std::is_same_v<WrappedProto<IntMessage, WrappedProtoKind::kConst>,
-                     WrapHelper<const IntMessage&>::type>,
-      "");
-
-  static_assert(
-      std::is_same_v<WrappedProto<IntMessage, WrappedProtoKind::kConst>,
-                     WrapHelper<const IntMessage*>::type>,
-      "");
-
-  static_assert(
-      std::is_same_v<WrappedProto<IntMessage, WrappedProtoKind::kValue>,
-                     WrapHelper<IntMessage>::type>,
-      "");
-
-  static_assert(
-      std::is_same_v<WrappedProto<IntMessage, WrappedProtoKind::kValue>,
-                     WrapHelper<IntMessage&&>::type>,
-      "");
-
-  // The asserts below ensure that the generated wrappers have the expected type
-  // signatures. Return types are checked against invoke_result_t, and parameter
-  // types are checked using is_invocable_v.
-  static_assert(
-      std::is_same_v<
-          int, std::invoke_result_t<decltype(WithWrappedProtos(&GetInt))>>,
-      "");
-
-  static_assert(
-      std::is_same_v<WrappedProto<TestMessage, WrappedProtoKind::kConst>,
-                     std::invoke_result_t<decltype(WithWrappedProtos(
-                         &GetConstReference))>>,
-      "");
-
-  static_assert(
-      std::is_same_v<
-          WrappedProto<TestMessage, WrappedProtoKind::kConst>,
-          std::invoke_result_t<decltype(WithWrappedProtos(&GetConstPtr))>>,
-      "");
-
-  static_assert(
-      std::is_same_v<
-          WrappedProto<TestMessage, WrappedProtoKind::kValue>,
-          std::invoke_result_t<decltype(WithWrappedProtos(&GetValue))>>,
-      "");
-
-  static_assert(
-      std::is_same_v<
-          WrappedProto<TestMessage, WrappedProtoKind::kValue>,
-          std::invoke_result_t<decltype(WithWrappedProtos(&GetRValue))>>,
-      "");
-
-  // members
-  static_assert(
-      std::is_same_v<
-          WrappedProto<TestMessage, WrappedProtoKind::kValue>,
-          std::invoke_result_t<decltype(WithWrappedProtos(&Struct::MemberFn)),
-                               Struct&>>,
-      "");
-
-  static_assert(
-      std::is_same_v<
-          WrappedProto<TestMessage, WrappedProtoKind::kValue>,
-          std::invoke_result_t<
-              decltype(WithWrappedProtos(&Struct::ConstMemberFn)), Struct&>>,
-      "");
-
-  // statusor
-  static_assert(
-      std::is_same_v<
-          absl::StatusOr<WrappedProto<TestMessage, WrappedProtoKind::kValue>>,
-          std::invoke_result_t<decltype(WithWrappedProtos(&GetStatusOr))>>,
-      "");
-
-  // optional
-  static_assert(
-      std::is_same_v<
-          absl::optional<WrappedProto<TestMessage, WrappedProtoKind::kValue>>,
-          std::invoke_result_t<decltype(WithWrappedProtos(&GetOptional))>>,
-      "");
-
-  static_assert(
-      std::is_invocable_v<decltype(WithWrappedProtos(&PassOptional)),
-                          WrappedProto<TestMessage, WrappedProtoKind::kValue>>,
-      "");
-
-  /// calling
-  static_assert(std::is_invocable_v<decltype(WithWrappedProtos(&PassInt)), int>,
+  static_assert(std::is_same<WrappedProto<IntMessage, WrappedProtoKind::kConst>,
+                             WrapHelper<const IntMessage&>::type>::value,
                 "");
 
-  static_assert(
-      std::is_invocable_v<decltype(WithWrappedProtos(&PassConstReference)),
-                          WrappedProto<TestMessage, WrappedProtoKind::kConst>>,
-      "");
+  static_assert(std::is_same<WrappedProto<IntMessage, WrappedProtoKind::kConst>,
+                             WrapHelper<const IntMessage*>::type>::value,
+                "");
 
-  static_assert(
-      std::is_invocable_v<decltype(WithWrappedProtos(&PassConstPtr)),
-                          WrappedProto<TestMessage, WrappedProtoKind::kConst>>,
-      "");
+  static_assert(std::is_same<WrappedProto<IntMessage, WrappedProtoKind::kValue>,
+                             WrapHelper<IntMessage>::type>::value,
+                "");
 
-  static_assert(
-      std::is_invocable_v<decltype(WithWrappedProtos(&PassValue)),
-                          WrappedProto<TestMessage, WrappedProtoKind::kValue>>,
-      "");
+  static_assert(std::is_same<WrappedProto<IntMessage, WrappedProtoKind::kValue>,
+                             WrapHelper<IntMessage&&>::type>::value,
+                "");
 
-  static_assert(
-      std::is_invocable_v<decltype(WithWrappedProtos(&PassRValue)),
-                          WrappedProto<TestMessage, WrappedProtoKind::kValue>>,
-      "");
+  // These function refs ensure that the generated wrappers have the expected
+  // type signatures.
+  // Return types
+  absl::FunctionRef<int()>(WithWrappedProtos(GetInt));
+  absl::FunctionRef<const TestMessage&()>(WithWrappedProtos(GetConstReference));
+  absl::FunctionRef<const TestMessage*()>(WithWrappedProtos(GetConstPtr));
+  absl::FunctionRef<TestMessage()>(WithWrappedProtos(GetValue));
+  absl::FunctionRef<TestMessage && ()>(WithWrappedProtos(GetRValue));
+  absl::FunctionRef<TestMessage(Struct&)>(WithWrappedProtos(&Struct::MemberFn));
+  absl::FunctionRef<TestMessage(const Struct&)>(
+      WithWrappedProtos(&Struct::ConstMemberFn));
+  absl::FunctionRef<absl::StatusOr<TestMessage>()>(
+      WithWrappedProtos(GetStatusOr));
+  absl::FunctionRef<absl::optional<TestMessage>()>(
+      WithWrappedProtos(GetOptional));
+
+  // Passing types
+  absl::FunctionRef<void(int)>(WithWrappedProtos(PassInt));
+  absl::FunctionRef<void(const TestMessage&)>(
+      WithWrappedProtos(PassConstReference));
+  absl::FunctionRef<void(const TestMessage*)>(WithWrappedProtos(PassConstPtr));
+  absl::FunctionRef<void(TestMessage)>(WithWrappedProtos(PassValue));
+  absl::FunctionRef<void(TestMessage &&)>(WithWrappedProtos(PassRValue));
 }
 
 #if defined(WRAPPED_PROTO_CASTER_NONCOMPILE_TEST)
@@ -255,28 +187,10 @@ void PassPtr(TestMessage*);
 void PassReference(TestMessage&);
 
 void test_wrapping_disabled() {
-  // Automatically wrapping mutable methods fails.
-
-  static_assert(
-      std::is_same_v<
-          WrappedProto<TestMessage, WrappedProtoKind::kMutable>,
-          std::invoke_result_t<decltype(WithWrappedProtos(&GetReference))>>,
-      "");
-
-  static_assert(std::is_same_v<
-                    WrappedProto<TestMessage, WrappedProtoKind::kMutable>,
-                    std::invoke_result_t<decltype(WithWrappedProtos(&GetPtr))>>,
-                "");
-
-  static_assert(std::is_invocable_v<
-                    decltype(WithWrappedProtos(&PassReference)),
-                    WrappedProto<TestMessage, WrappedProtoKind::kMutable>>,
-                "");
-
-  static_assert(std::is_invocable_v<
-                    decltype(WithWrappedProtos(&PassPtr)),
-                    WrappedProto<TestMessage, WrappedProtoKind::kMutable>>,
-                "");
+  absl::FunctionRef<TestMessage&()>(WithWrappedProtos(GetReference));
+  absl::FunctionRef<TestMessage*()>(WithWrappedProtos(GetPtr));
+  absl::FunctionRef<void(TestMessage*)>(WithWrappedProtos(PassPtr));
+  absl::FunctionRef<void(TestMessage&)>(WithWrappedProtos(PassReference));
 }
 #endif  // WRAPPED_PROTO_CASTER_NONCOMPILE_TEST
 

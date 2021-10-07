@@ -49,9 +49,9 @@ struct proto_caster_load_impl {
     // Use the PyProto_API to get an underlying C++ message pointer from the
     // object, which returns non-null when the incoming proto message
     // is a fast_cpp_proto instance.
-    if (const ::google::protobuf::Message *message =
-            pybind11_protobuf::PyProtoGetCppMessagePointer(src);
-        message != nullptr) {
+    const ::google::protobuf::Message *message =
+        pybind11_protobuf::PyProtoGetCppMessagePointer(src);
+    if (message != nullptr) {
       if (ProtoType::default_instance().GetReflection() !=
           message->GetReflection()) {
         // Reflection type mismatch; from a different pool?
@@ -108,8 +108,8 @@ struct proto_caster_load_impl<::google::protobuf::Message> {
     // Use the PyProto_API to get an underlying C++ message pointer from the
     // object, which returns non-null when the incoming proto message
     // is a fast_cpp_proto instance.
-    if (value = pybind11_protobuf::PyProtoGetCppMessagePointer(src);
-        value != nullptr) {
+    value = pybind11_protobuf::PyProtoGetCppMessagePointer(src);
+    if (value != nullptr) {
       return true;
     }
 
@@ -283,13 +283,14 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
   template <typename T_>
   using cast_op_type =
       std::conditional_t<
-          std::is_same_v<std::remove_reference_t<T_>, const ProtoType *>,
+          std::is_same<std::remove_reference_t<T_>, const ProtoType *>::value,
               const ProtoType *,
       std::conditional_t<
-          std::is_same_v<std::remove_reference_t<T_>, ProtoType *>, ProtoType *,
+          std::is_same<
+              std::remove_reference_t<T_>, ProtoType *>::value, ProtoType *,
       std::conditional_t<
-          std::is_same_v<T_, const ProtoType &>, const ProtoType &,
-      std::conditional_t<std::is_same_v<T_, ProtoType &>, ProtoType &,
+          std::is_same<T_, const ProtoType &>::value, const ProtoType &,
+      std::conditional_t<std::is_same<T_, ProtoType &>::value, ProtoType &,
       /*default is T&&*/ T_>>>>;
   // clang-format on
 };

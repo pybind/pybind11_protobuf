@@ -563,9 +563,11 @@ py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
   assert(PyGILState_Check());
   switch (policy) {
     case py::return_value_policy::copy: {
-      auto [result, result_message] =
+      std::pair<py::object, ::google::protobuf::Message*> descriptor_pair =
           GlobalState::instance()->PyFastCppProtoMessageInstance(
               src->GetDescriptor());
+      py::object& result = descriptor_pair.first;
+      ::google::protobuf::Message* result_message = descriptor_pair.second;
 
       if (result_message->GetDescriptor() == src->GetDescriptor()) {
         // Only protos which actually have the same descriptor are copyable.

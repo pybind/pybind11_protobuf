@@ -16,6 +16,7 @@ pybind_library(
         "//pybind11_protobuf:__subpackages__",
     ],
     deps = [
+        "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",  # copybara:strip
     ],
 )

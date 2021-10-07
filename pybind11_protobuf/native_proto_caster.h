@@ -68,7 +68,8 @@ namespace pybind11::detail {
 // inheritance from google::proto_caster<>.
 template <typename ProtoType>
 struct type_caster<
-    ProtoType, std::enable_if_t<std::is_base_of_v<::google::protobuf::Message, ProtoType>>>
+    ProtoType,
+    std::enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>>
     : public pybind11_protobuf::proto_caster<
           ProtoType, pybind11_protobuf::native_cast_impl> {};
 
@@ -85,11 +86,11 @@ struct type_caster<
 template <typename ProtoType, typename HolderType>
 struct move_only_holder_caster<
     ProtoType, HolderType,
-    std::enable_if_t<std::is_base_of_v<::google::protobuf::Message, ProtoType>>> {
+    std::enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>> {
  private:
   using Base = type_caster<intrinsic_t<ProtoType>>;
   static constexpr bool const_element =
-      std::is_const_v<typename HolderType::element_type>;
+      std::is_const<typename HolderType::element_type>::value;
 
  public:
   static constexpr auto name = Base::name;
@@ -135,11 +136,11 @@ struct move_only_holder_caster<
 template <typename ProtoType, typename HolderType>
 struct copyable_holder_caster<
     ProtoType, HolderType,
-    std::enable_if_t<std::is_base_of_v<::google::protobuf::Message, ProtoType>>> {
+    std::enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>> {
  private:
   using Base = type_caster<intrinsic_t<ProtoType>>;
   static constexpr bool const_element =
-      std::is_const_v<typename HolderType::element_type>;
+      std::is_const<typename HolderType::element_type>::value;
 
  public:
   static constexpr auto name = Base::name;

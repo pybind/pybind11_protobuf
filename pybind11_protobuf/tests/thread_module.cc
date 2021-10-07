@@ -9,6 +9,7 @@
 #include <memory>
 #include <stdexcept>
 
+#include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "pybind11_protobuf/native_proto_caster.h"
@@ -34,7 +35,7 @@ PYBIND11_MODULE(thread_module, m) {
 
   m.def(
       "make_message_string_view",
-      [](std::string_view text) -> TestMessage {
+      [](absl::string_view text) -> TestMessage {
         TestMessage msg;
         msg.set_string_value(std::string(text));
         return msg;
@@ -52,7 +53,7 @@ PYBIND11_MODULE(thread_module, m) {
 
   m.def(
       "make_message_string_view_no_gil",
-      [](std::string_view text) -> TestMessage {
+      [](absl::string_view text) -> TestMessage {
         TestMessage msg;
         msg.set_string_value(std::string(text));
         return msg;
