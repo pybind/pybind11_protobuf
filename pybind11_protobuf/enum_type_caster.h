@@ -56,12 +56,9 @@ struct enum_type_caster {
       T v = static_cast<T>(base);
       if (::google::protobuf::GetEnumDescriptor<EnumType>()->FindValueByNumber(v) ==
           nullptr) {
-        // C++ 14 doesn't like referencing the auto name field from the class
-        // so create a special name field here:
-        constexpr auto enum_name = pybind11::detail::_<EnumType>();
-        throw pybind11::value_error("Invalid value " + std::to_string(v) +
-                                    " for ::google::protobuf::Enum " +
-                                    std::string(enum_name.text));
+        throw pybind11::value_error(
+            "Invalid value " + std::to_string(v) +
+            " for ::google::protobuf::Enum " + pybind11::type_id<EnumType>());
       }
       value = static_cast<EnumType>(v);
       return true;
