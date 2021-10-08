@@ -196,14 +196,23 @@ struct WrapHelper<absl::optional<ProtoType>,  //
   using type = absl::optional<WrappedProto<proto, kKind>>;
 };
 
-/// WrappedProtoInvoker is an internal function object that exposes a call
-/// with an equivalent signature as F, replacing ::google::protobuf::Message derived types
-/// with WrappedProto<T, ...> types.
+/// FunctionInvoker/ConstMemberInvoker/MemberInvoker are internal functions
+/// that expose calls with equivalent signatures, replacing ::google::protobuf::Message
+/// derived types with WrappedProto<T, ...> types.
 template <typename F, typename>
-struct WrappedInvoker;
+struct FunctionInvoker;
 
 template <typename F, typename R, typename... Args>
-struct WrappedInvoker<F, std::function<R(Args...)>> {
+struct FunctionInvoker<F, R(Args...)> {
+  F f;
+  typename WrapHelper<R>::type operator()(
+      typename WrapHelper<Args>::type... args) const {
+    return f(std::forward<decltype(args)>(args)...);
+  }
+};
+
+template <typename F, typename R, typename... Args>
+struct FunctionInvoker<F, R(Args...) const> {
   F f;
   typename WrapHelper<R>::type operator()(
       typename WrapHelper<Args>::type... args) const {
@@ -220,7 +229,7 @@ struct ConstMemberInvoker {
   R (C::*f)(Args...) const;
   typename WrapHelper<R>::type operator()(
       const C& c, typename WrapHelper<Args>::type... args) const {
-    return std::invoke(f, &c, std::forward<decltype(args)>(args)...);
+    return (c.*f)(std::forward<decltype(args)>(args)...);
   }
 };
 
@@ -233,8 +242,19 @@ struct MemberInvoker {
   R (C::*f)(Args...);
   typename WrapHelper<R>::type operator()(
       C& c, typename WrapHelper<Args>::type... args) const {
-    return std::invoke(f, &c, std::forward<decltype(args)>(args)...);
+    return (c.*f)(std::forward<decltype(args)>(args)...);
   }
+};
+
+/// Helper to extract a member function signature. A lambda or other functor's
+/// operator() signature can be extracted, when present, via:
+///   LambdaSignature<decltype(&T::operator())>::type
+template <typename>
+struct LambdaSignature;
+
+template <typename U, typename T>
+struct LambdaSignature<U T::*> {
+  using type = U;
 };
 
 }  // namespace impl
@@ -242,25 +262,29 @@ struct MemberInvoker {
 /// WithWrappedProtos(...) wraps a function type and converts any
 /// ::google::protobuf::Message derived types into a WrappedProto<...> of the same
 /// underlying proto2 type.
-template <typename F>
-auto WithWrappedProtos(F f)
-    -> impl::WrappedInvoker<F, decltype(std::function(f))> {
+template <typename F, int&... ExplicitArgumentBarrier,
+          typename S = impl::LambdaSignature<decltype(&F::operator())>>
+auto WithWrappedProtos(F f) ->
+    typename impl::FunctionInvoker<F, typename S::type> {
   return {std::move(f)};
 }
 
 template <typename R, typename... Args>
-auto WithWrappedProtos(R (*f)(Args...)) {
-  return impl::WrappedInvoker<decltype(f), std::function<R(Args...)>>{f};
+impl::FunctionInvoker<R (*)(Args...), R(Args...)>  //
+WithWrappedProtos(R (*f)(Args...)) {
+  return {f};
 }
 
 template <typename R, typename C, typename... Args>
-auto WithWrappedProtos(R (C::*f)(Args...)) {
-  return impl::MemberInvoker<C, R, Args...>{f};
+impl::MemberInvoker<C, R, Args...>  //
+WithWrappedProtos(R (C::*f)(Args...)) {
+  return {f};
 }
 
 template <typename R, typename C, typename... Args>
-auto WithWrappedProtos(R (C::*f)(Args...) const) {
-  return impl::ConstMemberInvoker<C, R, Args...>{f};
+impl::ConstMemberInvoker<C, R, Args...>  //
+WithWrappedProtos(R (C::*f)(Args...) const) {
+  return {f};
 }
 
 // pybind11 type_caster specialization for pybind11::google::WrappedProto<T>
