@@ -19,7 +19,7 @@
 #include "pybind11_protobuf/proto_caster_impl.h"
 
 // pybind11::type_caster<> specialization for ::google::protobuf::Message types using
-// pybind11::google::WrappedProto<> wrappers. When passing from C++ to
+// pybind11_protobuf::WrappedProto<> wrappers. When passing from C++ to
 // python a copy is always made. When passing from python to C++ a copy is
 // made for mutable and by-value types, but not for const reference types.
 //
@@ -36,7 +36,7 @@
 // PYBIND11_MODULE(my_module, m) {
 //   pybind11_protobuf::ImportWrappedProtoCasters();
 //
-//   using ::pybind11::google::WithWrappedProtos;
+//   using pybind11_protobuf::WithWrappedProtos;
 //
 //   m.def("get_message", WithWrappedProtos(&GetMessage));
 // }
@@ -57,10 +57,6 @@ namespace pybind11_protobuf {
 // Imports modules for protobuf conversion. This not thread safe and
 // is required to be called from a PYBIND11_MODULE definition before use.
 inline void ImportWrappedProtoCasters() { InitializePybindProtoCastUtil(); }
-
-}  // namespace pybind11_protobuf
-namespace pybind11 {
-namespace google {
 
 /// Tag types for WrappedProto specialization.
 enum WrappedProtoKind : int { kConst, kValue, kMutable };
@@ -88,7 +84,7 @@ struct WrappedProto<ProtoType, WrappedProtoKind::kMutable> {
 
   operator ProtoType*() noexcept { return proto; }
   operator ProtoType&() {
-    if (!proto) throw reference_cast_error();
+    if (!proto) throw pybind11::reference_cast_error();
     return *proto;
   }
 };
@@ -105,7 +101,7 @@ struct WrappedProto<ProtoType, WrappedProtoKind::kConst> {
 
   operator const ProtoType*() const noexcept { return proto; }
   operator const ProtoType&() const {
-    if (!proto) throw reference_cast_error();
+    if (!proto) throw pybind11::reference_cast_error();
     return *proto;
   }
 };
@@ -287,7 +283,7 @@ WithWrappedProtos(R (C::*f)(Args...) const) {
   return {f};
 }
 
-// pybind11 type_caster specialization for pybind11::google::WrappedProto<T>
+// pybind11 type_caster specialization for WrappedProto<T>
 // c++ protocol buffer types.
 template <typename WrappedProtoType>
 struct wrapped_proto_caster : public pybind11_protobuf::proto_caster_load_impl<
@@ -305,18 +301,19 @@ struct wrapped_proto_caster : public pybind11_protobuf::proto_caster_load_impl<
   static constexpr auto name = pybind11::detail::_<WrappedProtoType>();
 
   // cast converts from C++ -> Python
-  static handle cast(WrappedProtoType src, return_value_policy policy,
-                     handle parent) {
-    if (src.get() == nullptr) return none().release();
+  static pybind11::handle cast(WrappedProtoType src,
+                               pybind11::return_value_policy policy,
+                               pybind11::handle parent) {
+    if (src.get() == nullptr) return pybind11::none().release();
     std::unique_ptr<ProtoType> owned;
-    if (policy == return_value_policy::take_ownership) {
+    if (policy == pybind11::return_value_policy::take_ownership) {
       owned.reset(const_cast<ProtoType*>(src.get()));
     }
     // The underlying implementation always creates a copy of non-const
     // messages because otherwise sharing memory between C++ and Python allow
     // risky and unsafe access.
     return cast_impl(
-        src.get(), return_value_policy::copy, parent,
+        src.get(), pybind11::return_value_policy::copy, parent,
         /*is_const*/ WrappedProtoKind::kConst == WrappedProtoType::kind);
   }
 
@@ -357,19 +354,38 @@ struct wrapped_proto_caster : public pybind11_protobuf::proto_caster_load_impl<
   using cast_op_type = WrappedProtoType;
 };
 
-}  // namespace google
+}  // namespace pybind11_protobuf
+namespace pybind11 {
 namespace detail {
 
 // pybind11 type_caster<> specialization for c++ protocol buffer types using
-// inheritance from google::wrapped_proto_caster<>.
-template <typename ProtoType, ::pybind11::google::WrappedProtoKind Kind>
+// inheritance from pybind11_protobuf::wrapped_proto_caster<>.
+template <typename ProtoType, pybind11_protobuf::WrappedProtoKind Kind>
 struct type_caster<
-    pybind11::google::WrappedProto<ProtoType, Kind>,
+    pybind11_protobuf::WrappedProto<ProtoType, Kind>,
     std::enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>>
-    : public google::wrapped_proto_caster<
-          pybind11::google::WrappedProto<ProtoType, Kind>> {};
+    : public pybind11_protobuf::wrapped_proto_caster<
+          pybind11_protobuf::WrappedProto<ProtoType, Kind>> {};
 
 }  // namespace detail
+
+// NOTE: Migration from namespace pybind11::google to namespace
+// pybind11_protobuf is a work in progress, afterwards these aliases
+// will be removed.
+namespace google {
+
+using WrappedProtoKind = pybind11_protobuf::WrappedProtoKind;
+
+template <typename ProtoType, WrappedProtoKind Kind>
+using WrappedProto = pybind11_protobuf::WrappedProto<ProtoType, Kind>;
+
+template <typename T>
+auto WithWrappedProtos(T t)
+    -> decltype(pybind11_protobuf::WithWrappedProtos(t)) {
+  return pybind11_protobuf::WithWrappedProtos(t);
+}
+
+}  // namespace google
 }  // namespace pybind11
 
 #endif  // PYBIND11_PROTOBUF_WRAPPED_PROTO_CASTER_H_

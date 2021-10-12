@@ -19,11 +19,11 @@ namespace py = ::pybind11;
 
 namespace {
 
-using pybind11::google::WithWrappedProtos;
-using pybind11::google::WrappedProto;
-using pybind11::google::WrappedProtoKind;
 using pybind11::test::IntMessage;
 using pybind11::test::TestMessage;
+using pybind11_protobuf::WithWrappedProtos;
+using pybind11_protobuf::WrappedProto;
+using pybind11_protobuf::WrappedProtoKind;
 
 const TestMessage& GetStatic() {
   static TestMessage test_message = [] {
@@ -127,12 +127,11 @@ struct Struct {
 };
 
 void test_static_asserts() {
-  using pybind11::google::WithWrappedProtos;
-  using pybind11::google::WrappedProto;
-  using pybind11::google::WrappedProtoKind;
-  using pybind11::google::impl::WrapHelper;
   using pybind11::test::IntMessage;
   using pybind11::test::TestMessage;
+  using pybind11_protobuf::WithWrappedProtos;
+  using pybind11_protobuf::WrappedProto;
+  using pybind11_protobuf::impl::WrapHelper;
 
   static_assert(std::is_same<WrappedProto<IntMessage, WrappedProtoKind::kConst>,
                              WrapHelper<const IntMessage&>::type>::value,
