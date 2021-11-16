@@ -26,7 +26,7 @@ protocol buffers.
 #include "path/to/my/my_message.proto.h"
 #include "pybind11_protobuf/native_proto_caster.h"
 
-// In real use, these 2 functions would probably be defined in a python-agnostic library.
+// In real use, these two functions would probably be defined in a python-agnostic library.
 MyMessage ReturnMyMessage() { ... }
 void TakeMyMessage(const MyMessage& in) { ... }
 
