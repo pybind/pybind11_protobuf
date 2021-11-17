@@ -69,6 +69,11 @@ echo "Using PYTHON_BIN_PATH: $PYTHON_BIN_PATH"
 echo "Using PYTHON_LIB_PATH: $PYTHON_LIB_PATH"
 
 # Currently only a subset of tests build.  The next one to fix is protobuf_test
-BAZEL_CXXOPTS="-std=c++17" bazel test pybind11_protobuf/tests:proto_test --test_output=errors
+BAZEL_CXXOPTS="-std=c++17" bazel test --test_output=errors \
+    pybind11_protobuf/tests:extension_test \
+    pybind11_protobuf/tests:message_test \
+    pybind11_protobuf/tests:pass_by_test \
+    pybind11_protobuf/tests:proto_enum_test \
+    pybind11_protobuf/tests:wrapped_proto_module_test
 
 
