@@ -10,7 +10,7 @@ set -e  # exit when any command fails
 
 MYDIR="$(dirname "$(realpath "$0")")"
 
-BAZEL=$(which bazel)
+BAZEL=$(which bazel || true)
 if [ ! -x $BAZEL ]
 then
   echo -n "Bazel not found (bazel (https://bazel.build/) is needed to "
