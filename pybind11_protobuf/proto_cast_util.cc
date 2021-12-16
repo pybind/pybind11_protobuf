@@ -106,7 +106,7 @@ GlobalState::GlobalState() {
 
   // pybind11 protobuf casting needs a dependency on proto internals to work.
   try {
-    ImportCached("google3.net.proto2.proto.descriptor_pb2");
+    ImportCached("google.protobuf.descriptor_pb2");
     ImportCached("google.protobuf.descriptor_pool");
     ImportCached("google.protobuf.message_factory");
   } catch (py::error_already_set& e) {
