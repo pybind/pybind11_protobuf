@@ -15,7 +15,6 @@
 #include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
 #include "pybind11_protobuf/native_proto_caster.h"
-#include "pybind11_protobuf/tests/test.pb.h"
 
 namespace py = ::pybind11;
 
@@ -126,14 +125,6 @@ PYBIND11_MODULE(dynamic_message_module, m) {
       py::arg("message"), py::arg("value"));
 #endif  // PYBIND11_PROTOBUF_UNSAFE
 
-  // overloaded functions
-  m.def(
-      "fn_overload", [](const ::google::protobuf::Message&) -> int { return 1; },
-      py::arg("message"));
-  m.def(
-      "fn_overload", [](const pybind11::test::IntMessage&) -> int { return 2; },
-      py::arg("message"));
-
   // copies
   m.def(
       "roundtrip",
@@ -141,6 +132,35 @@ PYBIND11_MODULE(dynamic_message_module, m) {
         return inout;
       },
       py::arg("message"), py::return_value_policy::copy);
+
+  // parse
+  m.def(
+      "parse_as",
+      [](std::string data, std::unique_ptr<::google::protobuf::Message> msg)
+          -> std::unique_ptr<::google::protobuf::Message> {
+        assert(msg.get());
+        assert(msg->GetDescriptor());
+        ::google::protobuf::TextFormat::Parser parser;
+        parser.ParseFromString(data, msg.get());
+        return msg;
+      },
+      py::arg("data"), py::arg("message"));
+
+  m.def(
+      "print",
+      [](std::unique_ptr<::google::protobuf::Message> msg) -> std::string {
+        return msg ? msg->DebugString() : "<nullptr>";
+      },
+      py::arg("message"));
+
+  m.def(
+      "print_descriptor",
+      [](std::unique_ptr<::google::protobuf::Message> msg) -> std::string {
+        return (msg && msg->GetDescriptor())
+                   ? msg->GetDescriptor()->DebugString()
+                   : "<nullptr>";
+      },
+      py::arg("message"));
 }
 
 }  // namespace

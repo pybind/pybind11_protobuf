@@ -72,7 +72,6 @@ pybind_extension(
     name = "dynamic_message_module",
     srcs = ["dynamic_message_module.cc"],
     deps = [
-        ":test_cc_proto",
         "//pybind11_protobuf:native_proto_caster",
         "@com_google_protobuf//:protobuf",
     ],

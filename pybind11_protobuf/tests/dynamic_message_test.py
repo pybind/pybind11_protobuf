@@ -90,17 +90,6 @@ class DynamicMessageTest(parameterized.TestCase, compare.ProtoAssertions):
     self.assertTrue(m.check_message_const_ptr(message, 5))
 
   @parameterized.named_parameters(
-      ('py_dynamic_int', get_py_dynamic_int_message),
-      ('cpp_dynamic_int', get_cpp_dynamic_int_message),
-      #  ('py_dynamic', get_py_dynamic_message),
-      #  ('cpp_dynamic', get_cpp_dynamic_message),
-      #  ('cpp_dynamic_message_shared_ptr', m.dynamic_message_shared_ptr),
-      #  ('cpp_dynamic_unique_ptr', m.dynamic_message_unique_ptr),
-  )
-  def test_overload(self, get_message_function):
-    self.assertEqual(1, m.fn_overload(get_message_function()))
-
-  @parameterized.named_parameters(
       ('native_proto', test_pb2.IntMessage),
       ('py_dynamic_int', get_py_dynamic_int_message),
       ('cpp_dynamic_int', get_cpp_dynamic_int_message),
@@ -113,6 +102,42 @@ class DynamicMessageTest(parameterized.TestCase, compare.ProtoAssertions):
     a = get_message_function(value=6)
     b = m.roundtrip(a)
     self.assertTrue(m.check_message(b, 6))
+
+  @parameterized.named_parameters(
+      ('native_proto', test_pb2.IntMessage),
+      ('py_dynamic_int', get_py_dynamic_int_message),
+      ('cpp_dynamic_int', get_cpp_dynamic_int_message),
+      ('py_dynamic', get_py_dynamic_message),
+      ('cpp_dynamic', get_cpp_dynamic_message),
+  )
+  def test_parse_as(self, get_message_function):
+    a = get_message_function(value=6)
+    b = m.parse_as('value: 333', a)
+    self.assertTrue(m.check_message(b, 333), b)
+
+  @parameterized.named_parameters(
+      ('native_proto', test_pb2.IntMessage),
+      ('py_dynamic_int', get_py_dynamic_int_message),
+      ('cpp_dynamic_int', get_cpp_dynamic_int_message),
+      ('py_dynamic', get_py_dynamic_message),
+      ('cpp_dynamic', get_cpp_dynamic_message),
+  )
+  def test_print(self, get_message_function):
+    a = get_message_function(value=6)
+    b = m.print(a)
+    self.assertEqual(b.strip(), 'value: 6', b)
+
+  @parameterized.named_parameters(
+      ('native_proto', test_pb2.IntMessage),
+      ('py_dynamic_int', get_py_dynamic_int_message),
+      ('cpp_dynamic_int', get_cpp_dynamic_int_message),
+      ('py_dynamic', get_py_dynamic_message),
+      ('cpp_dynamic', get_cpp_dynamic_message),
+  )
+  def test_print_descriptor(self, get_message_function):
+    a = get_message_function(value=6)
+    b = m.print_descriptor(a)
+    self.assertNotEqual(-1, b.find('value = 1'), b)
 
 
 if __name__ == '__main__':
