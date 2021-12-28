@@ -23,8 +23,11 @@ void InitializePybindProtoCastUtil();
 // Imports a module pertaining to a given ::google::protobuf::Descriptor, if possible.
 void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor *);
 
-// Returns a ::google::protobuf::Message* from a cpp_fast_proto.
+// Returns a ::google::protobuf::Message* from a cpp_fast_proto, if backed by C++.
 const ::google::protobuf::Message *PyProtoGetCppMessagePointer(pybind11::handle src);
+
+// Pins a proto.DESCRIPTOR.pool to ensure that it remains alive.
+bool PyProtoPinDescriptorPool(pybind11::handle src);
 
 // Returns the protocol buffer's py_proto.DESCRIPTOR.full_name attribute.
 absl::optional<std::string> PyProtoDescriptorName(pybind11::handle py_proto);

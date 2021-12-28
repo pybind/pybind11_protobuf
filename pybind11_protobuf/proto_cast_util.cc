@@ -18,6 +18,8 @@
 #include "google/protobuf/message.h"
 #include "python/google/protobuf/proto_api.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/hash/hash.h"
 #include "absl/strings/str_replace.h"
 #include "absl/types/optional.h"
 
@@ -60,6 +62,18 @@ inline absl::optional<py::object> ResolveAttrs(
   return tmp;
 }
 
+struct PyObjectPtrHash {
+  size_t operator()(const py::object& object) const {
+    // TODO: replace with absl::HashOf(object.ptr());
+    return absl::Hash<void*>{}(object.ptr());
+  }
+};
+struct PyObjectPtrEq {
+  bool operator()(const py::object& a, const py::object& b) const {
+    return a.ptr() == b.ptr();
+  }
+};
+
 class GlobalState {
  public:
   // Global state singleton intentionally leaks at program termination.
@@ -88,6 +102,9 @@ class GlobalState {
   // Import (and cache) a python module.
   py::module_ ImportCached(const std::string& module_name);
 
+  // Pin a descriptor pool by taking a reference.
+  bool PinDescriptorPool(py::handle src);
+
  private:
   GlobalState();
 
@@ -98,7 +115,8 @@ class GlobalState {
   py::object find_message_type_by_name_;
   py::object get_prototype_;
 
-  absl::flat_hash_map<std::string, py::module_> import_cache;
+  absl::flat_hash_map<std::string, py::module_> import_cache_;
+  absl::flat_hash_set<py::object, PyObjectPtrHash, PyObjectPtrEq> pinned_;
 };
 
 GlobalState::GlobalState() {
@@ -160,13 +178,23 @@ GlobalState::GlobalState() {
   }
 }
 
+bool GlobalState::PinDescriptorPool(py::handle src) {
+  auto pool = ResolveAttrs(src, {"DESCRIPTOR", "file", "pool"});
+  if (!pool) {
+    return false;
+  }
+  // The refcount to the descriptor pool is never released.
+  pinned_.emplace(std::move(*pool));
+  return true;
+}
+
 py::module_ GlobalState::ImportCached(const std::string& module_name) {
-  auto cached = import_cache.find(module_name);
-  if (cached != import_cache.end()) {
+  auto cached = import_cache_.find(module_name);
+  if (cached != import_cache_.end()) {
     return cached->second;
   }
   auto module = py::module_::import(module_name.c_str());
-  import_cache[module_name] = module;
+  import_cache_[module_name] = module;
   return module;
 }
 
@@ -174,8 +202,8 @@ py::object GlobalState::PyMessageInstance(
     const ::google::protobuf::Descriptor* descriptor) {
   auto module_name = PythonPackageForDescriptor(descriptor->file());
   if (!module_name.empty()) {
-    auto cached = import_cache.find(module_name);
-    if (cached != import_cache.end()) {
+    auto cached = import_cache_.find(module_name);
+    if (cached != import_cache_.end()) {
       return ResolveDescriptor(cached->second, descriptor)();
     }
   }
@@ -287,15 +315,14 @@ class PythonDescriptorPoolWrapper {
       return &pool_entry;
     }
 
-    // We retain a weak reference to the python_pool.
-    // On deletion, the callback will remove the entry from the map,
-    // which will delete the Data instance.
-    auto pool_weakref = py::weakref(
-        python_pool, py::cpp_function([this, key](py::handle weakref) {
-          pools_map.erase(key);
-        }));
+    // An attempt at cleanup could be made by using a py::weakref to the
+    // underlying python pool, and removing the map entry when the pool
+    // disappears, that is fundamentally unsafe because (1) a cloned c++ object
+    // may outlive the python pool, and (2) for the fast_cpp_proto case, there's
+    // no support for weak references.
 
-    auto database = absl::make_unique<DescriptorPoolDatabase>(pool_weakref);
+    auto database = absl::make_unique<DescriptorPoolDatabase>(
+        py::reinterpret_borrow<py::object>(python_pool));
     auto pool = absl::make_unique<::google::protobuf::DescriptorPool>(database.get());
     auto factory = absl::make_unique<::google::protobuf::DynamicMessageFactory>(pool.get());
     // When wrapping the Python descriptor_poool.Default(), apply an important
@@ -326,7 +353,8 @@ class PythonDescriptorPoolWrapper {
   // as a DescriptorDatabase.
   class DescriptorPoolDatabase : public ::google::protobuf::DescriptorDatabase {
    public:
-    DescriptorPoolDatabase(py::weakref python_pool) : pool_(python_pool) {}
+    DescriptorPoolDatabase(py::object python_pool)
+        : pool_(std::move(python_pool)) {}
 
     // These 3 methods implement ::google::protobuf::DescriptorDatabase and delegate to
     // the Python DescriptorPool.
@@ -335,7 +363,7 @@ class PythonDescriptorPoolWrapper {
     bool FindFileByName(const std::string& filename,
                         ::google::protobuf::FileDescriptorProto* output) override {
       try {
-        auto file = pool_().attr("FindFileByName")(filename);
+        auto file = pool_.attr("FindFileByName")(filename);
         return CopyToFileDescriptorProto(file, output);
       } catch (py::error_already_set& e) {
             std::cerr
@@ -353,7 +381,7 @@ class PythonDescriptorPoolWrapper {
         const std::string& symbol_name,
         ::google::protobuf::FileDescriptorProto* output) override {
       try {
-        auto file = pool_().attr("FindFileContainingSymbol")(symbol_name);
+        auto file = pool_.attr("FindFileContainingSymbol")(symbol_name);
         return CopyToFileDescriptorProto(file, output);
       } catch (py::error_already_set& e) {
             std::cerr
@@ -372,11 +400,10 @@ class PythonDescriptorPoolWrapper {
         const std::string& containing_type, int field_number,
         ::google::protobuf::FileDescriptorProto* output) override {
       try {
-        auto descriptor =
-            pool_().attr("FindMessageTypeByName")(containing_type);
-        auto file = pool_()
-                        .attr("FindExtensionByNymber")(descriptor, field_number)
-                        .attr("file");
+        auto descriptor = pool_.attr("FindMessageTypeByName")(containing_type);
+        auto file =
+            pool_.attr("FindExtensionByNymber")(descriptor, field_number)
+                .attr("file");
         return CopyToFileDescriptorProto(file, output);
       } catch (py::error_already_set& e) {
             std::cerr
@@ -415,7 +442,7 @@ class PythonDescriptorPoolWrapper {
                                            PYBIND11_BYTES_SIZE(wire.ptr()));
     }
 
-    py::weakref pool_;
+    py::object pool_;  // never dereferenced.
   };
 
   // This map caches the wrapped objects, indexed by DescriptorPool address.
@@ -485,6 +512,11 @@ bool PyProtoCopyToCProto(py::handle py_proto, ::google::protobuf::Message* messa
                          message->GetDescriptor()->full_name());
   }
   return message->ParsePartialFromArray(bytes, PYBIND11_BYTES_SIZE(wire.ptr()));
+}
+
+bool PyProtoPinDescriptorPool(pybind11::handle src) {
+  assert(PyGILState_Check());
+  return GlobalState::instance()->PinDescriptorPool(src);
 }
 
 std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(

@@ -110,11 +110,18 @@ struct proto_caster_load_impl<::google::protobuf::Message> {
     // is a fast_cpp_proto instance.
     value = pybind11_protobuf::PyProtoGetCppMessagePointer(src);
     if (value != nullptr) {
-      return true;
+      // If the message descriptor is not in the global pool, the descriptor
+      // pool needs to be pinned to ensure that the underlying descriptor
+      // remains valid.
+      if ((value->GetDescriptor()->file()->pool() ==
+           ::google::protobuf::DescriptorPool::generated_pool()) ||
+          PyProtoPinDescriptorPool(src)) {
+        return true;
+      }
     }
 
-    // The incoming object is not a fast_cpp_proto, so find or create a native
-    // C++ proto which has the same descriptors.
+    // `src` is not a fast_cpp_proto, or the underlying pool could not be
+    // pinned, so create a native C++ proto which has the same descriptors.
     auto descriptor_name = pybind11_protobuf::PyProtoDescriptorName(src);
     if (!descriptor_name) {
       return false;
