@@ -3,16 +3,23 @@ workspace(name = "com_google_pybind11_protobuf")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
 
-git_repository(
+http_archive(
     name = "com_google_absl",
-    remote = "https://github.com/abseil/abseil-cpp.git",
-    commit = "6df644c56f31b100bf731e27c3825069745651e3",
+    sha256 = "dcf71b9cba8dc0ca9940c4b316a0c796be8fab42b070bb6b7cab62b48f0e66c4",  # SHARED_ABSL_SHA
+    strip_prefix = "abseil-cpp-20211102.0",
+    urls = [
+        "https://github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
+    ],
 )
 
-git_repository(
+http_archive(
     name = "com_google_absl_py",
-    remote = "https://github.com/abseil/abseil-py.git",
-    commit = "9954557f9df0b346a57ff82688438c55202d2188",
+    repo_mapping = {"@six_archive": "@six"},
+    sha256 = "0be59b82d65dfa1f995365dcfea2cc57989297b065fda696ef13f30fcc6c8e5b",
+    strip_prefix = "abseil-py-pypi-v0.15.0",
+    urls = [
+        "https://github.com/abseil/abseil-py/archive/refs/tags/pypi-v0.15.0.tar.gz",
+    ],
 )
 
 # Six is a dependency of com_google_absl_py
@@ -29,18 +36,20 @@ http_archive(
 
 ## `pybind11_bazel`
 # See https://github.com/pybind/pybind11_bazel
-git_repository(
+http_archive(
   name = "pybind11_bazel",
-  remote = "https://github.com/pybind/pybind11_bazel.git",
-  commit = "26973c0ff320cb4b39e45bc3e4297b82bc3a6c09",
+  strip_prefix = "pybind11_bazel-72cbbf1fbc830e487e3012862b7b720001b70672",
+  sha256 = "516c1b3a10d87740d2b7de6f121f8e19dde2c372ecbfe59aef44cd1872c10395",
+  urls = ["https://github.com/pybind/pybind11_bazel/archive/72cbbf1fbc830e487e3012862b7b720001b70672.tar.gz"],
 )
 
 # We still require the pybind library.
-new_git_repository(
+http_archive(
   name = "pybind11",
   build_file = "@pybind11_bazel//:pybind11.BUILD",
-  remote = "https://github.com/pybind/pybind11.git",
-  tag = "v2.7.1",
+  strip_prefix = "pybind11-2.9.0",
+  sha256 = "057fb68dafd972bc13afb855f3b0d8cf0fa1a78ef053e815d9af79be7ff567cb",
+  urls = ["https://github.com/pybind/pybind11/archive/refs/tags/v2.9.0.tar.gz"],
 )
 
 load("@pybind11_bazel//:python_configure.bzl", "python_configure")
@@ -49,24 +58,29 @@ python_configure(name = "local_config_python")
 # proto_library, cc_proto_library, and java_proto_library rules implicitly
 # depend on @com_google_protobuf for protoc and proto runtimes.
 # This statement defines the @com_google_protobuf repo.
-git_repository(
+http_archive(
     name = "com_google_protobuf",
-    remote = "https://github.com/protocolbuffers/protobuf.git",
-    tag = "v3.18.0-rc1",
-    patches = ["com_google_protobuf_build.patch"],
+    sha256 = "87407cd28e7a9c95d9f61a098a53cf031109d451a7763e7dd1253abf8b4df422",
+    strip_prefix = "protobuf-3.19.1",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.19.1.tar.gz"],
+    patches = [
+        "com_google_protobuf_build.patch",
+    ],
 )
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 protobuf_deps()
 
-# GRPC v1.38, for proto rules.
+# GRPC v1.42, for proto rules.
 # For a related discussion of the pro/cons of various open-source py proto rule
 # repositories, see b/189457935.
-git_repository(
+http_archive(
     name = "com_github_grpc_grpc",
-    remote = "https://github.com/grpc/grpc.git",
-    tag = "v1.38.0",
+    sha256 = "9f387689b7fdf6c003fd90ef55853107f89a2121792146770df5486f0199f400",
+    strip_prefix = "grpc-1.42.0",
+    urls = ["https://github.com/grpc/grpc/archive/v1.42.0.zip"],
 )
+
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 grpc_deps()
 
