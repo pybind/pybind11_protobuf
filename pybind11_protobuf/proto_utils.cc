@@ -758,6 +758,14 @@ bytes MessageSerializeAsString(::google::protobuf::Message* msg, kwargs kwargs_i
   return bytes(result);
 }
 
+// Wrapper to generate the python message Descriptor.fields property.
+list MessageFields(const ::google::protobuf::Descriptor* descriptor) {
+  list result;
+  for (int i = 0; i < descriptor->field_count(); ++i)
+    result.append(cast(descriptor->field(i), return_value_policy::reference));
+  return result;
+}
+
 // Wrapper to generate the python message Descriptor.fields_by_name property.
 dict MessageFieldsByName(const ::google::protobuf::Descriptor* descriptor) {
   dict result;
@@ -1116,6 +1124,7 @@ void RegisterProtoBindings(module m) {
   // Add bindings for the descriptor class.
   class_<::google::protobuf::Descriptor> message_desc_c(m, "Descriptor", dynamic_attr());
   DefConstantProperty(&message_desc_c, "fields_by_name", &MessageFieldsByName);
+  DefConstantProperty(&message_desc_c, "fields", &MessageFields);
   message_desc_c
       .def_property_readonly("full_name", &::google::protobuf::Descriptor::full_name)
       .def_property_readonly("name", &::google::protobuf::Descriptor::name)
