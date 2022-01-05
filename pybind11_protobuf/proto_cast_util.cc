@@ -568,7 +568,137 @@ std::string ReturnValuePolicyName(py::return_value_policy policy) {
   }
 }
 
+bool PyCompatibleFieldDescriptorImpl(
+    const ::google::protobuf::FieldDescriptor* a, const ::google::protobuf::FieldDescriptor* b,
+    absl::flat_hash_map<const void*, const void*>& memoize);
+
+// PyCompatibleDescriptorImpl returns whether, for c++ <--> python purposes,
+// two descriptors are considered compatible, which is to say that they are
+// essentially the same object.  This is used to test compatibility when
+// two messages have different underlying pools, which currently happens in
+// bazel builds because py_extension targets end up with an additional instance
+// of the protobuf library, and thus different pools (diamond .so problem).
+//
+// For purposes of compatibility, the most important part is field equivalence.
+// Uninstantiated nested type equivalence does not matter, so ignore extensions
+// and the the following type-related fields:
+// * nested_type_count, nested_type(i)
+// * enum_type_count, enum_type(i)
+// * extension_count, extension(i)
+// * reserved_range_count, reserved_range(i)
+// * reserved_name_count, reserved_name(i)
+// This mechanism is less strict than descriptor-level equivalence
+// (Descriptor::ToProto), and largely avoids allocations.
+//
+// Protobuf extensions are tricky; for file-level compatability, they should
+// be the same, but they modify fields on _other_ objects, so that is where the
+// equivalence should be determined.
+//
+bool PyCompatibleDescriptorImpl(
+    const ::google::protobuf::Descriptor* a, const ::google::protobuf::Descriptor* b,
+    absl::flat_hash_map<const void*, const void*>& memoize) {
+  // if memoize[a] == b, we're done, otherwise insert assuming success.
+  {
+    auto result = memoize.try_emplace(a, b);
+    if (!result.second) {
+      return result.first->second == b;
+    }
+  }
+  if (a->full_name() != b->full_name()) return false;
+  if (a->field_count() != b->field_count()) return false;
+  if (a->oneof_decl_count() != b->oneof_decl_count()) return false;
+  if (a->extension_range_count() != b->extension_range_count()) return false;
+  if (a->well_known_type() != b->well_known_type()) return false;
+  if (a->well_known_type() != ::google::protobuf::Descriptor::WELLKNOWNTYPE_UNSPECIFIED) {
+    // Assuming that well-known types are serialization-compatible, short
+    // circuit the rest of testing.
+    if (a->well_known_type() == b->well_known_type()) return true;
+  }
+  // validate fields and oneof declarations.
+  for (int i = 0; i < a->field_count(); i++) {
+    if (!PyCompatibleFieldDescriptorImpl(a->field(i), b->field(i), memoize))
+      return false;
+  }
+  for (int i = 0; i < a->oneof_decl_count(); i++) {
+    auto* ao = a->oneof_decl(i);
+    auto* bo = b->oneof_decl(i);
+    if (ao->name() != bo->name()) return false;
+    if (ao->field_count() != bo->field_count()) return false;
+    for (int j = 0; j < ao->field_count(); ++j) {
+      if (!PyCompatibleFieldDescriptorImpl(ao->field(j), bo->field(j), memoize))
+        return false;
+    }
+  }
+  for (int i = 0; i < a->extension_range_count(); i++) {
+    if (a->extension_range(i)->start != b->extension_range(i)->start)
+      return false;
+    if (a->extension_range(i)->end != b->extension_range(i)->end) return false;
+  }
+  return true;
+}
+
+// Shallow enum descriptor comparison.
+bool PyCompatibleEnumDescriptorImpl(
+    const ::google::protobuf::EnumDescriptor* a, const ::google::protobuf::EnumDescriptor* b,
+    absl::flat_hash_map<const void*, const void*>& memoize) {
+  // if memoize[a] == b, we're done, otherwise insert assuming success.
+  {
+    auto result = memoize.try_emplace(a, b);
+    if (!result.second) {
+      return result.first->second == b;
+    }
+  }
+  if (a->full_name() != b->full_name()) return false;
+  if (a->value_count() != b->value_count()) return false;
+  for (int i = 0; i < a->value_count(); i++) {
+    if (a->value(i)->name() != b->value(i)->name()) return false;
+    if (a->value(i)->number() != b->value(i)->number()) return false;
+  }
+  return true;
+}
+
+// Shallow field descriptor comparison.
+bool PyCompatibleFieldDescriptorImpl(
+    const ::google::protobuf::FieldDescriptor* a, const ::google::protobuf::FieldDescriptor* b,
+    absl::flat_hash_map<const void*, const void*>& memoize) {
+  // if memoize[a] == b, we're done, otherwise insert assuming success.
+  {
+    auto result = memoize.try_emplace(a, b);
+    if (!result.second) {
+      return result.first->second == b;
+    }
+  }
+  if (a->name() != b->name()) return false;
+  if (a->number() != b->number()) return false;
+  if (a->type() != b->type()) return false;
+  if (a->label() != b->label()) return false;  // optional, required, repeated
+  if (a->is_extension() != b->is_extension()) return false;
+
+  if (a->is_extension()) {
+    if (a->containing_type()->full_name() != b->containing_type()->full_name())
+      return false;
+  }
+  if (a->cpp_type() == ::google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE) {
+    if (!PyCompatibleDescriptorImpl(a->message_type(), b->message_type(),
+                                    memoize))
+      return false;
+  } else if (a->cpp_type() == ::google::protobuf::FieldDescriptor::CPPTYPE_ENUM) {
+    if (!PyCompatibleEnumDescriptorImpl(a->enum_type(), b->enum_type(),
+                                        memoize))
+      return false;
+  }
+  // NOTE: Should the default value be the same?
+  return true;
+}
+
 }  // namespace
+
+// Returns whether two ::google::protobuf::Descriptor* are compatible.
+bool PyCompatibleDescriptor(const ::google::protobuf::Descriptor* a,
+                            const ::google::protobuf::Descriptor* b) {
+  absl::flat_hash_map<const void*, const void*> memoize;
+  return PyCompatibleDescriptorImpl(a, b, memoize);
+}
 
 py::handle GenericPyProtoCast(::google::protobuf::Message* src,
                               py::return_value_policy policy, py::handle parent,

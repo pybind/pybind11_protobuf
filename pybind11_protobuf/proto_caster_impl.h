@@ -52,18 +52,33 @@ struct proto_caster_load_impl {
     const ::google::protobuf::Message *message =
         pybind11_protobuf::PyProtoGetCppMessagePointer(src);
     if (message != nullptr) {
-      if (ProtoType::default_instance().GetReflection() !=
+      if (ProtoType::default_instance().GetReflection() ==
           message->GetReflection()) {
-        // Reflection type mismatch; from a different pool?
+        // NOTE: We might need to know whether the proto has extensions that
+        // are python-only here.
+        //
+        // If the capability were available, then we could probe PyProto_API and
+        // allow c++ mutability based on the python reference count.
+        value = static_cast<const ProtoType *>(message);
+        return true;
+      }
+
+      // Reflection type mismatch; C++ and python pools mismatch.
+      //
+      // The py_extension has an independent instance of the protobuf pool.
+      // This happens because each extension is a separate .so file, and bazel
+      // lacks a way to merge them together (diamond .so problem).
+      if (!pybind11_protobuf::PyCompatibleDescriptor(
+              ProtoType::descriptor(), message->GetDescriptor())) {
         return false;
       }
-      // NOTE: We might need to know whether the proto has extensions that
-      // are python-only here.
-      //
-      // If the capability were available, then we could probe PyProto_API and
-      // allow c++ mutability based on the python reference count.
-
-      value = static_cast<const ProtoType *>(message);
+      auto serialized = message->SerializePartialAsString();
+      owned = std::unique_ptr<ProtoType>(new ProtoType());
+      if (!owned->MergeFromString(serialized)) {
+        owned = nullptr;
+        return false;
+      }
+      value = owned.get();
       return true;
     }
 

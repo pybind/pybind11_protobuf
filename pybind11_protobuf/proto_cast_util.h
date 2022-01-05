@@ -40,6 +40,10 @@ std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatab
 // Caller should enforce any type identity that is required.
 bool PyProtoCopyToCProto(pybind11::handle py_proto, ::google::protobuf::Message *message);
 
+// Returns whether two ::google::protobuf::Descriptor* are compatible.
+bool PyCompatibleDescriptor(const ::google::protobuf::Descriptor *a,
+                            const ::google::protobuf::Descriptor *b);
+
 // Returns a handle to a python protobuf suitably
 pybind11::handle GenericFastCppProtoCast(::google::protobuf::Message *src,
                                          pybind11::return_value_policy policy,
