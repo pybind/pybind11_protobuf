@@ -696,6 +696,9 @@ bool PyCompatibleFieldDescriptorImpl(
 // Returns whether two ::google::protobuf::Descriptor* are compatible.
 bool PyCompatibleDescriptor(const ::google::protobuf::Descriptor* a,
                             const ::google::protobuf::Descriptor* b) {
+  if (a->file()->pool() == b->file()->pool()) {
+    return a == b;
+  }
   absl::flat_hash_map<const void*, const void*> memoize;
   return PyCompatibleDescriptorImpl(a, b, memoize);
 }
