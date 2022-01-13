@@ -306,14 +306,21 @@ struct wrapped_proto_caster : public pybind11_protobuf::proto_caster_load_impl<
                                pybind11::handle parent) {
     if (src.get() == nullptr) return pybind11::none().release();
     std::unique_ptr<ProtoType> owned;
-    if (policy == pybind11::return_value_policy::take_ownership) {
-      owned.reset(const_cast<ProtoType*>(src.get()));
+
+    if (WrappedProtoType::kind == WrappedProtoKind::kValue) {
+      // When the proto is by-value, it's always possible to move the contents
+      policy = pybind11::return_value_policy::move;
+    } else {
+      // Otherwise take a copy by default.
+      if (policy == pybind11::return_value_policy::automatic ||
+          policy == pybind11::return_value_policy::automatic_reference) {
+        policy = pybind11::return_value_policy::copy;
+      } else if (policy == pybind11::return_value_policy::take_ownership) {
+        owned.reset(const_cast<ProtoType*>(src.get()));
+      }
     }
-    // The underlying implementation always creates a copy of non-const
-    // messages because otherwise sharing memory between C++ and Python allow
-    // risky and unsafe access.
     return cast_impl(
-        src.get(), pybind11::return_value_policy::copy, parent,
+        src.get(), policy, parent,
         /*is_const*/ WrappedProtoKind::kConst == WrappedProtoType::kind);
   }
 

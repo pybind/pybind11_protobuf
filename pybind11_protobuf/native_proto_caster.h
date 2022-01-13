@@ -31,12 +31,10 @@
 // This binder supports binaries linked with both native python protos
 // and fast cpp python protos.
 //
-// When passing a proto from python to C++, if possible, an underlying C++
-// object is referenced and/or copied. If not, the object is serialized and
-// deserialized into a native C++ protocol buffer object.
-//
-// When passing a proto from C++ to python a copy to a python-native protocol
-// buffer is made, either using a pure python proto or a fast cpp proto.
+// When passing protos between python and C++, if possible, an underlying C++
+// object may have ownership transferred, or may be copied if both instances
+// use the same underlying protocol buffer Reflection instance.  If not, the
+// object is serialized and deserialized.
 //
 // Dynamically generated protos are only partially supported at present.
 //

@@ -170,6 +170,7 @@ struct fast_cpp_cast_impl {
                                            bool is_const) {
     if (src == nullptr) return pybind11::none().release();
 
+#if PYBIND11_PROTOBUF_UNSAFE
     if (is_const &&
         (policy == pybind11::return_value_policy::reference ||
          policy == pybind11::return_value_policy::reference_internal)) {
@@ -178,6 +179,13 @@ struct fast_cpp_cast_impl {
           "type.  Consider setting return_value_policy::copy in the "
           "pybind11 def().");
     }
+#else
+    // references are inherently unsafe, so convert them to copies.
+    if (policy == pybind11::return_value_policy::reference ||
+        policy == pybind11::return_value_policy::reference_internal) {
+      policy = pybind11::return_value_policy::copy;
+    }
+#endif
 
     return pybind11_protobuf::GenericFastCppProtoCast(src, policy, parent,
                                                       is_const);
@@ -191,9 +199,13 @@ struct native_cast_impl {
                                            bool is_const) {
     if (src == nullptr) return pybind11::none().release();
 
-    // When using native casters, always copy the proto.
-    return pybind11_protobuf::GenericProtoCast(
-        src, pybind11::return_value_policy::copy, parent, false);
+    // references are inherently unsafe, so convert them to copies.
+    if (policy == pybind11::return_value_policy::reference ||
+        policy == pybind11::return_value_policy::reference_internal) {
+      policy = pybind11::return_value_policy::copy;
+    }
+
+    return pybind11_protobuf::GenericProtoCast(src, policy, parent, false);
   }
 };
 
@@ -221,19 +233,18 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
   static pybind11::handle cast(ProtoType &&src,
                                pybind11::return_value_policy policy,
                                pybind11::handle parent) {
-    return cast_impl(&src, pybind11::return_value_policy::copy, parent, false);
+    return cast_impl(&src, pybind11::return_value_policy::move, parent, false);
   }
 
   static pybind11::handle cast(const ProtoType *src,
                                pybind11::return_value_policy policy,
                                pybind11::handle parent) {
     std::unique_ptr<const ProtoType> wrapper;
-    if (policy == pybind11::return_value_policy::take_ownership) {
+    if (policy == pybind11::return_value_policy::automatic ||
+        policy == pybind11::return_value_policy::automatic_reference) {
+      policy = pybind11::return_value_policy::copy;
+    } else if (policy == pybind11::return_value_policy::take_ownership) {
       wrapper.reset(src);
-      policy = pybind11::return_value_policy::copy;
-    } else if (policy == pybind11::return_value_policy::automatic ||
-               policy == pybind11::return_value_policy::automatic_reference) {
-      policy = pybind11::return_value_policy::copy;
     }
     return cast_impl(const_cast<ProtoType *>(src), policy, parent, true);
   }
@@ -242,12 +253,12 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
                                pybind11::return_value_policy policy,
                                pybind11::handle parent) {
     std::unique_ptr<ProtoType> wrapper;
-    if (policy == pybind11::return_value_policy::take_ownership ||
-        policy == pybind11::return_value_policy::automatic) {
+    if (policy == pybind11::return_value_policy::automatic_reference) {
+      policy = pybind11::return_value_policy::copy;
+    } else if (policy == pybind11::return_value_policy::automatic ||
+               policy == pybind11::return_value_policy::take_ownership) {
+      policy = pybind11::return_value_policy::take_ownership;
       wrapper.reset(src);
-      policy = pybind11::return_value_policy::copy;
-    } else if (policy == pybind11::return_value_policy::automatic_reference) {
-      policy = pybind11::return_value_policy::copy;
     }
     return cast_impl(src, policy, parent, false);
   }
@@ -259,8 +270,7 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
         policy == pybind11::return_value_policy::automatic_reference) {
       policy = pybind11::return_value_policy::copy;
     }
-    return cast_impl(const_cast<ProtoType *>(&src),
-                     pybind11::return_value_policy::copy, parent, true);
+    return cast_impl(const_cast<ProtoType *>(&src), policy, parent, true);
   }
 
   static pybind11::handle cast(ProtoType &src,

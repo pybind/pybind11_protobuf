@@ -724,9 +724,33 @@ py::handle GenericPyProtoCast(::google::protobuf::Message* src,
 py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
                                    py::return_value_policy policy,
                                    py::handle parent, bool is_const) {
+  assert(policy != pybind11::return_value_policy::automatic);
+  assert(policy != pybind11::return_value_policy::automatic_reference);
   assert(src != nullptr);
   assert(PyGILState_Check());
   switch (policy) {
+    case py::return_value_policy::move:
+    case py::return_value_policy::take_ownership: {
+      std::pair<py::object, ::google::protobuf::Message*> descriptor_pair =
+          GlobalState::instance()->PyFastCppProtoMessageInstance(
+              src->GetDescriptor());
+      py::object& result = descriptor_pair.first;
+      ::google::protobuf::Message* result_message = descriptor_pair.second;
+
+      if (result_message->GetReflection() == src->GetReflection()) {
+        // The internals may be Swapped iff the protos use the same Reflection
+        // instance.
+        result_message->GetReflection()->Swap(src, result_message);
+      } else {
+        auto serialized = src->SerializePartialAsString();
+        if (!result_message->ParseFromString(serialized)) {
+          throw py::type_error(
+              "Failed to copy protocol buffer with mismatched descriptor");
+        }
+      }
+      return result.release();
+    } break;
+
     case py::return_value_policy::copy: {
       std::pair<py::object, ::google::protobuf::Message*> descriptor_pair =
           GlobalState::instance()->PyFastCppProtoMessageInstance(
@@ -734,8 +758,9 @@ py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
       py::object& result = descriptor_pair.first;
       ::google::protobuf::Message* result_message = descriptor_pair.second;
 
-      if (result_message->GetDescriptor() == src->GetDescriptor()) {
-        // Only protos which actually have the same descriptor are copyable.
+      if (result_message->GetReflection() == src->GetReflection()) {
+        // The internals may be copied iff the protos use the same Reflection
+        // instance.
         result_message->CopyFrom(*src);
       } else {
         auto serialized = src->SerializePartialAsString();
@@ -777,10 +802,10 @@ py::handle GenericProtoCast(::google::protobuf::Message* src,
     // the default pool, and the binary is not using fast_cpp_protos.
     return GenericPyProtoCast(src, policy, parent, is_const);
   }
+
   // If this is a dynamically generated proto, then we're going to need to
   // construct a mapping between C++ pool() and python pool(), and then
   // use the PyProto_API to make it work.
-
   return GenericFastCppProtoCast(src, policy, parent, is_const);
 }
 
