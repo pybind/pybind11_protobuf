@@ -25,12 +25,23 @@
 
 namespace py = pybind11;
 
+using ::google::protobuf::Descriptor;
+using ::google::protobuf::DescriptorDatabase;
+using ::google::protobuf::DescriptorPool;
+using ::google::protobuf::DynamicMessageFactory;
+using ::google::protobuf::EnumDescriptor;
+using ::google::protobuf::FieldDescriptor;
+using ::google::protobuf::FileDescriptor;
+using ::google::protobuf::FileDescriptorProto;
+using ::google::protobuf::Message;
+using ::google::protobuf::MessageFactory;
 using ::google::protobuf::python::PyProto_API;
+using ::google::protobuf::python::PyProtoAPICapsuleName;
 
 namespace pybind11_protobuf {
 namespace {
 
-std::string PythonPackageForDescriptor(const ::google::protobuf::FileDescriptor* file) {
+std::string PythonPackageForDescriptor(const FileDescriptor* file) {
   std::vector<std::pair<const absl::string_view, std::string>> replacements;
   replacements.emplace_back("/", ".");
   replacements.emplace_back(".proto", "_pb2");
@@ -39,7 +50,7 @@ std::string PythonPackageForDescriptor(const ::google::protobuf::FileDescriptor*
 }
 
 // Resolves the class name of a descriptor via d->containing_type()
-py::object ResolveDescriptor(py::object p, const ::google::protobuf::Descriptor* d) {
+py::object ResolveDescriptor(py::object p, const Descriptor* d) {
   return d->containing_type() ? ResolveDescriptor(p, d->containing_type())
                                     .attr(d->name().c_str())
                               : p.attr(d->name().c_str());
@@ -86,18 +97,18 @@ class GlobalState {
   }
 
   py::handle global_pool() { return global_pool_; }
-  const ::google::protobuf::python::PyProto_API* py_proto_api() { return py_proto_api_; }
+  const PyProto_API* py_proto_api() { return py_proto_api_; }
   bool using_fast_cpp() const { return using_fast_cpp_; }
 
   // Allocate a python proto message instance using the native python
   // allocations.
-  py::object PyMessageInstance(const ::google::protobuf::Descriptor* descriptor);
+  py::object PyMessageInstance(const Descriptor* descriptor);
 
   // Allocates a fast cpp proto python object, also returning
   // the embedded c++ proto2 message type. The returned message
   // pointer cannot be null.
-  std::pair<py::object, ::google::protobuf::Message*> PyFastCppProtoMessageInstance(
-      const ::google::protobuf::Descriptor* descriptor);
+  std::pair<py::object, Message*> PyFastCppProtoMessageInstance(
+      const Descriptor* descriptor);
 
   // Import (and cache) a python module.
   py::module_ ImportCached(const std::string& module_name);
@@ -108,7 +119,7 @@ class GlobalState {
  private:
   GlobalState();
 
-  const ::google::protobuf::python::PyProto_API* py_proto_api_ = nullptr;
+  const PyProto_API* py_proto_api_ = nullptr;
   bool using_fast_cpp_ = false;
   py::object global_pool_;
   py::object factory_;
@@ -132,8 +143,8 @@ GlobalState::GlobalState() {
   }
 
   // Now we can check
-  py_proto_api_ = static_cast<const ::google::protobuf::python::PyProto_API*>(
-      PyCapsule_Import(::google::protobuf::python::PyProtoAPICapsuleName(), 0));
+  py_proto_api_ = static_cast<const PyProto_API*>(
+      PyCapsule_Import(PyProtoAPICapsuleName(), 0));
   if (py_proto_api_) {
     using_fast_cpp_ = true;
   } else {
@@ -153,8 +164,8 @@ GlobalState::GlobalState() {
       // is requested below.
       PyErr_Clear();
     }
-    py_proto_api_ = static_cast<const ::google::protobuf::python::PyProto_API*>(
-        PyCapsule_Import(::google::protobuf::python::PyProtoAPICapsuleName(), 0));
+    py_proto_api_ = static_cast<const PyProto_API*>(
+        PyCapsule_Import(PyProtoAPICapsuleName(), 0));
   }
 
   // When not using fast protos, we may construct protos from the default
@@ -198,8 +209,7 @@ py::module_ GlobalState::ImportCached(const std::string& module_name) {
   return module;
 }
 
-py::object GlobalState::PyMessageInstance(
-    const ::google::protobuf::Descriptor* descriptor) {
+py::object GlobalState::PyMessageInstance(const Descriptor* descriptor) {
   auto module_name = PythonPackageForDescriptor(descriptor->file());
   if (!module_name.empty()) {
     auto cached = import_cache_.find(module_name);
@@ -237,9 +247,8 @@ py::object GlobalState::PyMessageInstance(
                        module_name + "?");
 }
 
-std::pair<py::object, ::google::protobuf::Message*>
-GlobalState::PyFastCppProtoMessageInstance(
-    const ::google::protobuf::Descriptor* descriptor) {
+std::pair<py::object, Message*> GlobalState::PyFastCppProtoMessageInstance(
+    const Descriptor* descriptor) {
   assert(descriptor != nullptr);
 
   // Create a PyDescriptorPool, temporarily, it will be used by the NewMessage
@@ -271,8 +280,7 @@ GlobalState::PyFastCppProtoMessageInstance(
   if (result.ptr() == nullptr) {
     throw py::error_already_set();
   }
-  ::google::protobuf::Message* message =
-      py_proto_api_->GetMutableMessagePointer(result.ptr());
+  Message* message = py_proto_api_->GetMutableMessagePointer(result.ptr());
   if (message == nullptr) {
     throw py::error_already_set();
   }
@@ -297,9 +305,9 @@ class PythonDescriptorPoolWrapper {
   // - a DescriptorPool manages the live descriptors with cross-linked pointers.
   // - a MessageFactory manages the proto instances and their memory layout.
   struct Data {
-    std::unique_ptr<::google::protobuf::DescriptorDatabase> database;
-    std::unique_ptr<const ::google::protobuf::DescriptorPool> pool;
-    std::unique_ptr<::google::protobuf::MessageFactory> factory;
+    std::unique_ptr<DescriptorDatabase> database;
+    std::unique_ptr<const DescriptorPool> pool;
+    std::unique_ptr<MessageFactory> factory;
   };
 
   // Return (and maybe create) a C++ DescriptorPool that corresponds to the
@@ -323,21 +331,21 @@ class PythonDescriptorPoolWrapper {
 
     auto database = absl::make_unique<DescriptorPoolDatabase>(
         py::reinterpret_borrow<py::object>(python_pool));
-    auto pool = absl::make_unique<::google::protobuf::DescriptorPool>(database.get());
-    auto factory = absl::make_unique<::google::protobuf::DynamicMessageFactory>(pool.get());
+    auto pool = absl::make_unique<DescriptorPool>(database.get());
+    auto factory = absl::make_unique<DynamicMessageFactory>(pool.get());
     // When wrapping the Python descriptor_poool.Default(), apply an important
     // optimization:
-    // - the pool is based on the C++ generated_pool(), so that
-    //   compiled C++ modules can be found without using the DescriptorDatabase
-    //   and the Python DescriptorPool.
+    // - the pool is based on the C++ generated_pool(), so that compiled
+    //   C++ modules can be found without using the DescriptorDatabase and
+    //   the Python DescriptorPool.
     // - the MessageFactory returns instances of C++ compiled messages when
     //   possible: some methods are much more optimized, and the created
-    //   ::google::protobuf::Message can be cast to the C++ class.  We use this last
-    //   property in the proto_caster class.
+    //   Message can be cast to the C++ class.  We use this last property in
+    //   the proto_caster class.
     // This is done only for the Default pool, because generated C++ modules
     // and generated Python modules are built from the same .proto sources.
     if (python_pool.is(GlobalState::instance()->global_pool())) {
-      pool->internal_set_underlay(::google::protobuf::DescriptorPool::generated_pool());
+      pool->internal_set_underlay(DescriptorPool::generated_pool());
       factory->SetDelegateToGeneratedFactory(true);
     }
 
@@ -349,19 +357,19 @@ class PythonDescriptorPoolWrapper {
  private:
   PythonDescriptorPoolWrapper() = default;
 
-  // Similar to ::google::protobuf::DescriptorPoolDatabase: wraps a Python DescriptorPool
+  // Similar to DescriptorPoolDatabase: wraps a Python DescriptorPool
   // as a DescriptorDatabase.
-  class DescriptorPoolDatabase : public ::google::protobuf::DescriptorDatabase {
+  class DescriptorPoolDatabase : public DescriptorDatabase {
    public:
     DescriptorPoolDatabase(py::object python_pool)
         : pool_(std::move(python_pool)) {}
 
-    // These 3 methods implement ::google::protobuf::DescriptorDatabase and delegate to
+    // These 3 methods implement DescriptorDatabase and delegate to
     // the Python DescriptorPool.
 
     // Find a file by file name.
     bool FindFileByName(const std::string& filename,
-                        ::google::protobuf::FileDescriptorProto* output) override {
+                        FileDescriptorProto* output) override {
       try {
         auto file = pool_.attr("FindFileByName")(filename);
         return CopyToFileDescriptorProto(file, output);
@@ -377,9 +385,8 @@ class PythonDescriptorPoolWrapper {
     }
 
     // Find the file that declares the given fully-qualified symbol name.
-    bool FindFileContainingSymbol(
-        const std::string& symbol_name,
-        ::google::protobuf::FileDescriptorProto* output) override {
+    bool FindFileContainingSymbol(const std::string& symbol_name,
+                                  FileDescriptorProto* output) override {
       try {
         auto file = pool_.attr("FindFileContainingSymbol")(symbol_name);
         return CopyToFileDescriptorProto(file, output);
@@ -396,9 +403,9 @@ class PythonDescriptorPoolWrapper {
 
     // Find the file which defines an extension extending the given message type
     // with the given field number.
-    bool FindFileContainingExtension(
-        const std::string& containing_type, int field_number,
-        ::google::protobuf::FileDescriptorProto* output) override {
+    bool FindFileContainingExtension(const std::string& containing_type,
+                                     int field_number,
+                                     FileDescriptorProto* output) override {
       try {
         auto descriptor = pool_.attr("FindMessageTypeByName")(containing_type);
         auto file =
@@ -419,7 +426,7 @@ class PythonDescriptorPoolWrapper {
 
    private:
     bool CopyToFileDescriptorProto(py::handle py_file_descriptor,
-                                   ::google::protobuf::FileDescriptorProto* output) {
+                                   FileDescriptorProto* output) {
       try {
         py::object c_proto = py::reinterpret_steal<py::object>(
             GlobalState::instance()->py_proto_api()->NewMessageOwnedExternally(
@@ -456,7 +463,7 @@ void InitializePybindProtoCastUtil() {
   GlobalState::instance();
 }
 
-void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor* descriptor) {
+void ImportProtoDescriptorModule(const Descriptor* descriptor) {
   assert(PyGILState_Check());
   if (!descriptor) return;
   auto module_name = PythonPackageForDescriptor(descriptor->file());
@@ -478,13 +485,14 @@ void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor* descripto
   }
 }
 
-const ::google::protobuf::Message* PyProtoGetCppMessagePointer(py::handle src) {
+const Message* PyProtoGetCppMessagePointer(py::handle src) {
   assert(PyGILState_Check());
+  if (!GlobalState::instance()->py_proto_api()) return nullptr;
   auto* ptr =
       GlobalState::instance()->py_proto_api()->GetMessagePointer(src.ptr());
   if (ptr == nullptr) {
-    // GetMessagePointer sets a type_error when the object is not a
-    // c++ wrapped proto message.
+    // Clear the type_error set by GetMessagePointer sets a type_error when
+    // src was not a wrapped C++ proto message.
     PyErr_Clear();
     return nullptr;
   }
@@ -495,15 +503,16 @@ absl::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
   assert(PyGILState_Check());
   auto py_full_name = ResolveAttrs(py_proto, {"DESCRIPTOR", "full_name"});
   if (py_full_name) {
+    // Avoid pybind11::cast because it throws an exeption.
     pybind11::detail::make_caster<std::string> c;
     if (c.load(*py_full_name, false)) {
-      return static_cast<std::string>(c);
+      return pybind11::detail::cast_op<std::string>(std::move(c));
     }
   }
   return absl::nullopt;
 }
 
-bool PyProtoCopyToCProto(py::handle py_proto, ::google::protobuf::Message* message) {
+bool PyProtoCopyToCProto(py::handle py_proto, Message* message) {
   assert(PyGILState_Check());
   py::object wire = py_proto.attr("SerializePartialToString")();
   const char* bytes = PYBIND11_BYTES_AS_STRING(wire.ptr());
@@ -519,7 +528,7 @@ bool PyProtoPinDescriptorPool(pybind11::handle src) {
   return GlobalState::instance()->PinDescriptorPool(src);
 }
 
-std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(
+std::unique_ptr<Message> AllocateCProtoFromPythonSymbolDatabase(
     py::handle src, const std::string& full_name) {
   assert(PyGILState_Check());
   auto pool = ResolveAttrs(src, {"DESCRIPTOR", "file", "pool"});
@@ -532,17 +541,16 @@ std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatab
   // The following call will query the DescriptorDatabase, which fetches the
   // necessary Python descriptors and feeds them into the C++ pool.
   // The result stays cached as long as the Python pool stays alive.
-  const ::google::protobuf::Descriptor* descriptor =
+  const Descriptor* descriptor =
       pool_data->pool->FindMessageTypeByName(full_name);
   if (!descriptor) {
     throw py::type_error("Could not find descriptor: " + full_name);
   }
-  const ::google::protobuf::Message* prototype =
-      pool_data->factory->GetPrototype(descriptor);
+  const Message* prototype = pool_data->factory->GetPrototype(descriptor);
   if (!prototype) {
     throw py::type_error("Unable to get prototype for " + full_name);
   }
-  return std::unique_ptr<::google::protobuf::Message>(prototype->New());
+  return std::unique_ptr<Message>(prototype->New());
 }
 
 namespace {
@@ -569,7 +577,7 @@ std::string ReturnValuePolicyName(py::return_value_policy policy) {
 }
 
 bool PyCompatibleFieldDescriptorImpl(
-    const ::google::protobuf::FieldDescriptor* a, const ::google::protobuf::FieldDescriptor* b,
+    const FieldDescriptor* a, const FieldDescriptor* b,
     absl::flat_hash_map<const void*, const void*>& memoize);
 
 // PyCompatibleDescriptorImpl returns whether, for c++ <--> python purposes,
@@ -595,7 +603,7 @@ bool PyCompatibleFieldDescriptorImpl(
 // equivalence should be determined.
 //
 bool PyCompatibleDescriptorImpl(
-    const ::google::protobuf::Descriptor* a, const ::google::protobuf::Descriptor* b,
+    const Descriptor* a, const Descriptor* b,
     absl::flat_hash_map<const void*, const void*>& memoize) {
   // if memoize[a] == b, we're done, otherwise insert assuming success.
   {
@@ -609,7 +617,7 @@ bool PyCompatibleDescriptorImpl(
   if (a->oneof_decl_count() != b->oneof_decl_count()) return false;
   if (a->extension_range_count() != b->extension_range_count()) return false;
   if (a->well_known_type() != b->well_known_type()) return false;
-  if (a->well_known_type() != ::google::protobuf::Descriptor::WELLKNOWNTYPE_UNSPECIFIED) {
+  if (a->well_known_type() != Descriptor::WELLKNOWNTYPE_UNSPECIFIED) {
     // Assuming that well-known types are serialization-compatible, short
     // circuit the rest of testing.
     if (a->well_known_type() == b->well_known_type()) return true;
@@ -639,7 +647,7 @@ bool PyCompatibleDescriptorImpl(
 
 // Shallow enum descriptor comparison.
 bool PyCompatibleEnumDescriptorImpl(
-    const ::google::protobuf::EnumDescriptor* a, const ::google::protobuf::EnumDescriptor* b,
+    const EnumDescriptor* a, const EnumDescriptor* b,
     absl::flat_hash_map<const void*, const void*>& memoize) {
   // if memoize[a] == b, we're done, otherwise insert assuming success.
   {
@@ -659,7 +667,7 @@ bool PyCompatibleEnumDescriptorImpl(
 
 // Shallow field descriptor comparison.
 bool PyCompatibleFieldDescriptorImpl(
-    const ::google::protobuf::FieldDescriptor* a, const ::google::protobuf::FieldDescriptor* b,
+    const FieldDescriptor* a, const FieldDescriptor* b,
     absl::flat_hash_map<const void*, const void*>& memoize) {
   // if memoize[a] == b, we're done, otherwise insert assuming success.
   {
@@ -678,11 +686,11 @@ bool PyCompatibleFieldDescriptorImpl(
     if (a->containing_type()->full_name() != b->containing_type()->full_name())
       return false;
   }
-  if (a->cpp_type() == ::google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE) {
+  if (a->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE) {
     if (!PyCompatibleDescriptorImpl(a->message_type(), b->message_type(),
                                     memoize))
       return false;
-  } else if (a->cpp_type() == ::google::protobuf::FieldDescriptor::CPPTYPE_ENUM) {
+  } else if (a->cpp_type() == FieldDescriptor::CPPTYPE_ENUM) {
     if (!PyCompatibleEnumDescriptorImpl(a->enum_type(), b->enum_type(),
                                         memoize))
       return false;
@@ -693,9 +701,8 @@ bool PyCompatibleFieldDescriptorImpl(
 
 }  // namespace
 
-// Returns whether two ::google::protobuf::Descriptor* are compatible.
-bool PyCompatibleDescriptor(const ::google::protobuf::Descriptor* a,
-                            const ::google::protobuf::Descriptor* b) {
+// Returns whether two Descriptor* are compatible.
+bool PyCompatibleDescriptor(const Descriptor* a, const Descriptor* b) {
   if (a->file()->pool() == b->file()->pool()) {
     return a == b;
   }
@@ -703,9 +710,8 @@ bool PyCompatibleDescriptor(const ::google::protobuf::Descriptor* a,
   return PyCompatibleDescriptorImpl(a, b, memoize);
 }
 
-py::handle GenericPyProtoCast(::google::protobuf::Message* src,
-                              py::return_value_policy policy, py::handle parent,
-                              bool is_const) {
+py::handle GenericPyProtoCast(Message* src, py::return_value_policy policy,
+                              py::handle parent, bool is_const) {
   assert(src != nullptr);
   assert(PyGILState_Check());
   auto py_proto =
@@ -721,8 +727,7 @@ py::handle GenericPyProtoCast(::google::protobuf::Message* src,
   return py_proto.release();
 }
 
-py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
-                                   py::return_value_policy policy,
+py::handle GenericFastCppProtoCast(Message* src, py::return_value_policy policy,
                                    py::handle parent, bool is_const) {
   assert(policy != pybind11::return_value_policy::automatic);
   assert(policy != pybind11::return_value_policy::automatic_reference);
@@ -731,11 +736,11 @@ py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
   switch (policy) {
     case py::return_value_policy::move:
     case py::return_value_policy::take_ownership: {
-      std::pair<py::object, ::google::protobuf::Message*> descriptor_pair =
+      std::pair<py::object, Message*> descriptor_pair =
           GlobalState::instance()->PyFastCppProtoMessageInstance(
               src->GetDescriptor());
       py::object& result = descriptor_pair.first;
-      ::google::protobuf::Message* result_message = descriptor_pair.second;
+      Message* result_message = descriptor_pair.second;
 
       if (result_message->GetReflection() == src->GetReflection()) {
         // The internals may be Swapped iff the protos use the same Reflection
@@ -752,11 +757,11 @@ py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
     } break;
 
     case py::return_value_policy::copy: {
-      std::pair<py::object, ::google::protobuf::Message*> descriptor_pair =
+      std::pair<py::object, Message*> descriptor_pair =
           GlobalState::instance()->PyFastCppProtoMessageInstance(
               src->GetDescriptor());
       py::object& result = descriptor_pair.first;
-      ::google::protobuf::Message* result_message = descriptor_pair.second;
+      Message* result_message = descriptor_pair.second;
 
       if (result_message->GetReflection() == src->GetReflection()) {
         // The internals may be copied iff the protos use the same Reflection
@@ -790,13 +795,12 @@ py::handle GenericFastCppProtoCast(::google::protobuf::Message* src,
   }
 }
 
-py::handle GenericProtoCast(::google::protobuf::Message* src,
-                            py::return_value_policy policy, py::handle parent,
-                            bool is_const) {
+py::handle GenericProtoCast(Message* src, py::return_value_policy policy,
+                            py::handle parent, bool is_const) {
   assert(src != nullptr);
   assert(PyGILState_Check());
   if (src->GetDescriptor()->file()->pool() ==
-          ::google::protobuf::DescriptorPool::generated_pool() &&
+          DescriptorPool::generated_pool() &&
       !GlobalState::instance()->using_fast_cpp()) {
     // Return a native python-allocated proto when the C++ proto is from
     // the default pool, and the binary is not using fast_cpp_protos.
