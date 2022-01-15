@@ -615,7 +615,9 @@ class MapFieldContainer : public RepeatedFieldContainer<::google::protobuf::Mess
 const ::google::protobuf::FieldDescriptor* GetFieldDescriptor(
     ::google::protobuf::Message* message, absl::string_view name,
     PyObject* error_type = PyExc_AttributeError) {
-  auto* field_desc = message->GetDescriptor()->FindFieldByName(std::string(name));
+  auto* field_desc =
+  message->GetDescriptor()->FindFieldByName(std::string(name));
+
   if (!field_desc) {
     std::string error_str =
         "'" + message->GetTypeName() + "' object has no attribute '";
@@ -688,9 +690,9 @@ std::vector<tuple> MessageListFields(::google::protobuf::Message* message) {
 // Wrapper around ::google::protobuf::Message::HasField.
 bool MessageHasField(::google::protobuf::Message* message, absl::string_view field_name) {
   auto* oneof_desc = message->GetDescriptor()->FindOneofByName(std::string(field_name));
-  if (oneof_desc)
+  if (oneof_desc) {
     return message->GetReflection()->HasOneof(*message, oneof_desc);
-
+  }
   auto* field_desc = GetFieldDescriptor(message, field_name, PyExc_ValueError);
   return message->GetReflection()->HasField(*message, field_desc);
 }
@@ -1037,11 +1039,12 @@ bool AnyUnpackToPyProto(const ::google::protobuf::Any& any_proto,
   detail::type_caster_base<::google::protobuf::Message> caster;
   if (caster.load(py_proto, false)) {
     return static_cast<::google::protobuf::Message&>(caster).ParseFromString(
-        std::string(any_proto.value()));
+         std::string(any_proto.value()));
   } else {
     bytes serialized(nullptr, any_proto.value().size());
     std::string any_string = any_proto.value();
-    strncpy(PYBIND11_BYTES_AS_STRING(serialized.ptr()), any_string.c_str(), any_string.size());
+    strncpy(PYBIND11_BYTES_AS_STRING(serialized.ptr()),
+            any_string.c_str(), any_string.size());
     getattr(py_proto, "ParseFromString")(serialized);
     return true;
   }

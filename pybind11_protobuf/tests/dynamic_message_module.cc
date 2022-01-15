@@ -84,6 +84,7 @@ std::unique_ptr<::google::protobuf::Message> GetDynamicMessage(const std::string
 PYBIND11_MODULE(dynamic_message_module, m) {
   pybind11_protobuf::ImportNativeProtoCasters();
 
+  //  Message building methods.
   m.def(
       "dynamic_message_ptr",
       [](std::string name, int32_t value) -> ::google::protobuf::Message* {
@@ -105,6 +106,7 @@ PYBIND11_MODULE(dynamic_message_module, m) {
       },
       py::arg("name") = "pybind11.test.DynamicMessage", py::arg("value") = 123);
 
+  // Test methods
   m.def("check_message", &CheckMessage, py::arg("message"), py::arg("value"));
   m.def(
       "check_message_const_ptr",

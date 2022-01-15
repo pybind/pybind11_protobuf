@@ -17,7 +17,7 @@ pybind_library(
     ],
     deps = [
         "@com_google_absl//absl/strings",
-        "@com_google_protobuf//:protobuf",  # copybara:strip
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -74,7 +74,6 @@ pybind_library(
         "@com_google_absl//absl/types:optional",
         "@com_google_protobuf//:proto_api",
         "@com_google_protobuf//:protobuf",
-        "@com_google_protobuf//:python/google/protobuf/pyext/_message.so",  # fixdeps: keep
     ],
 )
 

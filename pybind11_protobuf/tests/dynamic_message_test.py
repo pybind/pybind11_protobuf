@@ -56,14 +56,24 @@ def get_py_dynamic_int_message(value=5):
   return msg
 
 
+def get_cpp_dynamic_int_message(value=5):
+  """Returns a dynamic message named pybind11.test.IntMessage."""
+  return m.dynamic_message_ptr('pybind11.test.IntMessage', value)
+
+
 def get_cpp_dynamic_message(value=5):
   """Returns a dynamic message that is wire-compatible with IntMessage."""
   return m.dynamic_message_ptr('pybind11.test.DynamicMessage', value)
 
 
-def get_cpp_dynamic_int_message(value=5):
-  """Returns a dynamic message named pybind11.test.IntMessage."""
-  return m.dynamic_message_ptr('pybind11.test.IntMessage', value)
+def get_cpp_dynamic_message_unique_ptr(value=5):
+  """Returns a dynamic message that is wire-compatible with IntMessage."""
+  return m.dynamic_message_unique_ptr('pybind11.test.DynamicMessage', value)
+
+
+def get_cpp_dynamic_message_shared_ptr(value=5):
+  """Returns a dynamic message that is wire-compatible with IntMessage."""
+  return m.dynamic_message_shared_ptr('pybind11.test.DynamicMessage', value)
 
 
 class DynamicMessageTest(parameterized.TestCase, compare.ProtoAssertions):
@@ -82,7 +92,6 @@ class DynamicMessageTest(parameterized.TestCase, compare.ProtoAssertions):
       ('py_dynamic_int', get_py_dynamic_int_message),
       ('cpp_dynamic_int', get_cpp_dynamic_int_message),
       ('py_dynamic', get_py_dynamic_message),
-      ('cpp_dynamic', get_cpp_dynamic_message),
   )
   def test_check_message(self, get_message_function):
     message = get_message_function(value=5)
@@ -93,10 +102,6 @@ class DynamicMessageTest(parameterized.TestCase, compare.ProtoAssertions):
       ('native_proto', test_pb2.IntMessage),
       ('py_dynamic_int', get_py_dynamic_int_message),
       ('cpp_dynamic_int', get_cpp_dynamic_int_message),
-      #  ('py_dynamic', get_py_dynamic_message),
-      #  ('cpp_dynamic', get_cpp_dynamic_message),
-      #  ('cpp_dynamic_message_shared_ptr', m.dynamic_message_shared_ptr),
-      #  ('cpp_dynamic_unique_ptr', m.dynamic_message_unique_ptr),
   )
   def test_roundtrip(self, get_message_function):
     a = get_message_function(value=6)
@@ -107,8 +112,6 @@ class DynamicMessageTest(parameterized.TestCase, compare.ProtoAssertions):
       ('native_proto', test_pb2.IntMessage),
       ('py_dynamic_int', get_py_dynamic_int_message),
       ('cpp_dynamic_int', get_cpp_dynamic_int_message),
-      ('py_dynamic', get_py_dynamic_message),
-      ('cpp_dynamic', get_cpp_dynamic_message),
   )
   def test_parse_as(self, get_message_function):
     a = get_message_function(value=6)
@@ -120,7 +123,6 @@ class DynamicMessageTest(parameterized.TestCase, compare.ProtoAssertions):
       ('py_dynamic_int', get_py_dynamic_int_message),
       ('cpp_dynamic_int', get_cpp_dynamic_int_message),
       ('py_dynamic', get_py_dynamic_message),
-      ('cpp_dynamic', get_cpp_dynamic_message),
   )
   def test_print(self, get_message_function):
     a = get_message_function(value=6)
@@ -132,7 +134,6 @@ class DynamicMessageTest(parameterized.TestCase, compare.ProtoAssertions):
       ('py_dynamic_int', get_py_dynamic_int_message),
       ('cpp_dynamic_int', get_cpp_dynamic_int_message),
       ('py_dynamic', get_py_dynamic_message),
-      ('cpp_dynamic', get_cpp_dynamic_message),
   )
   def test_print_descriptor(self, get_message_function):
     a = get_message_function(value=6)
