@@ -52,6 +52,11 @@
 // note, builder-style classes may be better implemented independently in
 // python rather than attempting to wrap C++ counterparts.
 //
+//
+// Users of wrapped_proto_caster based extensions need dependencies on:
+// deps = [ "@com_google_protobuf//:protobuf_python" ]
+//
+
 namespace pybind11_protobuf {
 
 // Imports modules for protobuf conversion. This not thread safe and

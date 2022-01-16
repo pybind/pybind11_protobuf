@@ -11,7 +11,9 @@ To use the proto messages with pybind11:
 1. Include the header file `pybind11_protobuf/native_proto_caster.h`
    in the .cc file with your bindings.
 1. Call `pybind11_protobuf::ImportNativeProtoCasters();` in your `PYBIND11_MODULE` definition.
-
+1. Ensure `"@com_google_protobuf//:protobuf_python"` is a python dependency.
+   When using Bazel, a common strategy is to add a python library that "wraps"
+   the extension along with any required python dependencies.
 
 Any arguments or return values which are a protocol buffer (including the base
 class, `proto2::Message`) will be automatically converted to python native

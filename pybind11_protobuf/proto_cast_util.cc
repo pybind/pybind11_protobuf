@@ -82,6 +82,15 @@ inline absl::optional<py::object> ResolveAttrs(
   return tmp;
 }
 
+absl::optional<std::string> CastToOptionalString(py::handle src) {
+  // Avoid pybind11::cast because it throws an exeption.
+  pybind11::detail::make_caster<std::string> c;
+  if (c.load(src, false)) {
+    return pybind11::detail::cast_op<std::string>(std::move(c));
+  }
+  return absl::nullopt;
+}
+
 struct PyObjectPtrHash {
   size_t operator()(const py::object& object) const {
     // TODO: replace with absl::HashOf(object.ptr());
@@ -144,13 +153,7 @@ GlobalState::GlobalState() {
 
   // pybind11_protobuf casting needs a dependency on proto internals to work.
   try {
-    ImportCached("google.protobuf.descriptor_pb2");
-  } catch (py::error_already_set& e) {
-    e.restore();
-    PyErr_Print();
-  }
-
-  try {
+    ImportCached("google.protobuf.descriptor");
     auto descriptor_pool =
         ImportCached("google.protobuf.descriptor_pool");
     auto message_factory =
@@ -160,6 +163,11 @@ GlobalState::GlobalState() {
     find_message_type_by_name_ = global_pool_.attr("FindMessageTypeByName");
     get_prototype_ = factory_.attr("GetPrototype");
   } catch (py::error_already_set& e) {
+    if (IsImportError(e)) {
+      std::cerr << "Add a python dependency on "
+                    "\"@com_google_protobuf//:protobuf_python\"";
+    }
+
     // TODO(pybind11-infra): narrow down to expected exception(s).
     e.restore();
     PyErr_Print();
@@ -174,7 +182,7 @@ GlobalState::GlobalState() {
   auto type =
       ImportCached("google.protobuf.internal.api_implementation")
           .attr("Type")();
-  using_fast_cpp_ = (py::cast<std::string_view>(type) == "cpp");
+  using_fast_cpp_ = (CastToOptionalString(type).value_or("") == "cpp");
 
   py_proto_api_ =
       static_cast<PyProto_API*>(PyCapsule_Import(PyProtoAPICapsuleName(), 0));
@@ -499,11 +507,7 @@ absl::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
   assert(PyGILState_Check());
   auto py_full_name = ResolveAttrs(py_proto, {"DESCRIPTOR", "full_name"});
   if (py_full_name) {
-    // Avoid pybind11::cast because it throws an exeption.
-    pybind11::detail::make_caster<std::string> c;
-    if (c.load(*py_full_name, false)) {
-      return pybind11::detail::cast_op<std::string>(std::move(c));
-    }
+    return CastToOptionalString(*py_full_name);
   }
   return absl::nullopt;
 }

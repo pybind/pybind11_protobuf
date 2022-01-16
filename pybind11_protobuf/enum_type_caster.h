@@ -30,6 +30,11 @@
 //  PYBIND11_MODULE(my_module, m) {
 //    m.def("get_message_enum", &GetMessageEnum);
 //  }
+//
+// Users of enum_type_caster based extensions need dependencies on:
+// deps = [ "@com_google_protobuf//:protobuf_python" ]
+//
+
 namespace pybind11_protobuf {
 
 // Implementation details for pybind11 enum casting.

@@ -53,6 +53,10 @@
 //   m.def("get_message", &GetMessage);
 // }
 //
+// Users of native_proto_caster based extensions need dependencies on:
+// deps = [ "@com_google_protobuf//:protobuf_python" ]
+//
+
 namespace pybind11_protobuf {
 
 // Imports modules for protobuf conversion. This not thread safe and
