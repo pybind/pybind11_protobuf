@@ -20,7 +20,9 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_replace.h"
+#include "absl/strings/str_split.h"
 #include "absl/types/optional.h"
 
 namespace py = pybind11;
@@ -67,7 +69,7 @@ bool IsImportError(py::error_already_set& e) {
 
 // Resolves a sequence of python attrs starting from obj.
 // If any does not exist, returns nullopt.
-inline absl::optional<py::object> ResolveAttrs(
+absl::optional<py::object> ResolveAttrs(
     py::handle obj, std::initializer_list<const char*> names) {
   py::object tmp;
   for (const char* name : names) {
@@ -90,6 +92,22 @@ absl::optional<std::string> CastToOptionalString(py::handle src) {
   }
   return absl::nullopt;
 }
+
+#if defined(GOOGLE_PROTOBUF_VERSION)
+// The current version, represented as a single integer to make comparison
+// easier:  major * 10^6 + minor * 10^3 + micro
+uint64_t VersionStringToNumericVersion(absl::string_view version_str) {
+  std::vector<absl::string_view> split = absl::StrSplit(version_str, '.');
+  uint64_t major = 0, minor = 0, micro = 0;
+  if (split.size() == 3 &&  //
+      absl::SimpleAtoi(split[0], &major) &&
+      absl::SimpleAtoi(split[1], &minor) &&
+      absl::SimpleAtoi(split[2], &micro)) {
+    return major * 1000000 + minor * 1000 + micro;
+  }
+  return 0;
+}
+#endif
 
 struct PyObjectPtrHash {
   size_t operator()(const py::object& object) const {
@@ -165,7 +183,7 @@ GlobalState::GlobalState() {
   } catch (py::error_already_set& e) {
     if (IsImportError(e)) {
       std::cerr << "Add a python dependency on "
-                    "\"@com_google_protobuf//:protobuf_python\"";
+                   "\"@com_google_protobuf//:protobuf_python\"" << std::endl;
     }
 
     // TODO(pybind11-infra): narrow down to expected exception(s).
@@ -191,6 +209,26 @@ GlobalState::GlobalState() {
     assert(!using_fast_cpp_);
     PyErr_Clear();
   }
+
+#if defined(GOOGLE_PROTOBUF_VERSION)
+  /// The C++ version of PyProto_API must match that loaded by python,
+  /// otherwise the details of the underlying implementation may cause
+  /// crashes. This limits the ability to pass some protos from C++ to
+  /// python.
+  if (py_proto_api_) {
+    auto version =
+        ResolveAttrs(ImportCached("google.protobuf"), {"__version__"});
+    std::string version_str =
+        version ? CastToOptionalString(*version).value_or("") : "";
+    if (GOOGLE_PROTOBUF_VERSION != VersionStringToNumericVersion(version_str)) {
+      std::cerr << "Python version " << version_str
+                << " does not match C++ version " << GOOGLE_PROTOBUF_VERSION
+                << std::endl;
+      using_fast_cpp_ = false;
+      py_proto_api_ = nullptr;
+    }
+  }
+#endif
 }
 
 bool GlobalState::PinDescriptorPool(py::handle src) {
