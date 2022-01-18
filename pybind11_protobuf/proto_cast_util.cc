@@ -28,6 +28,7 @@ namespace py = pybind11;
 using ::google::protobuf::Descriptor;
 using ::google::protobuf::DescriptorDatabase;
 using ::google::protobuf::DescriptorPool;
+using ::google::protobuf::DescriptorProto;
 using ::google::protobuf::DynamicMessageFactory;
 using ::google::protobuf::FileDescriptor;
 using ::google::protobuf::FileDescriptorProto;
@@ -78,6 +79,46 @@ absl::optional<py::object> ResolveAttrs(
     obj = py::handle(attr);
   }
   return tmp;
+}
+
+// Resolves a single attribute using the python MRO (method resolution order).
+// Mimics PyObject_GetAttrString.
+//
+// Unfortunately the metaclass mechanism used by protos (fast_cpp_protos) does
+// not leave __dict__ in a state where the default getattr functions find the
+// base class methods, so we resolve those using MRO.
+absl::optional<py::object> ResolveAttrMRO(py::handle obj, const char* name) {
+  PyObject* attr;
+  const auto* t = Py_TYPE(obj.ptr());
+  if (!t->tp_mro) {
+    PyObject* attr = PyObject_GetAttrString(obj.ptr(), name);
+    if (attr) {
+      return py::reinterpret_steal<py::object>(attr);
+    }
+    PyErr_Clear();
+    return absl::nullopt;
+  }
+
+  auto unicode = py::reinterpret_steal<py::object>(PyUnicode_FromString(name));
+  auto bases = py::reinterpret_borrow<py::tuple>(t->tp_mro);
+  for (py::handle h : bases) {
+    auto base = reinterpret_cast<PyTypeObject*>(h.ptr());
+    if (base->tp_getattr) {
+      attr = (*base->tp_getattr)(obj.ptr(), const_cast<char*>(name));
+      if (attr) {
+        return py::reinterpret_steal<py::object>(attr);
+      }
+      PyErr_Clear();
+    }
+    if (base->tp_getattro) {
+      attr = (*base->tp_getattro)(obj.ptr(), unicode.ptr());
+      if (attr) {
+        return py::reinterpret_steal<py::object>(attr);
+      }
+      PyErr_Clear();
+    }
+  }
+  return absl::nullopt;
 }
 
 absl::optional<std::string> CastToOptionalString(py::handle src) {
@@ -209,6 +250,28 @@ GlobalState::GlobalState() {
     }
   }
 #endif
+
+  if (py_proto_api_) {
+    // HACK: The only way to guarantee that the PyProto_API doesn't have
+    // incompatible ABI changes is to ensure that the python and c++ pools
+    // are identical. But there's no way to do that. We're left with the
+    // (1) PyProto_API module reaching into the internals of a potentially
+    // incompatible Descriptor type from this CU, or (2) this CU reaching
+    // into the potentially incompatible internals of PyProto_API
+    // implementation.
+    //
+    // Do (1) here by attempting to allocate a DescriptorProto.
+    // So if there are spurious crashes here, that could be why.
+    //
+    // This suggests that the PyProto_API should be disabled.
+    py::object result = py::reinterpret_steal<py::object>(
+        py_proto_api_->NewMessage(DescriptorProto::descriptor(), nullptr));
+    if (result.ptr() == nullptr) {
+      PyErr_Clear();
+      using_fast_cpp_ = false;
+      py_proto_api_ = nullptr;
+    }
+  }
 }
 
 py::module_ GlobalState::ImportCached(const std::string& module_name) {
@@ -556,13 +619,36 @@ bool PyProtoIsCompatible(py::handle py_proto, const Descriptor* descriptor) {
 
 bool PyProtoCopyToCProto(py::handle py_proto, Message* message) {
   assert(PyGILState_Check());
-  py::object wire = py_proto.attr("SerializePartialToString")();
+  auto serialize_fn = ResolveAttrMRO(py_proto, "SerializePartialToString");
+  if (!serialize_fn) {
+    throw py::attribute_error(
+        "SerializePartialToString method not found; is this a " +
+        message->GetDescriptor()->full_name());
+  }
+  auto wire = (*serialize_fn)();
   const char* bytes = PYBIND11_BYTES_AS_STRING(wire.ptr());
   if (!bytes) {
-    throw py::type_error("Object.SerializePartialToString failed; is this a " +
+    throw py::type_error("SerializePartialToString failed; is this a " +
                          message->GetDescriptor()->full_name());
   }
   return message->ParsePartialFromArray(bytes, PYBIND11_BYTES_SIZE(wire.ptr()));
+}
+
+void CProtoCopyToPyProto(Message* message, py::handle py_proto) {
+  assert(PyGILState_Check());
+  auto merge_fn = ResolveAttrMRO(py_proto, "MergeFromString");
+  if (!merge_fn) {
+    throw py::attribute_error("MergeFromString method not found; is this a " +
+                              message->GetDescriptor()->full_name());
+  }
+
+  auto serialized = message->SerializePartialAsString();
+#if PY_MAJOR_VERSION >= 3
+  auto view = py::memoryview::from_memory(serialized.data(), serialized.size());
+#else
+  py::bytearray view(serialized);
+#endif
+  (*merge_fn)(view);
 }
 
 std::unique_ptr<Message> AllocateCProtoFromPythonSymbolDatabase(
@@ -622,13 +708,7 @@ py::handle GenericPyProtoCast(Message* src, py::return_value_policy policy,
   auto py_proto =
       GlobalState::instance()->PyMessageInstance(src->GetDescriptor());
 
-  auto serialized = src->SerializePartialAsString();
-#if PY_MAJOR_VERSION >= 3
-  auto view = py::memoryview::from_memory(serialized.data(), serialized.size());
-#else
-  py::bytearray view(serialized);
-#endif
-  py_proto.attr("MergeFromString")(view);
+  CProtoCopyToPyProto(src, py_proto);
   return py_proto.release();
 }
 

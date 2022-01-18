@@ -43,6 +43,7 @@ std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatab
 // Serialize the py_proto and deserialize it into the provided message.
 // Caller should enforce any type identity that is required.
 bool PyProtoCopyToCProto(pybind11::handle py_proto, ::google::protobuf::Message *message);
+void CProtoCopyToPyProto(::google::protobuf::Message *message, pybind11::handle py_proto);
 
 // Returns a handle to a python protobuf suitably
 pybind11::handle GenericFastCppProtoCast(::google::protobuf::Message *src,
