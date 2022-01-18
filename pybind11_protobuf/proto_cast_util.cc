@@ -621,7 +621,7 @@ bool PyProtoCopyToCProto(py::handle py_proto, Message* message) {
   assert(PyGILState_Check());
   auto serialize_fn = ResolveAttrMRO(py_proto, "SerializePartialToString");
   if (!serialize_fn) {
-    throw py::attribute_error(
+    throw py::type_error(
         "SerializePartialToString method not found; is this a " +
         message->GetDescriptor()->full_name());
   }
@@ -638,8 +638,8 @@ void CProtoCopyToPyProto(Message* message, py::handle py_proto) {
   assert(PyGILState_Check());
   auto merge_fn = ResolveAttrMRO(py_proto, "MergeFromString");
   if (!merge_fn) {
-    throw py::attribute_error("MergeFromString method not found; is this a " +
-                              message->GetDescriptor()->full_name());
+    throw py::type_error("MergeFromString method not found; is this a " +
+                         message->GetDescriptor()->full_name());
   }
 
   auto serialized = message->SerializePartialAsString();
