@@ -48,16 +48,12 @@ struct proto_caster_load_impl {
     // NOTE: We might need to know whether the proto has extensions that
     // are python-only.
 
-    // Use the PyProto_API to get an underlying C++ message pointer from the
-    // object, which returns non-null when the incoming proto message
-    // is a fast_cpp_proto instance.
+    // Attempt to use the PyProto_API to get an underlying C++ message pointer
+    // from the object.
     const ::google::protobuf::Message *message =
         pybind11_protobuf::PyProtoGetCppMessagePointer(src);
     if (message && message->GetReflection() ==
                        ProtoType::default_instance().GetReflection()) {
-      // NOTE: This still relies somewhat on ABI stability in protobuf; however
-      // ABI breaking changes are unlikely to lead to false equivalence.
-      //
       // If the capability were available, then we could probe PyProto_API and
       // allow c++ mutability based on the python reference count.
       value = static_cast<const ProtoType *>(message);
@@ -99,16 +95,13 @@ struct proto_caster_load_impl<::google::protobuf::Message> {
       return true;
     }
 
-    // Use the PyProto_API to get an underlying C++ message pointer from the
-    // object, which returns non-null when the incoming proto message
-    // is a fast_cpp_proto instance.
+    // Attempt to use the PyProto_API to get an underlying C++ message pointer
+    // from the object.
     value = pybind11_protobuf::PyProtoGetCppMessagePointer(src);
     if (value && value->GetDescriptor() && value->GetDescriptor()->file() &&
         value->GetDescriptor()->file()->pool() ==
             ::google::protobuf::DescriptorPool::generated_pool()) {
       // Only messages in the same generated_pool() can be referenced directly.
-      // NOTE: This still relies somewhat on ABI stability in protobuf; however
-      // ABI breaking changes are unlikely to lead to false equivalence.
       return true;
     }
 

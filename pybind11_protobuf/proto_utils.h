@@ -30,32 +30,6 @@ namespace google {
 template <typename T>
 static constexpr bool is_proto_v = std::is_base_of<::google::protobuf::Message, T>::value;
 
-// copybara:strip_begin(core pybind11 patch required)
-// For limitations without this code, see README.md#protocol-buffer-holder.
-}  // namespace google
-
-namespace detail {
-
-// All protos use shared pointers as their holder, so automatically convert a
-// unique_ptr to a shared pointer. Note that this requires pybind11 > v2.6.2,
-// only available from pybind11 github master at the point of this writing.
-template <typename ProtoType, typename HolderType>
-struct move_only_holder_caster<
-    ProtoType, HolderType, std::enable_if_t<google::is_proto_v<ProtoType>>> {
-  static handle cast(HolderType&& src, return_value_policy policy,
-                     handle handle) {
-    return copyable_holder_caster<ProtoType, std::shared_ptr<ProtoType>>::cast(
-        std::shared_ptr<typename HolderType::element_type>(std::move(src)),
-        policy, handle);
-  }
-  static constexpr auto name = type_caster_base<type>::name;
-};
-
-}  // namespace detail
-
-namespace google {
-// copybara:strip_end
-
 // Name of the property which indicates whether a proto is a wrapped or native.
 constexpr char kIsWrappedCProtoAttr[] = "_is_wrapped_c_proto";
 

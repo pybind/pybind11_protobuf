@@ -223,6 +223,22 @@ GlobalState::GlobalState() {
           .attr("Type")();
   using_fast_cpp_ = (CastToOptionalString(type).value_or("") == "cpp");
 
+#if defined(PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
+  // DANGER: The only way to guarantee that the PyProto_API doesn't have
+  // incompatible ABI changes is to ensure that the python protobuf .so
+  // and all other extension .so files are built with the exact same
+  // environment, including compiler, flags, etc. It's also expected
+  // that the global_pool() objects are the same. And there's no way for
+  // bazel to do that right now.
+  //
+  // Otherwise, we're left with (1), the  PyProto_API module reaching into the
+  // internals of a potentially incompatible Descriptor type from this CU, (2)
+  // this CU reaching into the potentially incompatible internals of PyProto_API
+  // implementation, or (3) disabling access to PyProto_API unless compile
+  // options suggest otherwise.
+  //
+  // By default (3) is used, however if the define is set *and* the version
+  // matches, then pybind11_protobuf will assume that this will work.
   py_proto_api_ =
       static_cast<PyProto_API*>(PyCapsule_Import(PyProtoAPICapsuleName(), 0));
   if (py_proto_api_ == nullptr) {
@@ -230,6 +246,10 @@ GlobalState::GlobalState() {
     assert(!using_fast_cpp_);
     PyErr_Clear();
   }
+#else
+  py_proto_api_ = nullptr;
+  using_fast_cpp_ = false;
+#endif
 
 #if defined(GOOGLE_PROTOBUF_VERSION)
   /// The C++ version of PyProto_API must match that loaded by python,
@@ -250,28 +270,6 @@ GlobalState::GlobalState() {
     }
   }
 #endif
-
-  if (py_proto_api_) {
-    // HACK: The only way to guarantee that the PyProto_API doesn't have
-    // incompatible ABI changes is to ensure that the python and c++ pools
-    // are identical. But there's no way to do that. We're left with the
-    // (1) PyProto_API module reaching into the internals of a potentially
-    // incompatible Descriptor type from this CU, or (2) this CU reaching
-    // into the potentially incompatible internals of PyProto_API
-    // implementation.
-    //
-    // Do (1) here by attempting to allocate a DescriptorProto.
-    // So if there are spurious crashes here, that could be why.
-    //
-    // This suggests that the PyProto_API should be disabled.
-    py::object result = py::reinterpret_steal<py::object>(
-        py_proto_api_->NewMessage(DescriptorProto::descriptor(), nullptr));
-    if (result.ptr() == nullptr) {
-      PyErr_Clear();
-      using_fast_cpp_ = false;
-      py_proto_api_ = nullptr;
-    }
-  }
 }
 
 py::module_ GlobalState::ImportCached(const std::string& module_name) {
