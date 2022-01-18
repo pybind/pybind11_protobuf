@@ -1042,6 +1042,7 @@ bool AnyUnpackToPyProto(const ::google::protobuf::Any& any_proto,
          std::string(any_proto.value()));
   } else {
     bytes serialized(nullptr, any_proto.value().size());
+
     std::string any_string = any_proto.value();
     strncpy(PYBIND11_BYTES_AS_STRING(serialized.ptr()),
             any_string.c_str(), any_string.size());
