@@ -18,8 +18,6 @@
 #include "google/protobuf/message.h"
 #include "python/google/protobuf/proto_api.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
-#include "absl/hash/hash.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
@@ -31,8 +29,6 @@ using ::google::protobuf::Descriptor;
 using ::google::protobuf::DescriptorDatabase;
 using ::google::protobuf::DescriptorPool;
 using ::google::protobuf::DynamicMessageFactory;
-using ::google::protobuf::EnumDescriptor;
-using ::google::protobuf::FieldDescriptor;
 using ::google::protobuf::FileDescriptor;
 using ::google::protobuf::FileDescriptorProto;
 using ::google::protobuf::Message;
@@ -109,18 +105,6 @@ uint64_t VersionStringToNumericVersion(absl::string_view version_str) {
 }
 #endif
 
-struct PyObjectPtrHash {
-  size_t operator()(const py::object& object) const {
-    // TODO: replace with absl::HashOf(object.ptr());
-    return absl::Hash<void*>{}(object.ptr());
-  }
-};
-struct PyObjectPtrEq {
-  bool operator()(const py::object& a, const py::object& b) const {
-    return a.ptr() == b.ptr();
-  }
-};
-
 class GlobalState {
  public:
   // Global state singleton intentionally leaks at program termination.
@@ -149,9 +133,6 @@ class GlobalState {
   // Import (and cache) a python module.
   py::module_ ImportCached(const std::string& module_name);
 
-  // Pin a descriptor pool by taking a reference.
-  bool PinDescriptorPool(py::handle src);
-
  private:
   GlobalState();
 
@@ -163,7 +144,6 @@ class GlobalState {
   py::object get_prototype_;
 
   absl::flat_hash_map<std::string, py::module_> import_cache_;
-  absl::flat_hash_set<py::object, PyObjectPtrHash, PyObjectPtrEq> pinned_;
 };
 
 GlobalState::GlobalState() {
@@ -229,16 +209,6 @@ GlobalState::GlobalState() {
     }
   }
 #endif
-}
-
-bool GlobalState::PinDescriptorPool(py::handle src) {
-  auto pool = ResolveAttrs(src, {"DESCRIPTOR", "file", "pool"});
-  if (!pool) {
-    return false;
-  }
-  // The refcount to the descriptor pool is never released.
-  pinned_.emplace(std::move(*pool));
-  return true;
 }
 
 py::module_ GlobalState::ImportCached(const std::string& module_name) {
@@ -550,6 +520,40 @@ absl::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
   return absl::nullopt;
 }
 
+bool PyProtoIsCompatible(py::handle py_proto, const Descriptor* descriptor) {
+  assert(PyGILState_Check());
+  assert(descriptor->file()->pool() == DescriptorPool::generated_pool());
+
+  auto py_descriptor = ResolveAttrs(py_proto, {"DESCRIPTOR"});
+  if (!py_descriptor) {
+    // Not a valid protobuf -- missing DESCRIPTOR.
+    return false;
+  }
+
+  // Test full_name equivalence.
+  {
+    auto py_full_name = ResolveAttrs(*py_descriptor, {"full_name"});
+    if (!py_full_name) {
+      // Not a valid protobuf -- missing DESCRIPTOR.full_name
+      return false;
+    }
+    auto full_name = CastToOptionalString(*py_full_name);
+    if (!full_name || *full_name != descriptor->full_name()) {
+      // Name mismatch.
+      return false;
+    }
+  }
+
+  // In concrete protos, also expect that the python proto is from the
+  // global pool.
+  auto py_pool = ResolveAttrs(*py_descriptor, {"file", "pool"});
+  if (!py_pool) {
+    // Not a valid protobuf -- missing DESCRIPTOR.file.pool
+    return false;
+  }
+  return py_pool->is(GlobalState::instance()->global_pool());
+}
+
 bool PyProtoCopyToCProto(py::handle py_proto, Message* message) {
   assert(PyGILState_Check());
   py::object wire = py_proto.attr("SerializePartialToString")();
@@ -559,11 +563,6 @@ bool PyProtoCopyToCProto(py::handle py_proto, Message* message) {
                          message->GetDescriptor()->full_name());
   }
   return message->ParsePartialFromArray(bytes, PYBIND11_BYTES_SIZE(wire.ptr()));
-}
-
-bool PyProtoPinDescriptorPool(pybind11::handle src) {
-  assert(PyGILState_Check());
-  return GlobalState::instance()->PinDescriptorPool(src);
 }
 
 std::unique_ptr<Message> AllocateCProtoFromPythonSymbolDatabase(
@@ -614,139 +613,7 @@ std::string ReturnValuePolicyName(py::return_value_policy policy) {
   }
 }
 
-bool PyCompatibleFieldDescriptorImpl(
-    const FieldDescriptor* a, const FieldDescriptor* b,
-    absl::flat_hash_map<const void*, const void*>& memoize);
-
-// PyCompatibleDescriptorImpl returns whether, for c++ <--> python purposes,
-// two descriptors are considered compatible, which is to say that they are
-// essentially the same object.  This is used to test compatibility when
-// two messages have different underlying pools, which currently happens in
-// bazel builds because py_extension targets end up with an additional instance
-// of the protobuf library, and thus different pools (diamond .so problem).
-//
-// For purposes of compatibility, the most important part is field equivalence.
-// Uninstantiated nested type equivalence does not matter, so ignore extensions
-// and the the following type-related fields:
-// * nested_type_count, nested_type(i)
-// * enum_type_count, enum_type(i)
-// * extension_count, extension(i)
-// * reserved_range_count, reserved_range(i)
-// * reserved_name_count, reserved_name(i)
-// This mechanism is less strict than descriptor-level equivalence
-// (Descriptor::ToProto), and largely avoids allocations.
-//
-// Protobuf extensions are tricky; for file-level compatability, they should
-// be the same, but they modify fields on _other_ objects, so that is where the
-// equivalence should be determined.
-//
-bool PyCompatibleDescriptorImpl(
-    const Descriptor* a, const Descriptor* b,
-    absl::flat_hash_map<const void*, const void*>& memoize) {
-  // if memoize[a] == b, we're done, otherwise insert assuming success.
-  {
-    auto result = memoize.try_emplace(a, b);
-    if (!result.second) {
-      return result.first->second == b;
-    }
-  }
-  if (a->full_name() != b->full_name()) return false;
-  if (a->field_count() != b->field_count()) return false;
-  if (a->oneof_decl_count() != b->oneof_decl_count()) return false;
-  if (a->extension_range_count() != b->extension_range_count()) return false;
-  if (a->well_known_type() != b->well_known_type()) return false;
-  if (a->well_known_type() != Descriptor::WELLKNOWNTYPE_UNSPECIFIED) {
-    // Assuming that well-known types are serialization-compatible, short
-    // circuit the rest of testing.
-    if (a->well_known_type() == b->well_known_type()) return true;
-  }
-  // validate fields and oneof declarations.
-  for (int i = 0; i < a->field_count(); i++) {
-    if (!PyCompatibleFieldDescriptorImpl(a->field(i), b->field(i), memoize))
-      return false;
-  }
-  for (int i = 0; i < a->oneof_decl_count(); i++) {
-    auto* ao = a->oneof_decl(i);
-    auto* bo = b->oneof_decl(i);
-    if (ao->name() != bo->name()) return false;
-    if (ao->field_count() != bo->field_count()) return false;
-    for (int j = 0; j < ao->field_count(); ++j) {
-      if (!PyCompatibleFieldDescriptorImpl(ao->field(j), bo->field(j), memoize))
-        return false;
-    }
-  }
-  for (int i = 0; i < a->extension_range_count(); i++) {
-    if (a->extension_range(i)->start != b->extension_range(i)->start)
-      return false;
-    if (a->extension_range(i)->end != b->extension_range(i)->end) return false;
-  }
-  return true;
-}
-
-// Shallow enum descriptor comparison.
-bool PyCompatibleEnumDescriptorImpl(
-    const EnumDescriptor* a, const EnumDescriptor* b,
-    absl::flat_hash_map<const void*, const void*>& memoize) {
-  // if memoize[a] == b, we're done, otherwise insert assuming success.
-  {
-    auto result = memoize.try_emplace(a, b);
-    if (!result.second) {
-      return result.first->second == b;
-    }
-  }
-  if (a->full_name() != b->full_name()) return false;
-  if (a->value_count() != b->value_count()) return false;
-  for (int i = 0; i < a->value_count(); i++) {
-    if (a->value(i)->name() != b->value(i)->name()) return false;
-    if (a->value(i)->number() != b->value(i)->number()) return false;
-  }
-  return true;
-}
-
-// Shallow field descriptor comparison.
-bool PyCompatibleFieldDescriptorImpl(
-    const FieldDescriptor* a, const FieldDescriptor* b,
-    absl::flat_hash_map<const void*, const void*>& memoize) {
-  // if memoize[a] == b, we're done, otherwise insert assuming success.
-  {
-    auto result = memoize.try_emplace(a, b);
-    if (!result.second) {
-      return result.first->second == b;
-    }
-  }
-  if (a->name() != b->name()) return false;
-  if (a->number() != b->number()) return false;
-  if (a->type() != b->type()) return false;
-  if (a->label() != b->label()) return false;  // optional, required, repeated
-  if (a->is_extension() != b->is_extension()) return false;
-
-  if (a->is_extension()) {
-    if (a->containing_type()->full_name() != b->containing_type()->full_name())
-      return false;
-  }
-  if (a->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE) {
-    if (!PyCompatibleDescriptorImpl(a->message_type(), b->message_type(),
-                                    memoize))
-      return false;
-  } else if (a->cpp_type() == FieldDescriptor::CPPTYPE_ENUM) {
-    if (!PyCompatibleEnumDescriptorImpl(a->enum_type(), b->enum_type(),
-                                        memoize))
-      return false;
-  }
-  // NOTE: Should the default value be the same?
-  return true;
-}
-
 }  // namespace
-
-// Returns whether two Descriptor* are compatible.
-bool PyCompatibleDescriptor(const Descriptor* a, const Descriptor* b) {
-  if (a->file()->pool() == b->file()->pool()) {
-    return a == b;
-  }
-  absl::flat_hash_map<const void*, const void*> memoize;
-  return PyCompatibleDescriptorImpl(a, b, memoize);
-}
 
 py::handle GenericPyProtoCast(Message* src, py::return_value_policy policy,
                               py::handle parent, bool is_const) {

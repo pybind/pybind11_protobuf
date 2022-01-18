@@ -26,11 +26,15 @@ void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor *);
 // Returns a ::google::protobuf::Message* from a cpp_fast_proto, if backed by C++.
 const ::google::protobuf::Message *PyProtoGetCppMessagePointer(pybind11::handle src);
 
-// Pins a proto.DESCRIPTOR.pool to ensure that it remains alive.
-bool PyProtoPinDescriptorPool(pybind11::handle src);
-
 // Returns the protocol buffer's py_proto.DESCRIPTOR.full_name attribute.
 absl::optional<std::string> PyProtoDescriptorName(pybind11::handle py_proto);
+
+// Return whether py_proto is compatible with the C++ descriptor.
+// The py_proto name must match the C++ Descriptor::full_name(), and is
+// expected to originate from the python default pool, which means that
+// this method will return false for dynamic protos.
+bool PyProtoIsCompatible(pybind11::handle py_proto,
+                         const ::google::protobuf::Descriptor *descriptor);
 
 // Allocates a C++ protocol buffer for a given name.
 std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(
@@ -39,10 +43,6 @@ std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatab
 // Serialize the py_proto and deserialize it into the provided message.
 // Caller should enforce any type identity that is required.
 bool PyProtoCopyToCProto(pybind11::handle py_proto, ::google::protobuf::Message *message);
-
-// Returns whether two ::google::protobuf::Descriptor* are compatible.
-bool PyCompatibleDescriptor(const ::google::protobuf::Descriptor *a,
-                            const ::google::protobuf::Descriptor *b);
 
 // Returns a handle to a python protobuf suitably
 pybind11::handle GenericFastCppProtoCast(::google::protobuf::Message *src,

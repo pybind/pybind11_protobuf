@@ -45,52 +45,31 @@ struct proto_caster_load_impl {
       value = nullptr;
       return true;
     }
+    // NOTE: We might need to know whether the proto has extensions that
+    // are python-only.
 
     // Use the PyProto_API to get an underlying C++ message pointer from the
     // object, which returns non-null when the incoming proto message
     // is a fast_cpp_proto instance.
     const ::google::protobuf::Message *message =
         pybind11_protobuf::PyProtoGetCppMessagePointer(src);
-    if (message != nullptr) {
-      if (ProtoType::default_instance().GetReflection() ==
-          message->GetReflection()) {
-        // NOTE: We might need to know whether the proto has extensions that
-        // are python-only here.
-        //
-        // If the capability were available, then we could probe PyProto_API and
-        // allow c++ mutability based on the python reference count.
-        value = static_cast<const ProtoType *>(message);
-        return true;
-      }
-
-      // Reflection type mismatch; C++ and python pools mismatch.
+    if (message && message->GetReflection() ==
+                       ProtoType::default_instance().GetReflection()) {
+      // NOTE: This still relies somewhat on ABI stability in protobuf; however
+      // ABI breaking changes are unlikely to lead to false equivalence.
       //
-      // The py_extension has an independent instance of the protobuf pool.
-      // This happens because each extension is a separate .so file, and bazel
-      // lacks a way to merge them together (diamond .so problem).
-      if (!pybind11_protobuf::PyCompatibleDescriptor(
-              ProtoType::descriptor(), message->GetDescriptor())) {
-        return false;
-      }
-      auto serialized = message->SerializePartialAsString();
-      owned = std::unique_ptr<ProtoType>(new ProtoType());
-      if (!owned->MergeFromString(serialized)) {
-        owned = nullptr;
-        return false;
-      }
-      value = owned.get();
+      // If the capability were available, then we could probe PyProto_API and
+      // allow c++ mutability based on the python reference count.
+      value = static_cast<const ProtoType *>(message);
       return true;
     }
 
-    // The incoming object is not a fast_cpp_proto, so attempt to
-    // serialize it and deserialize into a native C++ proto type.
-    auto descriptor_name = pybind11_protobuf::PyProtoDescriptorName(src);
-    if (!descriptor_name ||
-        *descriptor_name != ProtoType::descriptor()->full_name()) {
-      // type mismatch.
+    // The incoming object is not a compatible fast_cpp_proto, so check whether
+    // it is otherwise compatible, then serialize it and deserialize into a
+    // native C++ proto type.
+    if (!pybind11_protobuf::PyProtoIsCompatible(src, ProtoType::descriptor())) {
       return false;
     }
-    // TODO(amauryfa): Only accept Python protos from descriptor_pool.Default().
     owned = std::unique_ptr<ProtoType>(new ProtoType());
     value = owned.get();
     return pybind11_protobuf::PyProtoCopyToCProto(src, owned.get());
@@ -124,19 +103,17 @@ struct proto_caster_load_impl<::google::protobuf::Message> {
     // object, which returns non-null when the incoming proto message
     // is a fast_cpp_proto instance.
     value = pybind11_protobuf::PyProtoGetCppMessagePointer(src);
-    if (value != nullptr) {
-      // If the message descriptor is not in the global pool, the descriptor
-      // pool needs to be pinned to ensure that the underlying descriptor
-      // remains valid.
-      if ((value->GetDescriptor()->file()->pool() ==
-           ::google::protobuf::DescriptorPool::generated_pool()) ||
-          PyProtoPinDescriptorPool(src)) {
-        return true;
-      }
+    if (value && value->GetDescriptor() && value->GetDescriptor()->file() &&
+        value->GetDescriptor()->file()->pool() ==
+            ::google::protobuf::DescriptorPool::generated_pool()) {
+      // Only messages in the same generated_pool() can be referenced directly.
+      // NOTE: This still relies somewhat on ABI stability in protobuf; however
+      // ABI breaking changes are unlikely to lead to false equivalence.
+      return true;
     }
 
-    // `src` is not a fast_cpp_proto, or the underlying pool could not be
-    // pinned, so create a native C++ proto which has the same descriptors.
+    // `src` is not a C++ proto instance from the generated_pool,
+    // so create a compatible native C++ proto.
     auto descriptor_name = pybind11_protobuf::PyProtoDescriptorName(src);
     if (!descriptor_name) {
       return false;
