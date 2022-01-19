@@ -230,3 +230,23 @@ py_test(
         "@com_google_protobuf//:protobuf_python",
     ],
 )
+
+pybind_extension(
+    name = "regression_wrappers_module",
+    srcs = ["regression_wrappers_module.cc"],
+    deps = [
+        "//pybind11_protobuf:native_proto_caster",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+py_test(
+    name = "regression_wrappers_test",
+    srcs = ["regression_wrappers_test.py"],
+    data = [":regression_wrappers_module.so"],
+    deps = [
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_absl_py//absl/testing:parameterized",
+        "@com_google_protobuf//:protobuf_python",
+    ],
+)
