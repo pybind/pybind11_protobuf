@@ -82,10 +82,6 @@ pybind_library(
         "proto_cast_util.h",
         "proto_caster_impl.h",
     ],
-    local_defines = select({
-        ":enable_pyproto_api_setting": ["PYBIND11_PROTOBUF_ENABLE_PYPROTO_API"],
-        "//conditions:default": [],
-    }),
     deps = [
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
