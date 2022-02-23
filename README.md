@@ -55,10 +55,11 @@ by a bound proto enum (see `tests/proto_enum_test.py` for an example).
 
 Fundamentally sharing protocol buffer types between C++ and python runtimes
 is unsafe because C++ assumes that it has full ownership of a protocol buffer
-messge, and many manipulate references owned by python. Because of this sharing
-mutable references or pointers between C++ and python is not allowed. However
-when using the python fast proto implementation, the bindings may share an
-underlying protocol buffer with C++ when passed by `const &` into a C++ function.
+message, and may manipulate references in a way that undermines python
+ownership semantics. Because of this sharing mutable references or pointers
+between C++ and python is not allowed. However when using the python fast
+proto implementation, the bindings may share an underlying protocol buffer
+with C++ when passed by `const &` into a C++ function.
 
 In cases where a protocol buffer is used as an in/out parameter in C++,
 additional logic will be required in the wrapper.
