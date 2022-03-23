@@ -4,10 +4,12 @@
 // BSD-style license that can be found in the LICENSE file.
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #include <functional>
 #include <memory>
 #include <stdexcept>
+#include <variant>
 
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
@@ -144,6 +146,26 @@ PYBIND11_MODULE(pass_by_module, m) {
       "concrete_cwref",
       [](std::reference_wrapper<const IntMessage> message, int value) {
         return CheckMessage(&message.get(), value);
+      },
+      py::arg("message"), py::arg("value"));
+
+  m.def(
+      "std_variant",
+      [](std::variant<std::monostate, IntMessage> message, int value) {
+        if (auto* msg = std::get_if<IntMessage>(&message)) {
+          return CheckIntMessage(msg, value);
+        }
+        return false;
+      },
+      py::arg("message"), py::arg("value"));
+
+  m.def(
+      "std_optional",
+      [](std::optional<IntMessage> message, int value) {
+        if (message.has_value()) {
+          return CheckIntMessage(&message.value(), value);
+        }
+        return false;
       },
       py::arg("message"), py::arg("value"));
 

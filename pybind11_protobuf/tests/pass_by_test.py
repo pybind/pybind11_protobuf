@@ -58,6 +58,8 @@ def get_pass_by_params():
       'concrete_uptr_ptr',
       'concrete_uptr_ref',
       'concrete_wref',
+      'std_variant',
+      'std_optional,'
   ]:
     try:
       p.append((x, getattr(m, x)))
@@ -123,6 +125,8 @@ class PassByTest(parameterized.TestCase):
       m.concrete_cptr_notnone(None, 3)
     with self.assertRaises(TypeError):
       m.abstract_cptr_notnone(None, 4)
+    self.assertFalse(m.std_variant(None, 0))
+    self.assertFalse(m.std_optional(None, 0))
 
   @parameterized.named_parameters(
       ('concrete', m.concrete_cref),
