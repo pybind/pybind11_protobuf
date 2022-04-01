@@ -151,7 +151,13 @@ PYBIND11_MODULE(dynamic_message_module, m) {
   m.def(
       "print",
       [](std::unique_ptr<::google::protobuf::Message> msg) -> std::string {
-        return msg ? msg->DebugString() : "<nullptr>";
+        std::string message;
+        if (msg) {
+          ::google::protobuf::TextFormat::PrintToString(*msg, &message);
+        } else {
+          message = "<nullptr>";
+        }
+        return message;
       },
       py::arg("message"));
 
