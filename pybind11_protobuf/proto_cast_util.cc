@@ -605,14 +605,19 @@ bool PyProtoIsCompatible(py::handle py_proto, const Descriptor* descriptor) {
     }
   }
 
-  // In concrete protos, also expect that the python proto is from the
-  // global pool.
+  // The C++ descriptor is compiled in (see above assert), so the py_proto
+  // is expected to be from the global pool, i.e. the DESCRIPTOR.file.pool
+  // instance is the global python pool, and not a custom pool.
   auto py_pool = ResolveAttrs(*py_descriptor, {"file", "pool"});
-  if (!py_pool) {
-    // Not a valid protobuf -- missing DESCRIPTOR.file.pool
-    return false;
+  if (py_pool) {
+    return py_pool->is(GlobalState::instance()->global_pool());
   }
-  return py_pool->is(GlobalState::instance()->global_pool());
+
+  // The py_proto is missing a DESCRIPTOR.file.pool, but the name matches.
+  // This will not happen with a native python implementation, but does
+  // occur with the deprecated :proto_casters, and could happen with other
+  // mocks.  Returning true allows the caster to call PyProtoCopyToCProto.
+  return true;
 }
 
 bool PyProtoCopyToCProto(py::handle py_proto, Message* message) {

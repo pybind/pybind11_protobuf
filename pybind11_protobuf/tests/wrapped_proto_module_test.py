@@ -16,7 +16,7 @@ from pybind11_protobuf.tests import test_pb2
 from pybind11_protobuf.tests import wrapped_proto_module as m
 
 
-class FastProtoTest(parameterized.TestCase, compare.ProtoAssertions):
+class WrappedProtoTest(parameterized.TestCase, compare.ProtoAssertions):
 
   def test_type(self):
     # These are both seen as the concrete type.
@@ -82,6 +82,10 @@ class FastProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     self.assertEqual(1, m.fn_overload(m.make_int_message()))
     with self.assertRaises(TypeError):
       m.fn_overload('any string')
+
+  def test_constructor(self):
+    a = m.A(m.make_int_message())
+    self.assertEqual(m.make_int_message().value, a.value())
 
 
 if __name__ == '__main__':

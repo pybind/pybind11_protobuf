@@ -47,6 +47,15 @@ bool CheckIntMessage(const IntMessage* message, int32_t value) {
   return CheckMessage(message, value);
 }
 
+class A {
+ public:
+  A(const IntMessage& message) : value_(message.value()) {}
+  int64_t value() { return value_; }
+
+ private:
+  int64_t value_;
+};
+
 PYBIND11_MODULE(wrapped_proto_module, m) {
   pybind11_protobuf::ImportWrappedProtoCasters();
 
@@ -101,6 +110,12 @@ PYBIND11_MODULE(wrapped_proto_module, m) {
         return CheckMessage(static_cast<TestMessage*>(msg), value);
       },
       py::arg("proto"), py::arg("value"));
+
+  // Use WithWrappedProto to define an A.__init__ method
+  py::class_<A>(m, "A")
+      .def(py::init(WithWrappedProtos(
+          [](const IntMessage& message) { return A(message); })))
+      .def("value", &A::value);
 }
 
 /// Below here are compile tests for fast_cpp_proto_casters
