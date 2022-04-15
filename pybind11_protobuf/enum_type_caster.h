@@ -61,13 +61,15 @@ struct enum_type_caster {
       T v = static_cast<T>(base);
       if (::google::protobuf::GetEnumDescriptor<EnumType>()->FindValueByNumber(v) ==
           nullptr) {
-        throw pybind11::value_error(
-            "Invalid value " + std::to_string(v) +
-            " for ::google::protobuf::Enum " + pybind11::type_id<EnumType>());
+        throw pybind11::value_error("Invalid value " + std::to_string(v) +
+                                    " for ::google::protobuf::Enum " +
+                                    pybind11::type_id<EnumType>());
       }
       value = static_cast<EnumType>(v);
       return true;
     }
+    // When convert is true, then the enum could be resolved via
+    // FindValueByName.
     return false;
   }
 
@@ -84,11 +86,23 @@ struct enum_type_caster {
 namespace pybind11 {
 namespace detail {
 
+// ADL function to enable/disable specializations of proto enum type_caster<>
+// provided by pybind11_protobuf. Defaults to enabled. To disable the
+// pybind11_protobuf enum_type_caster for a specific enum type, define a
+// constexpr function in the same namespace, like:
+//
+//  constexpr bool pybind11_protobuf_enable_enum_type_caster(tensorflow::DType*)
+//  { return false; }
+//
+constexpr bool pybind11_protobuf_enable_enum_type_caster(...) { return true; }
+
 // Specialization of pybind11::detail::type_caster<T> for types satisfying
 // ::google::protobuf::is_proto_enum.
 template <typename EnumType>
 struct type_caster<EnumType,
-                   std::enable_if_t<::google::protobuf::is_proto_enum<EnumType>::value>>
+                   std::enable_if_t<(::google::protobuf::is_proto_enum<EnumType>::value &&
+                                     pybind11_protobuf_enable_enum_type_caster(
+                                         static_cast<EnumType*>(nullptr)))>>
     : public pybind11_protobuf::enum_type_caster<EnumType> {};
 
 }  // namespace detail

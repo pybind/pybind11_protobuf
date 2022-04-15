@@ -67,12 +67,24 @@ inline void ImportNativeProtoCasters() { InitializePybindProtoCastUtil(); }
 namespace pybind11 {
 namespace detail {
 
+// ADL function to enable/disable specializations of type_caster<> provided by
+// pybind11_protobuf. Defaults to enabled. To disable the pybind11_protobuf
+// proto_caster for a specific proto type, define a constexpr function in the
+// same namespace, like:
+//
+//  constexpr bool pybind11_protobuf_enable_type_caster(MyProto*)
+//  { return false; }
+//
+constexpr bool pybind11_protobuf_enable_type_caster(...) { return true; }
+
 // pybind11 type_caster<> specialization for c++ protocol buffer types using
 // inheritance from google::proto_caster<>.
 template <typename ProtoType>
 struct type_caster<
     ProtoType,
-    std::enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>>
+    std::enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
+                      pybind11_protobuf_enable_type_caster(
+                          static_cast<ProtoType *>(nullptr)))>>
     : public pybind11_protobuf::proto_caster<
           ProtoType, pybind11_protobuf::native_cast_impl> {};
 
@@ -89,7 +101,9 @@ struct type_caster<
 template <typename ProtoType, typename HolderType>
 struct move_only_holder_caster<
     ProtoType, HolderType,
-    std::enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>> {
+    std::enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
+                      pybind11_protobuf_enable_type_caster(
+                          static_cast<ProtoType *>(nullptr)))>> {
  private:
   using Base = type_caster<intrinsic_t<ProtoType>>;
   static constexpr bool const_element =
@@ -139,7 +153,9 @@ struct move_only_holder_caster<
 template <typename ProtoType, typename HolderType>
 struct copyable_holder_caster<
     ProtoType, HolderType,
-    std::enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>> {
+    std::enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
+                      pybind11_protobuf_enable_type_caster(
+                          static_cast<ProtoType *>(nullptr)))>> {
  private:
   using Base = type_caster<intrinsic_t<ProtoType>>;
   static constexpr bool const_element =

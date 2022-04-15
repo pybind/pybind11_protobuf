@@ -21,6 +21,23 @@ class ProtoEnumTest(absltest.TestCase):
     self.assertEqual(m.adjust_enum(m.ZERO), m.ONE)
     with self.assertRaises(ValueError):
       m.adjust_enum(7)
+    with self.assertRaises(TypeError):
+      m.adjust_enum('ZERO')
+
+  def test_another_enum(self):
+    self.assertEqual(m.adjust_another_enum(m.AnotherEnum.ZERO), 11)
+    self.assertEqual(
+        m.adjust_another_enum(m.AnotherEnum.ONE), test_pb2.AnotherMessage.TWO)
+    self.assertEqual(
+        m.adjust_another_enum(m.AnotherEnum.TWO), test_pb2.AnotherMessage.ZERO)
+    # py::enum_ conversion of proto::Enum is more strict than the type_caster<>
+    # conversion.
+    with self.assertRaises(TypeError):
+      m.adjust_another_enum(test_pb2.AnotherMessage.ZERO)
+    with self.assertRaises(TypeError):
+      m.adjust_another_enum(0)
+    with self.assertRaises(TypeError):
+      m.adjust_enum('ZERO')
 
 
 if __name__ == '__main__':

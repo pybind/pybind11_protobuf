@@ -42,3 +42,11 @@ message TestMessage {
   }
   Nested nested = 13;
 }
+
+message AnotherMessage {
+  enum AnotherEnum {
+    ZERO = 0;
+    ONE = 11;
+    TWO = 22;
+  }
+}
