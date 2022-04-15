@@ -3,13 +3,15 @@
 // All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#include "pybind11_protobuf/proto_utils.h"
+#include <pybind11/pybind11.h>
 
 namespace pybind11 {
 namespace google {
 
 PYBIND11_MODULE(proto, m) {
-  RegisterProtoBindings(m);
+  // Return whether the given python object is a wrapped C proto.
+  m.def(
+      "is_wrapped_c_proto", [](object x) { return false; }, arg("src"));
 }
 
 }  // namespace google

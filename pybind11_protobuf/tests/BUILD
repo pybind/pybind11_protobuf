@@ -153,6 +153,17 @@ py_test(
     ],
 )
 
+py_test(
+    name = "message_nopb2_test",
+    srcs = ["message_nopb2_test.py"],
+    # This test has no dependency on Python proto2 libraries.
+    deps = [
+        ":message_module",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_protobuf//:protobuf_python",
+    ],
+)
+
 pybind_extension(
     name = "pass_by_module",
     srcs = ["pass_by_module.cc"],
