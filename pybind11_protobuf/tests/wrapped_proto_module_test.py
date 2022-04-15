@@ -65,6 +65,20 @@ class WrappedProtoTest(parameterized.TestCase, compare.ProtoAssertions):
     a.int_value = 34
     self.assertTrue(check(a, 34))
 
+  def test_check_list(self):
+    a = [
+        m.make_int_message(value=33),
+        m.make_int_message(value=34),
+        test_pb2.IntMessage(value=34),
+        test_pb2.IntMessage(value=33),
+    ]
+    self.assertEqual(2, m.check_int_message_list(a, 34))
+    self.assertEqual(2, m.check_int_message_list(a, 33))
+
+  def test_make_list(self):
+    a = m.make_int_message_list(44)
+    self.assertEqual(3, m.take_int_message_list(a, 44))
+
   def test_call_with_str(self):
     with self.assertRaises(TypeError):
       m.check('any string', 32)

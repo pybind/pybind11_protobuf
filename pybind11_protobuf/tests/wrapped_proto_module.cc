@@ -4,10 +4,12 @@
 // BSD-style license that can be found in the LICENSE file.
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #include <functional>
 #include <memory>
 #include <stdexcept>
+#include <vector>
 
 #include "google/protobuf/dynamic_message.h"
 #include "absl/status/statusor.h"
@@ -116,6 +118,36 @@ PYBIND11_MODULE(wrapped_proto_module, m) {
       .def(py::init(WithWrappedProtos(
           [](const IntMessage& message) { return A(message); })))
       .def("value", &A::value);
+
+  // And wrap std::vector<Proto>
+  m.def("check_int_message_list",
+        WithWrappedProtos([](const std::vector<IntMessage>& v, int32_t value) {
+          int i = 0;
+          for (const auto& x : v) {
+            i += CheckMessage(&x, value);
+          }
+          return i;
+        }),
+        py::arg("protos"), py::arg("value"));
+  m.def("take_int_message_list",
+        WithWrappedProtos([](std::vector<IntMessage> v, int32_t value) {
+          int i = 0;
+          for (const auto& x : v) {
+            i += CheckMessage(&x, value);
+          }
+          return i;
+        }),
+        py::arg("protos"), py::arg("value"));
+
+  m.def("make_int_message_list", WithWrappedProtos([](int value) {
+          std::vector<IntMessage> result;
+          for (int i = 0; i < 3; i++) {
+            result.emplace_back();
+            result.back().set_value(value);
+          }
+          return result;
+        }),
+        py::arg("value") = 123);
 }
 
 /// Below here are compile tests for fast_cpp_proto_casters
@@ -128,6 +160,7 @@ TestMessage GetValue() { return TestMessage(); }
 TestMessage&& GetRValue() { return std::move(kMessage); }
 absl::StatusOr<TestMessage> GetStatusOr() { return TestMessage(); }
 absl::optional<TestMessage> GetOptional() { return TestMessage(); }
+std::vector<TestMessage> GetVector() { return {}; }
 
 void PassInt(int) {}
 void PassConstReference(const TestMessage&) {}
@@ -135,6 +168,7 @@ void PassConstPtr(const TestMessage*) {}
 void PassValue(TestMessage) {}
 void PassRValue(TestMessage&&) {}
 void PassOptional(absl::optional<TestMessage>) {}
+void PassVector(std::vector<TestMessage>) {}
 
 struct Struct {
   TestMessage MemberFn() { return kMessage; }
@@ -179,6 +213,7 @@ void test_static_asserts() {
       WithWrappedProtos(GetStatusOr));
   absl::FunctionRef<absl::optional<TestMessage>()>(
       WithWrappedProtos(GetOptional));
+  absl::FunctionRef<std::vector<TestMessage>()>(WithWrappedProtos(GetVector));
 
   // Passing types
   absl::FunctionRef<void(int)>(WithWrappedProtos(PassInt));
@@ -187,6 +222,10 @@ void test_static_asserts() {
   absl::FunctionRef<void(const TestMessage*)>(WithWrappedProtos(PassConstPtr));
   absl::FunctionRef<void(TestMessage)>(WithWrappedProtos(PassValue));
   absl::FunctionRef<void(TestMessage &&)>(WithWrappedProtos(PassRValue));
+  absl::FunctionRef<void(absl::optional<TestMessage>)>(
+      WithWrappedProtos(PassOptional));
+  absl::FunctionRef<void(std::vector<TestMessage>)>(
+      WithWrappedProtos(PassVector));
 }
 
 #if defined(WRAPPED_PROTO_CASTER_NONCOMPILE_TEST)

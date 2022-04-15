@@ -123,6 +123,185 @@ struct WrappedProto<ProtoType, WrappedProtoKind::kValue> {
   operator ProtoType&&() && noexcept { return std::move(proto); }
 };
 
+// pybind11 type_caster specialization for WrappedProto<T>
+// c++ protocol buffer types.
+template <typename WrappedProtoType>
+struct wrapped_proto_caster : public pybind11_protobuf::proto_caster_load_impl<
+                                  typename WrappedProtoType::type>,
+                              protected pybind11_protobuf::native_cast_impl {
+  using Base = pybind11_protobuf::proto_caster_load_impl<
+      typename WrappedProtoType::type>;
+  using ProtoType = typename WrappedProtoType::type;
+  using Base::ensure_owned;
+  using Base::owned;
+  using Base::value;
+  using pybind11_protobuf::native_cast_impl::cast_impl;
+
+ public:
+  static constexpr auto name = pybind11::detail::_<WrappedProtoType>();
+
+  // cast converts from C++ -> Python
+  static pybind11::handle cast(WrappedProtoType src,
+                               pybind11::return_value_policy policy,
+                               pybind11::handle parent) {
+    if (src.get() == nullptr) return pybind11::none().release();
+    std::unique_ptr<ProtoType> owned;
+
+    if (WrappedProtoType::kind == WrappedProtoKind::kValue) {
+      // When the proto is by-value, it's always possible to move the contents
+      policy = pybind11::return_value_policy::move;
+    } else {
+      // Otherwise take a copy by default.
+      if (policy == pybind11::return_value_policy::automatic ||
+          policy == pybind11::return_value_policy::automatic_reference) {
+        policy = pybind11::return_value_policy::copy;
+      } else if (policy == pybind11::return_value_policy::take_ownership) {
+        owned.reset(const_cast<ProtoType*>(src.get()));
+      }
+    }
+    return cast_impl(
+        src.get(), policy, parent,
+        /*is_const*/ WrappedProtoKind::kConst == WrappedProtoType::kind);
+  }
+
+  // PYBIND11_TYPE_CASTER
+  template <WrappedProtoKind K>
+  typename std::enable_if<(K == WrappedProtoKind::kValue),
+                          WrappedProtoType>::type
+  convert() {
+    // WrappedProto<T, kValue> ALWAYS creates a copy.
+    if (owned) {
+      return std::move(*owned);
+    } else {
+      return ProtoType(*value);
+    }
+  }
+
+  template <WrappedProtoKind K>
+  typename std::enable_if<(K == WrappedProtoKind::kMutable),
+                          WrappedProtoType>::type
+  convert() {
+    // WrappedProto<T, kMutable> ALWAYS creates a copy.
+    ensure_owned();
+    return owned.get();
+  }
+
+  template <WrappedProtoKind K>
+  typename std::enable_if<(K == WrappedProtoKind::kConst),
+                          WrappedProtoType>::type
+  convert() {
+    return value;
+  }
+
+  explicit operator WrappedProtoType() {
+    return this->template convert<WrappedProtoType::kind>();
+  }
+
+  template <typename T_>
+  using cast_op_type = WrappedProtoType;
+};
+
+/// Support for wrapping methods using std::vector<ProtoType> with
+/// WithWrappedProto.
+///
+/// In the single-proto cases, a transparent wrapper, WrappedProto<Proto, Kind>,
+/// is used to select the native proto pybind11 type_caster<> and avoid ODR
+/// issues. That mechanism doesn't work very well for containers, since to
+/// convert from a std::vector<Wrapper<X>> to std::vector<X> involves a
+/// copy/move, even if the wrapper is trivial.
+///
+/// This workaround takes a similar tack to the WrappedProto<> transparent
+/// wrapper: Create a transparent wrapper of std::vector<T>, and implement a
+/// custom type_caster to delegate the conversion of the inner Proto type to
+/// native_proto_caster, avoiding the default pybind11 list_caster conversion
+/// and make_type_caster<> selection.  WrapHelper applies the rewrite to the
+/// functions.
+///
+/// NOTE: This always copies values, similar to WrappedProto<Kind, kValue>.
+
+/// WrappedProtoVector<T> wraps a std::vector<T>. It is used to add std::vector
+/// support for WithWrappedProtos by forwarding the internal T to the native
+/// proto casters.
+template <typename ProtoType>
+struct WrappedProtoVector {
+  std::vector<ProtoType> protos;
+
+  WrappedProtoVector() = default;
+
+  WrappedProtoVector(WrappedProtoVector&&) = default;
+  WrappedProtoVector(const WrappedProtoVector&) = default;
+  WrappedProtoVector& operator=(WrappedProtoVector&&) = default;
+  WrappedProtoVector& operator=(const WrappedProtoVector&) = default;
+
+  WrappedProtoVector(std::vector<ProtoType>&& p) : protos(std::move(p)) {}
+
+  operator std::vector<ProtoType>&&() && noexcept { return std::move(protos); }
+};
+
+// type_caster<> implementation for WrappedProtoVector. See
+// pybind11::list_caster.
+template <typename ProtoType>
+struct wrapped_proto_vector_caster {
+  static constexpr auto name =
+      (pybind11::detail::const_name("List[") +
+       pybind11::detail::_<ProtoType>() + pybind11::detail::const_name("]"));
+
+  // cast converts from Python -> C++
+  bool load(pybind11::handle src, bool convert) {
+    using load_impl = pybind11_protobuf::proto_caster_load_impl<ProtoType>;
+
+    if (!pybind11::isinstance<pybind11::sequence>(src) ||
+        pybind11::isinstance<pybind11::bytes>(src) ||
+        pybind11::isinstance<pybind11::str>(src)) {
+      return false;
+    }
+    auto s = pybind11::reinterpret_borrow<pybind11::sequence>(src);
+    value.protos.clear();
+    value.protos.reserve(s.size());
+    for (auto it : s) {
+      load_impl conv;
+      if (!conv.load(it, convert)) {
+        return false;
+      }
+      if (conv.owned) {
+        value.protos.emplace_back(std::move(*conv.owned));
+      } else {
+        value.protos.emplace_back(*conv.value);
+      }
+    }
+    return true;
+  }
+
+  // cast converts from C++ -> Python
+  static pybind11::handle cast(WrappedProtoVector<ProtoType> src,
+                               pybind11::return_value_policy policy,
+                               pybind11::handle parent) {
+    pybind11::list l(src.protos.size());
+    ssize_t index = 0;
+    for (auto&& value : src.protos) {
+      auto value_ = pybind11::reinterpret_steal<pybind11::object>(
+          pybind11_protobuf::native_cast_impl::cast_impl(
+              &value, pybind11::return_value_policy::move, parent,
+              /*is_const*/ false));
+      if (!value_) {
+        return pybind11::handle();
+      }
+      PyList_SET_ITEM(l.ptr(), index++,
+                      value_.release().ptr());  // steals a reference
+    }
+    return l.release();
+  }
+
+  explicit operator WrappedProtoVector<ProtoType>&&() && {
+    return std::move(value);
+  }
+
+  template <typename T_>
+  using cast_op_type = WrappedProtoVector<ProtoType>&&;
+
+  WrappedProtoVector<ProtoType> value;
+};
+
 // Implementation details for WithWrappedProtos
 namespace impl {
 
@@ -153,6 +332,7 @@ struct WrapHelper {
   using type = T;
 };
 
+// Rewrite Proto to WrappedProto<Proto, Kind>
 template <typename ProtoType>
 struct WrapHelper<ProtoType,  //
                   std::enable_if_t<std::is_base_of<
@@ -162,8 +342,20 @@ struct WrapHelper<ProtoType,  //
                 "WithWrappedProtos() does not support mutable ::google::protobuf::Message "
                 "parameters.");
 
-  using proto = intrinsic_t<ProtoType>;
-  using type = WrappedProto<proto, kKind>;
+  using type = WrappedProto<intrinsic_t<ProtoType>, kKind>;
+};
+
+// absl::optional is also sometimes used as a wrapper for optional protos.
+template <typename ProtoType>
+struct WrapHelper<absl::optional<ProtoType>,  //
+                  std::enable_if_t<std::is_base_of<
+                      ::google::protobuf::Message, intrinsic_t<ProtoType>>::value>> {
+  static constexpr auto kKind = DetectKind<ProtoType>();
+  static_assert(kKind != WrappedProtoKind::kMutable,
+                "WithWrappedProtos() does not support mutable ::google::protobuf::Message "
+                "parameters.");
+
+  using type = absl::optional<WrappedProto<intrinsic_t<ProtoType>, kKind>>;
 };
 
 // absl::StatusOr is a common wrapper so also propagate WrappedProto into
@@ -179,22 +371,30 @@ struct WrapHelper<absl::StatusOr<ProtoType>,  //
                 "WithWrappedProtos() does not support mutable ::google::protobuf::Message "
                 "parameters.");
 
-  using proto = intrinsic_t<ProtoType>;
-  using type = absl::StatusOr<WrappedProto<proto, kKind>>;
+  using type = absl::StatusOr<WrappedProto<intrinsic_t<ProtoType>, kKind>>;
 };
 
-// absl::optional is also sometimes used as a wrapper for optional protos.
+// Also rewrite std::vector<Proto> to WrappedProtoVector<Proto> when passed by
+// const reference or by value.
 template <typename ProtoType>
-struct WrapHelper<absl::optional<ProtoType>,  //
+struct WrapHelper<std::vector<ProtoType>,  //
                   std::enable_if_t<std::is_base_of<
                       ::google::protobuf::Message, intrinsic_t<ProtoType>>::value>> {
-  static constexpr auto kKind = DetectKind<ProtoType>();
-  static_assert(kKind != WrappedProtoKind::kMutable,
-                "WithWrappedProtos() does not support mutable ::google::protobuf::Message "
-                "parameters.");
+  using type = WrappedProtoVector<ProtoType>;
+};
+template <typename ProtoType>
+struct WrapHelper<const std::vector<ProtoType>&,  //
+                  std::enable_if_t<std::is_base_of<
+                      ::google::protobuf::Message, intrinsic_t<ProtoType>>::value>> {
+  using type = WrappedProtoVector<ProtoType>;
+};
 
-  using proto = intrinsic_t<ProtoType>;
-  using type = absl::optional<WrappedProto<proto, kKind>>;
+// And absl::StatusOr<std::vector<Proto>>
+template <typename ProtoType>
+struct WrapHelper<absl::StatusOr<std::vector<ProtoType>>,  //
+                  std::enable_if_t<std::is_base_of<
+                      ::google::protobuf::Message, intrinsic_t<ProtoType>>::value>> {
+  using type = absl::StatusOr<WrappedProtoVector<ProtoType>>;
 };
 
 /// FunctionInvoker/ConstMemberInvoker/MemberInvoker are internal functions
@@ -288,84 +488,6 @@ WithWrappedProtos(R (C::*f)(Args...) const) {
   return {f};
 }
 
-// pybind11 type_caster specialization for WrappedProto<T>
-// c++ protocol buffer types.
-template <typename WrappedProtoType>
-struct wrapped_proto_caster : public pybind11_protobuf::proto_caster_load_impl<
-                                  typename WrappedProtoType::type>,
-                              protected pybind11_protobuf::native_cast_impl {
-  using Base = pybind11_protobuf::proto_caster_load_impl<
-      typename WrappedProtoType::type>;
-  using ProtoType = typename WrappedProtoType::type;
-  using Base::ensure_owned;
-  using Base::owned;
-  using Base::value;
-  using pybind11_protobuf::native_cast_impl::cast_impl;
-
- public:
-  static constexpr auto name = pybind11::detail::_<WrappedProtoType>();
-
-  // cast converts from C++ -> Python
-  static pybind11::handle cast(WrappedProtoType src,
-                               pybind11::return_value_policy policy,
-                               pybind11::handle parent) {
-    if (src.get() == nullptr) return pybind11::none().release();
-    std::unique_ptr<ProtoType> owned;
-
-    if (WrappedProtoType::kind == WrappedProtoKind::kValue) {
-      // When the proto is by-value, it's always possible to move the contents
-      policy = pybind11::return_value_policy::move;
-    } else {
-      // Otherwise take a copy by default.
-      if (policy == pybind11::return_value_policy::automatic ||
-          policy == pybind11::return_value_policy::automatic_reference) {
-        policy = pybind11::return_value_policy::copy;
-      } else if (policy == pybind11::return_value_policy::take_ownership) {
-        owned.reset(const_cast<ProtoType*>(src.get()));
-      }
-    }
-    return cast_impl(
-        src.get(), policy, parent,
-        /*is_const*/ WrappedProtoKind::kConst == WrappedProtoType::kind);
-  }
-
-  // PYBIND11_TYPE_CASTER
-  template <WrappedProtoKind K>
-  typename std::enable_if<(K == WrappedProtoKind::kValue),
-                          WrappedProtoType>::type
-  convert() {
-    // WrappedProto<T, kValue> ALWAYS creates a copy.
-    if (owned) {
-      return std::move(*owned);
-    } else {
-      return ProtoType(*value);
-    }
-  }
-
-  template <WrappedProtoKind K>
-  typename std::enable_if<(K == WrappedProtoKind::kMutable),
-                          WrappedProtoType>::type
-  convert() {
-    // WrappedProto<T, kMutable> ALWAYS creates a copy.
-    ensure_owned();
-    return owned.get();
-  }
-
-  template <WrappedProtoKind K>
-  typename std::enable_if<(K == WrappedProtoKind::kConst),
-                          WrappedProtoType>::type
-  convert() {
-    return value;
-  }
-
-  explicit operator WrappedProtoType() {
-    return this->template convert<WrappedProtoType::kind>();
-  }
-
-  template <typename T_>
-  using cast_op_type = WrappedProtoType;
-};
-
 }  // namespace pybind11_protobuf
 namespace pybind11 {
 namespace detail {
@@ -378,6 +500,13 @@ struct type_caster<
     std::enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>>
     : public pybind11_protobuf::wrapped_proto_caster<
           pybind11_protobuf::WrappedProto<ProtoType, Kind>> {};
+
+// pybind11 type_caster<> specialization for WrappedProtoVector<proto>.
+template <typename ProtoType>
+struct type_caster<
+    pybind11_protobuf::WrappedProtoVector<ProtoType>,
+    std::enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>>
+    : public pybind11_protobuf::wrapped_proto_vector_caster<ProtoType> {};
 
 }  // namespace detail
 
