@@ -509,24 +509,6 @@ struct type_caster<
     : public pybind11_protobuf::wrapped_proto_vector_caster<ProtoType> {};
 
 }  // namespace detail
-
-// NOTE: Migration from namespace pybind11::google to namespace
-// pybind11_protobuf is a work in progress, afterwards these aliases
-// will be removed.
-namespace google {
-
-using WrappedProtoKind = pybind11_protobuf::WrappedProtoKind;
-
-template <typename ProtoType, WrappedProtoKind Kind>
-using WrappedProto = pybind11_protobuf::WrappedProto<ProtoType, Kind>;
-
-template <typename T>
-auto WithWrappedProtos(T t)
-    -> decltype(pybind11_protobuf::WithWrappedProtos(t)) {
-  return pybind11_protobuf::WithWrappedProtos(t);
-}
-
-}  // namespace google
 }  // namespace pybind11
 
 #endif  // PYBIND11_PROTOBUF_WRAPPED_PROTO_CASTER_H_
