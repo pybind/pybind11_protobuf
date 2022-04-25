@@ -1112,7 +1112,7 @@ void ProtoMergeFrom(::google::protobuf::Message* msg, handle other) {
 
 void RegisterProtoBindings(module m) {
   // Return whether the given python object is a wrapped C proto.
-  m.def("is_wrapped_c_proto", &IsWrappedCProto, arg("src"));
+  m.def("is_wrapped_c_proto_deprecated", &IsWrappedCProto, arg("src"));
 
   // Construct and optionally initialize a wrapped C proto.
   m.def("make_wrapped_c_proto", &PyProtoAllocateMessage<::google::protobuf::Message>,
