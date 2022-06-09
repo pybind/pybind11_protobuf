@@ -14,7 +14,9 @@ pybind_library(
         "proto_utils.h",
     ],
     visibility = [
+        "//learning/brain/experimental/telamon/python:__pkg__",
         "//pybind11_protobuf:__subpackages__",
+        "//third_party/robotics/juggler/jet/components/python:__pkg__",
     ],
     deps = [
         "@com_google_absl//absl/strings",
