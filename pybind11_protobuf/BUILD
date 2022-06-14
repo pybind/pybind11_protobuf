@@ -8,32 +8,6 @@ licenses(["notice"])
 exports_files(["LICENSE"])
 
 pybind_library(
-    name = "proto_utils",
-    srcs = ["proto_utils.cc"],
-    hdrs = [
-        "proto_utils.h",
-    ],
-    visibility = [
-        "//learning/brain/experimental/telamon/python:__pkg__",
-        "//pybind11_protobuf:__subpackages__",
-        "//third_party/robotics/juggler/jet/components/python:__pkg__",
-    ],
-    deps = [
-        "@com_google_absl//absl/strings",
-        "@com_google_protobuf//:protobuf",
-    ],
-)
-
-pybind_extension(
-    name = "proto",
-    srcs = ["proto.cc"],
-    visibility = [
-        "//visibility:public",  # Scheuklappen: keep
-    ],
-    deps = [":proto_utils"],
-)
-
-pybind_library(
     name = "enum_type_caster",
     hdrs = ["enum_type_caster.h"],
     visibility = [
