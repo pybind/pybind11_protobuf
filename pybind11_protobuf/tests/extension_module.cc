@@ -50,6 +50,17 @@ PYBIND11_MODULE(extension_module, m) {
       "roundtrip",
       [](const BaseMessage& inout) -> const BaseMessage& { return inout; },
       py::arg("message"), py::return_value_policy::copy);
+
+  m.def(
+      "roundtrip_with_serialize_deserialize",
+      [](const BaseMessage& message) -> BaseMessage {
+        std::string serialized;
+        message.SerializeToString(&serialized);
+        pybind11::test::BaseMessage deserialized;
+        deserialized.ParseFromString(serialized);
+        return deserialized;
+      },
+      py::arg("message"));
 }
 
 }  // namespace

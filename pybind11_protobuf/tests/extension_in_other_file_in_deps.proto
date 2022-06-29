@@ -1,0 +1,14 @@
+syntax = "proto2";
+
+package pybind11.test.util;
+
+import "pybind11_protobuf/tests/extension.proto";
+
+message MessageInOtherFileInDeps {
+  extend pybind11.test.BaseMessage {
+    optional MessageInOtherFileInDeps message_in_other_file_in_deps_extension =
+        1002;
+  }
+
+  optional int32 value = 1;
+}
