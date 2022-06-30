@@ -22,10 +22,6 @@ pybind_library(
     name = "native_proto_caster",
     srcs = ["native_proto_caster.cc"],
     hdrs = ["native_proto_caster.h"],
-    defines = [
-        # Force a build error when build variants are mixed.
-        "PYBIND11_PROTOBUF_MODE=native_protos",
-    ],
     visibility = [
         "//visibility:public",
     ],
