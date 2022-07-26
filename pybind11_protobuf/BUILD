@@ -1,6 +1,6 @@
 # Pybind11 bindings for Google's Protocol Buffers
 
-load("@pybind11_bazel//:build_defs.bzl", "pybind_extension", "pybind_library")
+load("@pybind11_bazel//:build_defs.bzl", "pybind_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 licenses(["notice"])
