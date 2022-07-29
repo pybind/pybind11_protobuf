@@ -17,15 +17,6 @@
 #include "pybind11_protobuf/enum_type_caster.h"
 #include "pybind11_protobuf/proto_caster_impl.h"
 
-// NOTE: This directly currently contains 2 mutually incompatible
-// implementations of pybind11::type_caster<> for ::google::protobuf::Message types due to
-// C++ ODR violations.  Only one of the following is allowed:
-//   * proto_casters.h        (legacy)
-//   * native_proto_caster.h  (preferred)
-//
-// When possible, please convert code and all dependencies to the preferred
-// native_proto_caster.h implementation.
-
 // pybind11::type_caster<> specialization for ::google::protobuf::Message types that
 // that convets protocol buffer objects between C++ and python representations.
 // This binder supports binaries linked with both native python protos

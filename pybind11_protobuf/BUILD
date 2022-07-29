@@ -20,7 +20,6 @@ pybind_library(
 
 pybind_library(
     name = "native_proto_caster",
-    srcs = ["native_proto_caster.cc"],
     hdrs = ["native_proto_caster.h"],
     visibility = [
         "//visibility:public",
