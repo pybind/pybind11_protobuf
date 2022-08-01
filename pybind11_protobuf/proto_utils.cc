@@ -5,19 +5,77 @@
 
 #include "pybind11_protobuf/proto_utils.h"
 
+#include <pybind11/functional.h>
+
+#include <cstddef>
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <typeindex>
 
-#include "google/protobuf/any.pb.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
+#include "google/protobuf/reflection.h"
 #include "absl/strings/string_view.h"
 
 namespace pybind11 {
 namespace google {
+
+// BEGIN CODE MOVED HERE FROM proto_utils.h
+// vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
+// The code was moved here after the removal of proto_casters.h (cl/458227296,
+// cl/463884285), to minimize public exposure of code without unit tests.
+// It code be moved back to proto_utils.h with added unit testing.
+
+// Gets the field with the given name from the given message as a python object.
+object ProtoGetField(::google::protobuf::Message* message, absl::string_view name);
+object ProtoGetField(::google::protobuf::Message* message,
+                     const ::google::protobuf::FieldDescriptor* field_desc);
+
+// Sets the field with the given name in the given message from a python object.
+// As in the native API, message, repeated, and map fields cannot be set.
+void ProtoSetField(::google::protobuf::Message* message, absl::string_view name,
+                   handle value);
+void ProtoSetField(::google::protobuf::Message* message,
+                   const ::google::protobuf::FieldDescriptor* field_desc, handle value);
+
+// If py_proto is a native c or wrapped python proto, sets name and returns
+// true. If py_proto is not a proto, returns false.
+bool PyProtoFullName(handle py_proto, std::string* name);
+
+// Returns whether py_proto is a proto and matches the expected_type.
+bool PyProtoCheckType(handle py_proto, const std::string& expected_type);
+// Throws a type error if py_proto is not a proto or the wrong message type.
+void PyProtoCheckTypeOrThrow(handle py_proto, const std::string& expected_type);
+
+// Returns whether py_proto is a proto and matches the ProtoType.
+template <typename ProtoType>
+bool PyProtoCheckType(handle py_proto) {
+  return PyProtoCheckType(py_proto, ProtoType::descriptor()->full_name());
+}
+
+// Returns whether py_proto is a proto based on whether it has a descriptor
+// with the name of the proto.
+template <>
+inline bool PyProtoCheckType<::google::protobuf::Message>(handle py_proto) {
+  return PyProtoFullName(py_proto, nullptr);
+}
+
+// Returns the serialized version of the given (native or wrapped) python proto.
+std::string PyProtoSerializeToString(handle py_proto);
+
+// Gets the descriptor for the proto specified by the argument, which can be a
+// native python proto, a wrapped C proto, or a string with the full type name.
+const ::google::protobuf::Descriptor* PyProtoGetDescriptor(handle py_proto);
+
+// Allocate and return a message instance for the given descriptor.
+std::unique_ptr<::google::protobuf::Message> PyProtoAllocateMessage(
+    const ::google::protobuf::Descriptor* descriptor, kwargs kwargs_in);
+
+// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+// END CODE MOVED HERE FROM proto_utils.h
+
 namespace {
 
 // A type used with DispatchFieldDescriptor to represent a generic enum value.
@@ -665,274 +723,6 @@ struct TemplatedProtoSetField {
   }
 };
 
-// Wrapper around ::google::protobuf::Message::FindInitializationErrors.
-std::vector<std::string> MessageFindInitializationErrors(
-    ::google::protobuf::Message* message) {
-  std::vector<std::string> errors;
-  message->FindInitializationErrors(&errors);
-  return errors;
-}
-
-// Wrapper around ::google::protobuf::Message::ListFields.
-std::vector<tuple> MessageListFields(::google::protobuf::Message* message) {
-  std::vector<const ::google::protobuf::FieldDescriptor*> fields;
-  message->GetReflection()->ListFields(*message, &fields);
-  std::vector<tuple> result;
-  result.reserve(fields.size());
-  for (auto* field_desc : fields) {
-    result.push_back(
-        make_tuple(cast(field_desc, return_value_policy::reference),
-                   ProtoGetField(message, field_desc)));
-  }
-  return result;
-}
-
-// Wrapper around ::google::protobuf::Message::HasField.
-bool MessageHasField(::google::protobuf::Message* message, absl::string_view field_name) {
-  auto* oneof_desc = message->GetDescriptor()->FindOneofByName(std::string(field_name));
-  if (oneof_desc) {
-    return message->GetReflection()->HasOneof(*message, oneof_desc);
-  }
-  auto* field_desc = GetFieldDescriptor(message, field_name, PyExc_ValueError);
-  return message->GetReflection()->HasField(*message, field_desc);
-}
-
-void MessageClearField(::google::protobuf::Message* message, absl::string_view field_name) {
-  auto* oneof_desc = message->GetDescriptor()->FindOneofByName(std::string(field_name));
-  if (oneof_desc) {
-    message->GetReflection()->ClearOneof(message, oneof_desc);
-    return;
-  }
-
-  auto* field_desc = GetFieldDescriptor(message, field_name, PyExc_ValueError);
-  message->GetReflection()->ClearField(message, field_desc);
-}
-
-const std::string* MessageWhichOneof(::google::protobuf::Message* message,
-                                     absl::string_view oneof_group) {
-  auto* oneof_desc = message->GetDescriptor()->FindOneofByName(std::string(oneof_group));
-  if (!oneof_desc) {
-    std::string error_str = "Requested oneof does not exist: ";
-    error_str.append(std::string(oneof_group));
-    throw std::invalid_argument(error_str);
-  }
-
-  auto* field_desc =
-      message->GetReflection()->GetOneofFieldDescriptor(*message, oneof_desc);
-  if (!field_desc) return nullptr;
-  return &field_desc->name();
-}
-
-// Wrapper around ::google::protobuf::Message::SerializeAsString.
-// The only valid kwarg is "deterministic", which should be a boolean and, if
-// true, causes maps to be serialized with deterministic order. Keyword
-// arguments are used here because the native python implementation does not
-// allow this to be passed as a positional argument, and we want to match that.
-bytes MessageSerializeAsString(::google::protobuf::Message* msg, kwargs kwargs_in,
-                               bool partial) {
-  static constexpr char kwargs_key[] = "deterministic";
-  std::string result;
-  bool deterministic = false;
-  if (!kwargs_in.empty()) {
-    if (kwargs_in.size() == 1 && kwargs_in.contains(kwargs_key)) {
-      deterministic = bool_(kwargs_in[kwargs_key]);
-    } else {
-      throw std::invalid_argument(
-          "Invalid kwargs; the only valid key is 'deterministic'");
-    }
-  }
-  if (deterministic) {
-    ::google::protobuf::io::StringOutputStream string_stream(&result);
-    ::google::protobuf::io::CodedOutputStream coded_stream(&string_stream);
-    coded_stream.SetSerializationDeterministic(true);
-    if (partial) {
-      msg->SerializePartialToCodedStream(&coded_stream);
-    } else {
-      msg->SerializeToCodedStream(&coded_stream);
-    }
-  } else {
-    if (partial) {
-      result = msg->SerializePartialAsString();
-    } else {
-      result = msg->SerializeAsString();
-    }
-  }
-  return bytes(result);
-}
-
-// Wrapper to generate the python message Descriptor.fields property.
-list MessageFields(const ::google::protobuf::Descriptor* descriptor) {
-  list result;
-  for (int i = 0; i < descriptor->field_count(); ++i)
-    result.append(cast(descriptor->field(i), return_value_policy::reference));
-  return result;
-}
-
-// Wrapper to generate the python message Descriptor.fields_by_name property.
-dict MessageFieldsByName(const ::google::protobuf::Descriptor* descriptor) {
-  dict result;
-  for (int i = 0; i < descriptor->field_count(); ++i) {
-    auto* field_desc = descriptor->field(i);
-    result[cast(field_desc->name())] =
-        cast(field_desc, return_value_policy::reference);
-  }
-  return result;
-}
-
-// Wrapper to generate the python EnumDescriptor.values_by_number property.
-dict EnumValuesByNumber(const ::google::protobuf::EnumDescriptor* enum_descriptor) {
-  dict result;
-  for (int i = 0; i < enum_descriptor->value_count(); ++i) {
-    auto* value_desc = enum_descriptor->value(i);
-    result[cast(value_desc->number())] =
-        cast(value_desc, return_value_policy::reference);
-  }
-  return result;
-}
-
-// Wrapper to generate the python EnumDescriptor.values_by_name property.
-dict EnumValuesByName(const ::google::protobuf::EnumDescriptor* enum_descriptor) {
-  dict result;
-  for (int i = 0; i < enum_descriptor->value_count(); ++i) {
-    auto* value_desc = enum_descriptor->value(i);
-    result[cast(value_desc->name())] =
-        cast(value_desc, return_value_policy::reference);
-  }
-  return result;
-}
-
-// Class to add python bindings to a RepeatedFieldContainer.
-// This corresponds to the repeated field API:
-// https://developers.google.com/protocol-buffers/docs/reference/python-generated#repeated-fields
-// https://developers.google.com/protocol-buffers/docs/reference/python-generated#repeated-message-fields
-template <typename T>
-class RepeatedFieldBindings : public class_<RepeatedFieldContainer<T>> {
- public:
-  RepeatedFieldBindings(handle scope, const std::string& name)
-      : class_<RepeatedFieldContainer<T>>(scope, name.c_str()) {
-    // Repeated message fields support `add` but not `__setitem__`.
-    if (std::is_same<T, ::google::protobuf::Message>::value) {
-      this->def("add", &RepeatedFieldContainer<T>::Add,
-                return_value_policy::reference_internal);
-    } else {
-      this->def("__setitem__", &RepeatedFieldContainer<T>::SetItem);
-      this->def("__setitem__", &RepeatedFieldContainer<T>::SetSlice);
-    }
-    this->def("__repr__", &RepeatedFieldContainer<T>::Repr);
-    this->def("__len__", &RepeatedFieldContainer<T>::Size);
-    this->def("__getitem__", &RepeatedFieldContainer<T>::GetItem);
-    this->def("__getitem__", &RepeatedFieldContainer<T>::GetSlice);
-    this->def("__delitem__", &RepeatedFieldContainer<T>::DelItem);
-    this->def("__delitem__", &RepeatedFieldContainer<T>::DelSlice);
-    this->def("MergeFrom", &RepeatedFieldContainer<T>::Extend);
-    this->def("extend", &RepeatedFieldContainer<T>::Extend);
-    this->def("append", &RepeatedFieldContainer<T>::Append);
-    this->def("insert", &RepeatedFieldContainer<T>::Insert);
-  }
-};
-
-// Class to add python bindings to a MapFieldContainer.
-// This corresponds to the map field API:
-// https://developers.google.com/protocol-buffers/docs/reference/python-generated#map-fields
-template <typename T>
-class MapFieldBindings : public class_<MapFieldContainer<T>> {
- public:
-  MapFieldBindings(handle scope, const std::string& name)
-      : class_<MapFieldContainer<T>>(scope, name.c_str()) {
-    // Mapped message fields don't support item assignment.
-    if (std::is_same<T, ::google::protobuf::Message>::value) {
-      this->def("__setitem__", [](void*, int, handle) {
-        throw value_error("Cannot assign to message in a map field.");
-      });
-    } else {
-      this->def("__setitem__", &MapFieldContainer<T>::SetItem);
-    }
-    this->def("__repr__", &MapFieldContainer<T>::Repr);
-    this->def("__len__", &MapFieldContainer<T>::Size);
-    this->def("__contains__", &MapFieldContainer<T>::Contains);
-    this->def("__getitem__", &MapFieldContainer<T>::GetItem);
-    this->def("__iter__", &MapFieldContainer<T>::KeyIterator,
-              keep_alive<0, 1>());
-    this->def("keys", &MapFieldContainer<T>::KeyIterator, keep_alive<0, 1>());
-    this->def("values", &MapFieldContainer<T>::ValueIterator,
-              keep_alive<0, 1>());
-    this->def("items", &MapFieldContainer<T>::ItemIterator, keep_alive<0, 1>());
-    this->def("update", &MapFieldContainer<T>::UpdateFromDict);
-    this->def("update", &MapFieldContainer<T>::UpdateFromKWArgs);
-    this->def("clear", &MapFieldContainer<T>::Clear);
-    this->def("GetEntryClass", &MapFieldContainer<T>::GetEntryClassFactory,
-              "Returns a factory function which can be called with keyword "
-              "Arguments to create an instance of the map entry class (ie, "
-              "a message with `key` and `value` fields). Used by text_format.");
-  }
-};
-
-// Class to add python bindings to a map field iterator.
-template <typename T>
-class MapFieldIteratorBindings
-    : public class_<typename MapFieldContainer<T>::Iterator> {
- public:
-  MapFieldIteratorBindings(handle scope, const std::string& name)
-      : class_<typename MapFieldContainer<T>::Iterator>(
-            scope, (name + "Iterator").c_str()) {
-    this->def("__iter__", &MapFieldContainer<T>::Iterator::iter);
-    this->def("__next__", &MapFieldContainer<T>::Iterator::next);
-  }
-};
-
-// Function to instantiate the given Bindings class with each of the types
-// supported by protobuffers.
-template <template <typename> class Bindings>
-void BindEachFieldType(module& module, const std::string& name) {
-  Bindings<int32_t>(module, name + "Int32");
-  Bindings<int64_t>(module, name + "Int64");
-  Bindings<uint32_t>(module, name + "UInt32");
-  Bindings<uint64_t>(module, name + "UInt64");
-  Bindings<float>(module, name + "Float");
-  Bindings<double>(module, name + "Double");
-  Bindings<bool>(module, name + "Bool");
-  Bindings<std::string>(module, name + "String");
-  Bindings<::google::protobuf::Message>(module, name + "Message");
-  Bindings<GenericEnum>(module, name + "Enum");
-}
-
-// Define a property in the given class_ with the given name which is constant
-// for the life of an object instance. The generator function will be invoked
-// the first time the property is accessed. The result of this function will
-// be cached and returned for all future accesses, without invoking the
-// generator function again. dynamic_attr() must have been passed to the class_
-// constructor or you will get "AttributeError: can't set attribute".
-// The given policy is applied to the return value of the generator function.
-template <typename Class, typename Return, typename... Args>
-void DefConstantProperty(
-    class_<detail::intrinsic_t<Class>>* pyclass, const std::string& name,
-    std::function<Return(Class, Args...)> generator,
-    return_value_policy policy = return_value_policy::automatic_reference) {
-  auto wrapper = [generator, name, policy](handle pyinst, Args... args) {
-    std::string cache_name = "_cache_" + name;
-    if (!hasattr(pyinst, cache_name.c_str())) {
-      // Invoke the generator and cache the result.
-      Return result =
-          generator(cast<Class>(pyinst), std::forward<Args>(args)...);
-      setattr(
-          pyinst, cache_name.c_str(),
-          detail::make_caster<object>::cast(std::move(result), policy, pyinst));
-    }
-    return getattr(pyinst, cache_name.c_str());
-  };
-  pyclass->def_property_readonly(name.c_str(), wrapper);
-}
-
-// Same as above, but for a function pointer rather than a std::function.
-template <typename Class, typename Return, typename... Args>
-void DefConstantProperty(
-    class_<detail::intrinsic_t<Class>>* pyclass, const std::string& name,
-    Return (*generator)(Class, Args...),
-    return_value_policy policy = return_value_policy::automatic_reference) {
-  DefConstantProperty(pyclass, name,
-                      std::function<Return(Class, Args...)>(generator), policy);
-}
-
 }  // namespace
 
 bool PyProtoFullName(handle py_proto, std::string* name) {
@@ -1016,40 +806,6 @@ std::unique_ptr<::google::protobuf::Message> PyProtoAllocateMessage(
   return message;
 }
 
-bool AnyPackFromPyProto(handle py_proto, ::google::protobuf::Any* any_proto) {
-  std::string name;
-  if (!PyProtoFullName(py_proto, &name)) return false;
-  any_proto->set_type_url("type.googleapis.com/" + name);
-  any_proto->set_value(PyProtoSerializeToString(py_proto));
-  return true;
-}
-
-bool AnyUnpackToPyProto(const ::google::protobuf::Any& any_proto,
-                        handle py_proto) {
-  // Check that py_proto is a proto message of the same type that is stored
-  // in the any_proto.
-  std::string any_type, proto_type;
-  if (!(PyProtoFullName(py_proto, &proto_type) &&
-        ::google::protobuf::Any::ParseAnyTypeUrl(
-            std::string(any_proto.type_url()), &any_type) &&
-        proto_type == any_type))
-    return false;
-  // Unpack. The serialized string is not copied if py_proto is a wrapped C
-  // proto, and copied once if py_proto is a native python proto.
-  detail::type_caster_base<::google::protobuf::Message> caster;
-  if (caster.load(py_proto, false)) {
-    return static_cast<::google::protobuf::Message&>(caster).ParseFromString(
-         std::string(any_proto.value()));
-  } else {
-    bytes serialized(nullptr, any_proto.value().size());
-    std::string any_string = any_proto.value();
-    strncpy(PYBIND11_BYTES_AS_STRING(serialized.ptr()),
-            any_string.c_str(), any_string.size());
-    getattr(py_proto, "ParseFromString")(serialized);
-    return true;
-  }
-}
-
 object ProtoGetField(::google::protobuf::Message* message, absl::string_view name) {
   return ProtoGetField(message, GetFieldDescriptor(message, name));
 }
@@ -1097,208 +853,6 @@ void ProtoCopyFrom(::google::protobuf::Message* msg, handle other) {
     if (!msg->ParseFromString(PyProtoSerializeToString(other)))
       throw std::runtime_error("Error copying message.");
   }
-}
-
-void ProtoMergeFrom(::google::protobuf::Message* msg, handle other) {
-  PyProtoCheckTypeOrThrow(other, msg->GetTypeName());
-  detail::type_caster_base<::google::protobuf::Message> caster;
-  if (caster.load(other, false)) {
-    msg->MergeFrom(static_cast<::google::protobuf::Message&>(caster));
-  } else {
-    if (!msg->MergeFromString(PyProtoSerializeToString(other)))
-      throw std::runtime_error("Error merging message.");
-  }
-}
-
-void RegisterProtoBindings(module m) {
-  // Return whether the given python object is a wrapped C proto.
-  m.def("is_wrapped_c_proto_deprecated", &IsWrappedCProto, arg("src"));
-
-  // Construct and optionally initialize a wrapped C proto.
-  m.def("make_wrapped_c_proto", &PyProtoAllocateMessage<::google::protobuf::Message>,
-        arg("type"),
-        "Returns a wrapped C proto of the given type. The type may be passed "
-        "as a string ('package_name.MessageName'), an instance of a native "
-        "python proto, or an instance of a wrapped C proto. Fields may be "
-        "initialized with keyword arguments, as with the native constructors. "
-        "The C++ version of the proto library for your message type must be "
-        "linked in for this to work.");
-
-  // Add bindings for the descriptor class.
-  class_<::google::protobuf::Descriptor> message_desc_c(m, "Descriptor", dynamic_attr());
-  DefConstantProperty(&message_desc_c, "fields_by_name", &MessageFieldsByName);
-  DefConstantProperty(&message_desc_c, "fields", &MessageFields);
-  message_desc_c
-      .def_property_readonly("full_name", &::google::protobuf::Descriptor::full_name)
-      .def_property_readonly("name", &::google::protobuf::Descriptor::name)
-      .def_property_readonly("has_options",
-                             [](::google::protobuf::Descriptor*) { return true; })
-      .def(
-          "GetOptions",
-          [](::google::protobuf::Descriptor* descriptor) -> const ::google::protobuf::Message* {
-            return &descriptor->options();
-          },
-          return_value_policy::reference);
-
-  // Add bindings for the enum descriptor class.
-  class_<::google::protobuf::EnumDescriptor> enum_desc_c(m, "EnumDescriptor",
-                                             dynamic_attr());
-  DefConstantProperty(&enum_desc_c, "values_by_number", &EnumValuesByNumber);
-  DefConstantProperty(&enum_desc_c, "values_by_name", &EnumValuesByName);
-  enum_desc_c.def_property_readonly("name", &::google::protobuf::EnumDescriptor::name);
-
-  // Add bindings for the enum value descriptor class.
-  class_<::google::protobuf::EnumValueDescriptor>(m, "EnumValueDescriptor")
-      .def_property_readonly("name", &::google::protobuf::EnumValueDescriptor::name)
-      .def_property_readonly("number", &::google::protobuf::EnumValueDescriptor::number);
-
-  // Add bindings for the field descriptor class.
-  class_<::google::protobuf::FieldDescriptor> field_desc_c(m, "FieldDescriptor");
-  field_desc_c.def_property_readonly("name", &::google::protobuf::FieldDescriptor::name)
-      .def_property_readonly("type", &::google::protobuf::FieldDescriptor::type)
-      .def_property_readonly("cpp_type", &::google::protobuf::FieldDescriptor::cpp_type)
-      .def_property_readonly("containing_type",
-                             &::google::protobuf::FieldDescriptor::containing_type,
-                             return_value_policy::reference)
-      .def_property_readonly("message_type",
-                             &::google::protobuf::FieldDescriptor::message_type,
-                             return_value_policy::reference)
-      .def_property_readonly("enum_type", &::google::protobuf::FieldDescriptor::enum_type,
-                             return_value_policy::reference)
-      .def_property_readonly("is_extension",
-                             &::google::protobuf::FieldDescriptor::is_extension)
-      .def_property_readonly("label", &::google::protobuf::FieldDescriptor::label)
-      // Oneof fields are not currently supported.
-      .def_property_readonly("containing_oneof", [](void*) { return false; });
-
-  // Add Type enum values.
-  enum_<::google::protobuf::FieldDescriptor::Type>(field_desc_c, "Type")
-      .value("TYPE_DOUBLE", ::google::protobuf::FieldDescriptor::TYPE_DOUBLE)
-      .value("TYPE_FLOAT", ::google::protobuf::FieldDescriptor::TYPE_FLOAT)
-      .value("TYPE_INT64", ::google::protobuf::FieldDescriptor::TYPE_INT64)
-      .value("TYPE_UINT64", ::google::protobuf::FieldDescriptor::TYPE_UINT64)
-      .value("TYPE_INT32", ::google::protobuf::FieldDescriptor::TYPE_INT32)
-      .value("TYPE_FIXED64", ::google::protobuf::FieldDescriptor::TYPE_FIXED64)
-      .value("TYPE_FIXED32", ::google::protobuf::FieldDescriptor::TYPE_FIXED32)
-      .value("TYPE_BOOL", ::google::protobuf::FieldDescriptor::TYPE_BOOL)
-      .value("TYPE_STRING", ::google::protobuf::FieldDescriptor::TYPE_STRING)
-      .value("TYPE_GROUP", ::google::protobuf::FieldDescriptor::TYPE_GROUP)
-      .value("TYPE_MESSAGE", ::google::protobuf::FieldDescriptor::TYPE_MESSAGE)
-      .value("TYPE_BYTES", ::google::protobuf::FieldDescriptor::TYPE_BYTES)
-      .value("TYPE_UINT32", ::google::protobuf::FieldDescriptor::TYPE_UINT32)
-      .value("TYPE_ENUM", ::google::protobuf::FieldDescriptor::TYPE_ENUM)
-      .value("TYPE_SFIXED32", ::google::protobuf::FieldDescriptor::TYPE_SFIXED32)
-      .value("TYPE_SFIXED64", ::google::protobuf::FieldDescriptor::TYPE_SFIXED64)
-      .value("TYPE_SINT32", ::google::protobuf::FieldDescriptor::TYPE_SINT32)
-      .value("TYPE_SINT64", ::google::protobuf::FieldDescriptor::TYPE_SINT64)
-      .export_values();
-
-  // Add C++ Type enum values.
-  enum_<::google::protobuf::FieldDescriptor::CppType>(field_desc_c, "CppType")
-      .value("CPPTYPE_INT32", ::google::protobuf::FieldDescriptor::CPPTYPE_INT32)
-      .value("CPPTYPE_INT64", ::google::protobuf::FieldDescriptor::CPPTYPE_INT64)
-      .value("CPPTYPE_UINT32", ::google::protobuf::FieldDescriptor::CPPTYPE_UINT32)
-      .value("CPPTYPE_UINT64", ::google::protobuf::FieldDescriptor::CPPTYPE_UINT64)
-      .value("CPPTYPE_DOUBLE", ::google::protobuf::FieldDescriptor::CPPTYPE_DOUBLE)
-      .value("CPPTYPE_FLOAT", ::google::protobuf::FieldDescriptor::CPPTYPE_FLOAT)
-      .value("CPPTYPE_BOOL", ::google::protobuf::FieldDescriptor::CPPTYPE_BOOL)
-      .value("CPPTYPE_ENUM", ::google::protobuf::FieldDescriptor::CPPTYPE_ENUM)
-      .value("CPPTYPE_STRING", ::google::protobuf::FieldDescriptor::CPPTYPE_STRING)
-      .value("CPPTYPE_MESSAGE", ::google::protobuf::FieldDescriptor::CPPTYPE_MESSAGE)
-      .export_values();
-
-  // Add Label enum values.
-  enum_<::google::protobuf::FieldDescriptor::Label>(field_desc_c, "Label")
-      .value("LABEL_OPTIONAL", ::google::protobuf::FieldDescriptor::LABEL_OPTIONAL)
-      .value("LABEL_REQUIRED", ::google::protobuf::FieldDescriptor::LABEL_REQUIRED)
-      .value("LABEL_REPEATED", ::google::protobuf::FieldDescriptor::LABEL_REPEATED)
-      .export_values();
-
-  // Add bindings for the base message class.
-  // These bindings use __getattr__, __setattr__ and the reflection interface
-  // to access message-specific fields, so no additional bindings are needed
-  // for derived message types.
-  class_<::google::protobuf::Message, std::shared_ptr<::google::protobuf::Message>>(m, "ProtoMessage")
-      .def_property_readonly("DESCRIPTOR", &::google::protobuf::Message::GetDescriptor,
-                             return_value_policy::reference)
-      .def_property_readonly(kIsWrappedCProtoAttr, [](void*) { return true; })
-      .def("__repr__", &::google::protobuf::Message::DebugString)
-      .def("__getattr__",
-           (object(*)(::google::protobuf::Message*, absl::string_view)) & ProtoGetField)
-      .def("__setattr__",
-           (void (*)(::google::protobuf::Message*, absl::string_view, handle)) &
-               ProtoSetField)
-      .def("SerializeToString",
-           [](::google::protobuf::Message* msg, kwargs kwargs_in) {
-             return MessageSerializeAsString(msg, kwargs_in, false);
-           })
-      .def("SerializePartialToString",
-           [](::google::protobuf::Message* msg, kwargs kwargs_in) {
-             return MessageSerializeAsString(msg, kwargs_in, true);
-           })
-      .def("ParseFromString", &::google::protobuf::Message::ParseFromString, arg("data"))
-      .def("MergeFromString", &::google::protobuf::Message::MergeFromString, arg("data"))
-      .def("ByteSize", &::google::protobuf::Message::ByteSizeLong)
-      .def("Clear", &::google::protobuf::Message::Clear)
-      .def("CopyFrom", &ProtoCopyFrom)
-      .def("MergeFrom", &ProtoMergeFrom)
-      .def("FindInitializationErrors", &MessageFindInitializationErrors,
-           "Slowly build a list of all required fields that are not set.")
-      .def("ListFields", &MessageListFields)
-      .def("HasField", &MessageHasField, arg("field_name"))
-      .def("ClearField", &MessageClearField, arg("field_name"))
-      .def("WhichOneof", &MessageWhichOneof, arg("oneof_group"),
-           return_value_policy::copy)
-      .def(MakePickler<::google::protobuf::Message>())
-      .def("__copy__",
-           [](object self) {
-             return PyProtoAllocateAndCopyMessage<::google::protobuf::Message>(self);
-           })
-      .def(
-          "__deepcopy__",
-          [](object self, dict) {
-            return PyProtoAllocateAndCopyMessage<::google::protobuf::Message>(self);
-          },
-          arg("memo"))
-      .def(
-          "SetInParent", [](::google::protobuf::Message*) {},
-          "No-op. Provided only for compatability with text_format.");
-
-  // Add bindings for the repeated field containers.
-  BindEachFieldType<RepeatedFieldBindings>(m, "Repeated");
-
-  // Add bindings for the map field containers.
-  BindEachFieldType<MapFieldBindings>(m, "Mapped");
-
-  // Add bindings for the map field iterators.
-  BindEachFieldType<MapFieldIteratorBindings>(m, "Mapped");
-
-  // Add bindings for the well-known-types.
-  // TODO(rwgk): Consider adding support for other types/methods defined in
-  // google3/net/proto2/python/internal/well_known_types.py
-  ConcreteProtoMessageBindings<::google::protobuf::Any>(m)
-      .def("Is",
-           [](const ::google::protobuf::Any& self, handle descriptor) {
-             std::string name;
-             if (!::google::protobuf::Any::ParseAnyTypeUrl(
-                     std::string(self.type_url()), &name))
-               return false;
-             return name == static_cast<std::string>(
-                                str(getattr(descriptor, "full_name")));
-           })
-      .def("TypeName",
-           [](const ::google::protobuf::Any& self) {
-             std::string name;
-             ::google::protobuf::Any::ParseAnyTypeUrl(
-                 std::string(self.type_url()), &name);
-             return name;
-           })
-      .def("Pack",
-           [](::google::protobuf::Any* self, handle py_proto) {
-             if (!AnyPackFromPyProto(py_proto, self))
-               throw std::invalid_argument("Failed to pack Any proto.");
-           })
-      .def("Unpack", &AnyUnpackToPyProto);
 }
 
 }  // namespace google
