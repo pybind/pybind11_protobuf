@@ -1,10 +1,13 @@
 #ifndef PYBIND11_PROTOBUF_NATIVE_PROTO_CASTERS_H_
 #define PYBIND11_PROTOBUF_NATIVE_PROTO_CASTERS_H_
 
-#include <Python.h>
+// pybind11 includes have to be at the very top, even before Python.h
 #include <pybind11/cast.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
+
+// IWYU
+#include <Python.h>
 
 #include <functional>
 #include <memory>
