@@ -46,6 +46,22 @@ py_proto_library(
 )
 
 proto_library(
+    name = "extension_nest_repeated_proto",
+    srcs = ["extension_nest_repeated.proto"],
+    deps = [":extension_proto"],
+)
+
+cc_proto_library(
+    name = "extension_nest_repeated_cc_proto",
+    deps = [":extension_nest_repeated_proto"],
+)
+
+py_proto_library(
+    name = "extension_nest_repeated_py_pb2",
+    deps = [":extension_nest_repeated_proto"],
+)
+
+proto_library(
     name = "extension_in_other_file_in_deps_proto",
     srcs = ["extension_in_other_file_in_deps.proto"],
     deps = [":extension_proto"],
@@ -135,6 +151,7 @@ pybind_extension(
         ":extension_cc_proto",
         # Intentionally omitted: ":extension_in_other_file_cc_proto",
         ":extension_in_other_file_in_deps_cc_proto",
+        ":extension_nest_repeated_cc_proto",
         ":test_cc_proto",
         "@com_google_protobuf//:protobuf",
         "//pybind11_protobuf:native_proto_caster",
@@ -153,6 +170,7 @@ py_test(
     deps = [
         ":extension_in_other_file_in_deps_py_pb2",
         ":extension_in_other_file_py_pb2",
+        ":extension_nest_repeated_py_pb2",
         ":extension_py_pb2",
         ":test_py_pb2",  # fixdeps: keep - Direct dependency needed in open-source version, see https://github.com/grpc/grpc/issues/22811
         "@com_google_absl_py//absl/testing:absltest",

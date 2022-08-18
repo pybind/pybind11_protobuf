@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package pybind11.test.util;
+package pybind11.test;
 
 import "pybind11_protobuf/tests/extension.proto";
 

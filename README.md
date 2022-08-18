@@ -70,18 +70,58 @@ C++ native protobuf object with C++ when passed by `const &` or `const *`.
 
 ### Protobuf Extensions
 
-With `use_fast_cpp_protos`, any `py_proto_library` becomes implicitly dependent
-on the corresponding `cc_proto_library`, but this is currently not handled
-automatically, nor clearly diagnosed or formally enforced. In the absence of
+When `use_fast_cpp_protos` is in use, and
 protobuf extensions
-usually there is no problem: Python code tends to depend organically on
-a given `py_proto_library`, and pybind11-wrapped C++ code tends to depend
-organically on the corresponding `cc_proto_library`. However, when extensions
-are involved, a well-known pitfall is to accidentally omit the corresponding
-`cc_proto_library`. Currently this needs to be kept in mind as a pitfall
-(sorry), but the usual best-practice unit testing is likely to catch such
-situations. Once discovered, the fix is easy: add the `cc_proto_library`
-to the `deps` of the relevant `pybind_library` or `pybind_extension`.
+are involved, a well-known pitfall is that extensions are silently moved
+to the `proto2::UnknownFieldSet` when a message is deserialized in C++,
+but the `cc_proto_library` for the extensions is not linked in. The root
+cause is an asymmetry in the handling of Python protos vs C++ protos: when
+a Python proto is deserialized, both the Python descriptor pool and the C++
+descriptor pool are inspected, but when a C++ proto is deserialized, only
+the C++ descriptor pool is inspected. Until this asymmetry is resolved, the
+`cc_proto_library` for all extensions involved must be added to the `deps` of
+the relevant `pybind_library` or `pybind_extension`, but this is sufficiently
+unobvious to be a setup for regular accidents, potentially with critical
+consequences.
+
+To guard against the most common type of accident, native_proto_caster.h
+includes a safety mechanism that raises "Proto Message has an Unknown Field"
+in certain situations:
+
+* When `use_fast_cpp_protos` is in use,
+* a protobuf message is returned from C++ to Python,
+* the message involves protobuf extensions (recursively),
+* and the `proto2::UnknownFieldSet` for the message or any of its submessages
+  is not empty.
+
+`pybind11_protobuf::AllowUnknownFieldsFor` is an escape hatch for situations in
+which
+
+* unknown fields existed before the safety mechanism was
+  introduced.
+* unknown fields are needed in the future.
+
+An example of a full error message (with lines breaks here for readability):
+
+```
+Proto Message of type pybind11.test.NestRepeated has an Unknown Field with
+parent of type pybind11.test.BaseMessage: base_msgs.1003
+(pybind11_protobuf/tests/extension_nest_repeated.proto,
+pybind11_protobuf/tests/extension.proto).
+Please add the required `cc_proto_library` `deps`.
+Only if there is no alternative to suppressing this error, use
+`pybind11_protobuf::AllowUnknownFieldsFor("pybind11.test.NestRepeated", "base_msgs");`
+(Warning: suppressions may mask critical bugs.)
+```
+
+The current implementation is a compromise solution, trading off simplicity
+of implementation, runtime performance, and precision. Generally, the runtime
+overhead is expected to be very small, but fields flagged as unknown may not
+necessarily be in extensions.
+Alerting developers of new code to unknown fields is assumed to be generally
+helpful, but the unknown fields detection is limited to messages with
+extensions, to avoid the runtime overhead for the presumably much more common
+case that no extensions are involved.
 
 ### Enumerations
 

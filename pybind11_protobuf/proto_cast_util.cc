@@ -22,6 +22,7 @@
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/types/optional.h"
+#include "pybind11_protobuf/check_unknown_fields.h"
 
 namespace py = pybind11;
 
@@ -799,6 +800,12 @@ py::handle GenericProtoCast(Message* src, py::return_value_policy policy,
            DescriptorPool::generated_pool() &&
        !GlobalState::instance()->using_fast_cpp())) {
     return GenericPyProtoCast(src, policy, parent, is_const);
+  }
+
+  std::optional<std::string> emsg =
+      check_unknown_fields::CheckAndBuildErrorMessageIfAny(src);
+  if (emsg) {
+    throw py::value_error(*emsg);
   }
 
   // If this is a dynamically generated proto, then we're going to need to

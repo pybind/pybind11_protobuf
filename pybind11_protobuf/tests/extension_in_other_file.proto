@@ -1,12 +1,20 @@
 syntax = "proto2";
 
-package pybind11.test.util;
+package pybind11.test;
 
 import "pybind11_protobuf/tests/extension.proto";
 
 message MessageInOtherFile {
   extend pybind11.test.BaseMessage {
     optional MessageInOtherFile message_in_other_file_extension = 1003;
+  }
+
+  optional int32 value = 1;
+}
+
+message AllowUnknownInnerExtension {
+  extend pybind11.test.AllowUnknownInner {
+    optional AllowUnknownInnerExtension hook = 2001;
   }
 
   optional int32 value = 1;

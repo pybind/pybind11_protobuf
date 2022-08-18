@@ -19,3 +19,19 @@ message BaseMessage {
 extend BaseMessage {
   optional pybind11.test.IntMessage int_message = 1001;
 }
+
+message NestLevel1 {
+  optional BaseMessage base_msg = 1;
+}
+
+message NestLevel2 {
+  optional NestLevel1 nest_lvl1 = 1;
+}
+
+message AllowUnknownInner {
+  extensions 2000 to max;
+}
+
+message AllowUnknownOuter {
+  optional AllowUnknownInner inner = 1;
+}

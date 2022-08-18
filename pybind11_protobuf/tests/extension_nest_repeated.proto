@@ -1,0 +1,9 @@
+syntax = "proto2";
+
+package pybind11.test;
+
+import "pybind11_protobuf/tests/extension.proto";
+
+message NestRepeated {
+  repeated BaseMessage base_msgs = 1;
+}
