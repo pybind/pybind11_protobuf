@@ -483,7 +483,7 @@ class PythonDescriptorPoolWrapper {
       try {
         auto descriptor = pool_.attr("FindMessageTypeByName")(containing_type);
         auto file =
-            pool_.attr("FindExtensionByNymber")(descriptor, field_number)
+            pool_.attr("FindExtensionByNumber")(descriptor, field_number)
                 .attr("file");
         return CopyToFileDescriptorProto(file, output);
       } catch (py::error_already_set& e) {
