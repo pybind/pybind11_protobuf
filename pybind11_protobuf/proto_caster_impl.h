@@ -269,7 +269,11 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
     ensure_owned();
     return std::move(*owned);
   }
-
+  explicit operator const ProtoType &&() {
+    if (!value) throw pybind11::reference_cast_error();
+    ensure_owned();
+    return std::move(*owned);
+  }
 #if PYBIND11_PROTOBUF_UNSAFE
   // The following unsafe conversions are not enabled:
   explicit operator ProtoType *() { return const_cast<ProtoType *>(value); }

@@ -53,6 +53,7 @@ def get_pass_by_params():
       'concrete_ptr_notnone',
       'concrete_ref',
       'concrete_rval',
+      'concrete_crval',
       'concrete_sptr',
       'concrete_uptr',
       'concrete_uptr_ptr',

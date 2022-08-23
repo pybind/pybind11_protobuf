@@ -87,6 +87,12 @@ PYBIND11_MODULE(pass_by_module, m) {
       },
       py::arg("message"), py::arg("value"));
   m.def(
+      "concrete_crval",
+      [](const IntMessage&& message, int value) {
+        return CheckIntMessage(&message, value);
+      },
+      py::arg("message"), py::arg("value"));
+  m.def(
       "concrete_cref",
       [](const IntMessage& message, int value) {
         return CheckIntMessage(&message, value);
