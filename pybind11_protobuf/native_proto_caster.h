@@ -23,7 +23,7 @@
 #include "pybind11_protobuf/proto_caster_impl.h"
 
 // pybind11::type_caster<> specialization for ::google::protobuf::Message types that
-// that convets protocol buffer objects between C++ and python representations.
+// that converts protocol buffer objects between C++ and python representations.
 // This binder supports binaries linked with both native python protos
 // and fast cpp python protos.
 //
