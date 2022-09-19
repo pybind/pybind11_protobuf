@@ -802,7 +802,7 @@ py::handle GenericProtoCast(Message* src, py::return_value_policy policy,
     return GenericPyProtoCast(src, policy, parent, is_const);
   }
 
-  std::optional<std::string> emsg =
+  absl::optional<std::string> emsg =
       check_unknown_fields::CheckAndBuildErrorMessageIfAny(src);
   if (emsg) {
     throw py::value_error(*emsg);

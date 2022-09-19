@@ -15,8 +15,10 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/types/optional.h"
 
-namespace pybind11_protobuf::check_unknown_fields {
+namespace pybind11_protobuf {
+namespace check_unknown_fields {
 namespace {
 
 using AllowListSet = absl::flat_hash_set<std::string>;
@@ -41,9 +43,9 @@ bool MessageMayContainExtensionsRecursive(const ::google::protobuf::Descriptor* 
                                           MayContainExtensionsMap* memoized) {
   if (descriptor->extension_range_count() > 0) return true;
 
-  auto [it, inserted] = memoized->try_emplace(descriptor, false);
-  if (!inserted) {
-    return it->second;
+  auto it_inserted = memoized->try_emplace(descriptor, false);
+  if (!it_inserted.second) {
+    return it_inserted.first->second;
   }
 
   for (int i = 0; i < descriptor->field_count(); i++) {
@@ -173,18 +175,19 @@ void AllowUnknownFieldsFor(absl::string_view top_message_descriptor_full_name,
                                           unknown_field_parent_message_fqn));
 }
 
-std::optional<std::string> CheckAndBuildErrorMessageIfAny(
+absl::optional<std::string> CheckAndBuildErrorMessageIfAny(
     const ::google::protobuf::Message* message) {
   const auto* root_descriptor = message->GetDescriptor();
   HasUnknownFields search{root_descriptor};
   if (!search.FindUnknownFieldsRecursive(message, 0u)) {
-    return std::nullopt;
+    return absl::nullopt;
   }
   if (GetAllowList()->count(MakeAllowListKey(root_descriptor->full_name(),
                                              search.FieldFQN())) != 0) {
-    return std::nullopt;
+    return absl::nullopt;
   }
   return search.BuildErrorMessage();
 }
 
-}  // namespace pybind11_protobuf::check_unknown_fields
+}  // namespace check_unknown_fields
+}  // namespace pybind11_protobuf

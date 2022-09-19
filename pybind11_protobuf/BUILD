@@ -14,6 +14,7 @@ pybind_library(
         "//visibility:public",
     ],
     deps = [
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -28,6 +29,7 @@ pybind_library(
         ":check_unknown_fields",
         ":enum_type_caster",
         ":proto_cast_util",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -61,6 +63,7 @@ pybind_library(
     deps = [
         ":check_unknown_fields",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@com_google_protobuf//:proto_api",
@@ -92,9 +95,9 @@ cc_library(
     deps = [
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/types:optional",
         "@com_google_protobuf//:protobuf",
     ],
 )

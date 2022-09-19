@@ -12,6 +12,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/generated_enum_reflection.h"
 #include "google/protobuf/generated_enum_util.h"
+#include "absl/meta/type_traits.h"
 
 // pybind11 type_caster specialization which translates Proto::Enum types
 // to/from ints. This will have ODR conflicts when users specify wrappers for
@@ -41,7 +42,7 @@ namespace pybind11_protobuf {
 template <typename EnumType>
 struct enum_type_caster {
  private:
-  using T = std::underlying_type_t<EnumType>;
+  using T = absl::underlying_type_t<EnumType>;
   using base_caster = pybind11::detail::make_caster<T>;
 
  public:
@@ -100,9 +101,9 @@ constexpr bool pybind11_protobuf_enable_enum_type_caster(...) { return true; }
 // ::google::protobuf::is_proto_enum.
 template <typename EnumType>
 struct type_caster<EnumType,
-                   std::enable_if_t<(::google::protobuf::is_proto_enum<EnumType>::value &&
-                                     pybind11_protobuf_enable_enum_type_caster(
-                                         static_cast<EnumType*>(nullptr)))>>
+                   absl::enable_if_t<(::google::protobuf::is_proto_enum<EnumType>::value &&
+                                      pybind11_protobuf_enable_enum_type_caster(
+                                          static_cast<EnumType*>(nullptr)))>>
     : public pybind11_protobuf::enum_type_caster<EnumType> {};
 
 }  // namespace detail

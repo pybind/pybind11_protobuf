@@ -16,6 +16,7 @@
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
+#include "absl/meta/type_traits.h"
 #include "pybind11_protobuf/proto_cast_util.h"
 
 // Enables unsafe conversions; currently these are a work in progress.
@@ -288,15 +289,15 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
   // clang-format off
   template <typename T_>
   using cast_op_type =
-      std::conditional_t<
-          std::is_same<std::remove_reference_t<T_>, const ProtoType *>::value,
+      absl::conditional_t<
+          std::is_same<absl::remove_reference_t<T_>, const ProtoType *>::value,
               const ProtoType *,
-      std::conditional_t<
+      absl::conditional_t<
           std::is_same<
-              std::remove_reference_t<T_>, ProtoType *>::value, ProtoType *,
-      std::conditional_t<
+              absl::remove_reference_t<T_>, ProtoType *>::value, ProtoType *,
+      absl::conditional_t<
           std::is_same<T_, const ProtoType &>::value, const ProtoType &,
-      std::conditional_t<std::is_same<T_, ProtoType &>::value, ProtoType &,
+      absl::conditional_t<std::is_same<T_, ProtoType &>::value, ProtoType &,
       /*default is T&&*/ T_>>>>;
   // clang-format on
 };

@@ -17,6 +17,7 @@
 #include <utility>
 
 #include "google/protobuf/message.h"
+#include "absl/meta/type_traits.h"
 #include "absl/strings/string_view.h"
 #include "pybind11_protobuf/check_unknown_fields.h"
 #include "pybind11_protobuf/enum_type_caster.h"
@@ -85,9 +86,9 @@ constexpr bool pybind11_protobuf_enable_type_caster(...) { return true; }
 template <typename ProtoType>
 struct type_caster<
     ProtoType,
-    std::enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
-                      pybind11_protobuf_enable_type_caster(
-                          static_cast<ProtoType *>(nullptr)))>>
+    absl::enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
+                       pybind11_protobuf_enable_type_caster(
+                           static_cast<ProtoType *>(nullptr)))>>
     : public pybind11_protobuf::proto_caster<
           ProtoType, pybind11_protobuf::native_cast_impl> {};
 
@@ -104,9 +105,9 @@ struct type_caster<
 template <typename ProtoType, typename HolderType>
 struct move_only_holder_caster<
     ProtoType, HolderType,
-    std::enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
-                      pybind11_protobuf_enable_type_caster(
-                          static_cast<ProtoType *>(nullptr)))>> {
+    absl::enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
+                       pybind11_protobuf_enable_type_caster(
+                           static_cast<ProtoType *>(nullptr)))>> {
  private:
   using Base = type_caster<intrinsic_t<ProtoType>>;
   static constexpr bool const_element =
@@ -156,9 +157,9 @@ struct move_only_holder_caster<
 template <typename ProtoType, typename HolderType>
 struct copyable_holder_caster<
     ProtoType, HolderType,
-    std::enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
-                      pybind11_protobuf_enable_type_caster(
-                          static_cast<ProtoType *>(nullptr)))>> {
+    absl::enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
+                       pybind11_protobuf_enable_type_caster(
+                           static_cast<ProtoType *>(nullptr)))>> {
  private:
   using Base = type_caster<intrinsic_t<ProtoType>>;
   static constexpr bool const_element =
