@@ -16,7 +16,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
-#include "python/google/protobuf/proto_api.h"
+#include "third_party/py/google/protobuf/proto_api.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_replace.h"
