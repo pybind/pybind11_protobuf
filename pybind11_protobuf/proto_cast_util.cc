@@ -584,7 +584,10 @@ absl::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
 
 bool PyProtoIsCompatible(py::handle py_proto, const Descriptor* descriptor) {
   assert(PyGILState_Check());
-  assert(descriptor->file()->pool() == DescriptorPool::generated_pool());
+
+  if (descriptor->file()->pool() != DescriptorPool::generated_pool()) {
+    return false;
+  }
 
   auto py_descriptor = ResolveAttrs(py_proto, {"DESCRIPTOR"});
   if (!py_descriptor) {
