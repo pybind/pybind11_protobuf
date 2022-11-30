@@ -704,6 +704,14 @@ std::string ReturnValuePolicyName(py::return_value_policy policy) {
       return "reference";
     case py::return_value_policy::reference_internal:
       return "reference_internal";
+#if defined(PYBIND11_HAS_RETURN_VALUE_POLICY_RETURN_AS_BYTES)
+    case py::return_value_policy::_return_as_bytes:
+      return "_return_as_bytes";
+#endif
+#if defined(PYBIND11_HAS_RETURN_VALUE_POLICY_CLIF_AUTOMATIC)
+    case py::return_value_policy::_clif_automatic:
+      return "_clif_automatic";
+#endif
     default:
       return "INVALID_ENUM_VALUE";
   }
@@ -753,6 +761,10 @@ py::handle GenericFastCppProtoCast(Message* src, py::return_value_policy policy,
       return result.release();
     } break;
 
+#if defined(PYBIND11_HAS_RETURN_VALUE_POLICY_CLIF_AUTOMATIC)
+    // TODO(clif-team): Review this choice for `_clif_automatic`.
+    case py::return_value_policy::_clif_automatic:
+#endif
     case py::return_value_policy::copy: {
       std::pair<py::object, Message*> descriptor_pair =
           GlobalState::instance()->PyFastCppProtoMessageInstance(
