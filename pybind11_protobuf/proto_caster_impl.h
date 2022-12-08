@@ -63,7 +63,8 @@ struct proto_caster_load_impl {
     // The incoming object is not a compatible fast_cpp_proto, so check whether
     // it is otherwise compatible, then serialize it and deserialize into a
     // native C++ proto type.
-    if (!pybind11_protobuf::PyProtoIsCompatible(src, ProtoType::descriptor())) {
+    if (!pybind11_protobuf::PyProtoIsCompatible(src,
+                                                ProtoType::GetDescriptor())) {
       return false;
     }
     owned = std::unique_ptr<ProtoType>(new ProtoType());
