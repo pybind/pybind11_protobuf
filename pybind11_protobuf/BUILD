@@ -60,6 +60,7 @@ pybind_library(
     }),
     deps = [
         ":check_unknown_fields",
+        "//third_party/py/google/protobuf/pyext:python_c_extension",  # fixdeps: keep
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
