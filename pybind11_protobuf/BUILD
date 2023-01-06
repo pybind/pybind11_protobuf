@@ -5,8 +5,6 @@ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 licenses(["notice"])
 
-exports_files(["LICENSE"])
-
 pybind_library(
     name = "enum_type_caster",
     hdrs = ["enum_type_caster.h"],
