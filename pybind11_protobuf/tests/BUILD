@@ -4,6 +4,8 @@ load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 # [internal] load cc_proto_library.bzl
 
+package(default_applicable_licenses = ["//pybind11_protobuf:license"])
+
 licenses(["notice"])
 
 py_library(
