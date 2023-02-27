@@ -11,6 +11,12 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+
+#============================================================================
+# Warnings
+
+message(WARNING "CI testing for pybind11_protobuf cmake is currently MISSING! (https://github.com/pybind/pybind11_protobuf/issues/104)")
+
 #============================================================================
 # Options
 
