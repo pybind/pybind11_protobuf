@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-22.04
     name: ubuntu-build
     steps:
+      - name: Show env
+        run: env
+
       - name: Checkout
         uses: actions/checkout@v3
 
@@ -21,9 +24,18 @@ jobs:
           cmake \
           make
 
-      - name: Build
+      - name: Show Python platform info
+        run: python -m platform
+
+      - name: Show CMake version
+        run: cmake --version
+
+      - name: CMake Configure
         shell: bash
         run: |
-          mkdir build && cd build
-          cmake ..
-          make -j8
+          cmake -S . -B build
+
+      - name: CMake Build
+        shell: bash
+        run: |
+          cmake --build build -j$(nproc)
