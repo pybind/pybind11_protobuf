@@ -19,7 +19,24 @@ ci:
   autoupdate_schedule: quarterly
 
 repos:
-# CMake formatting
+
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: "v4.4.0"
+  hooks:
+  - id: check-added-large-files
+  - id: check-case-conflict
+  - id: check-docstring-first
+  - id: check-merge-conflict
+  - id: check-symlinks
+  - id: check-toml
+  - id: check-yaml
+  - id: debug-statements
+  - id: end-of-file-fixer
+  - id: mixed-line-ending
+  - id: requirements-txt-fixer
+  - id: trailing-whitespace
+    exclude: \.patch?$
+
 - repo: https://github.com/cheshirekow/cmake-format-precommit
   rev: "v0.6.13"
   hooks:
