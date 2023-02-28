@@ -35,7 +35,7 @@ jobs:
       - name: CMake Configure
         shell: bash
         run: |
-          cmake -S . -B build
+          cmake -S . -B build -DCMAKE_VERBOSE_MAKEFILE=ON
 
       - name: CMake Build
         shell: bash
