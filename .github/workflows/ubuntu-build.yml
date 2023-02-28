@@ -24,8 +24,10 @@ jobs:
           cmake \
           make
 
-      - name: Show Python platform info
-        run: python -m platform
+      - name: Show Python version and platform info
+        run: |
+          python --version
+          python -m platform
 
       - name: Show CMake version
         run: cmake --version
