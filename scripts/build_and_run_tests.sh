@@ -75,5 +75,3 @@ BAZEL_CXXOPTS="-std=c++17" bazel test --test_output=errors \
     pybind11_protobuf/tests:pass_by_test \
     pybind11_protobuf/tests:proto_enum_test \
     pybind11_protobuf/tests:wrapped_proto_module_test
-
-
