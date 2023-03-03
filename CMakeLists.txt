@@ -37,35 +37,6 @@ add_subdirectory(cmake/dependencies dependencies)
 
 include(deps)
 
-include(CMakeFindDependencyMacro)
-include(FindProtobuf)
-if(NOT protobuf_FOUND
-   AND NOT PROTOBUF_FOUND
-   AND NOT TARGET protobuf::libprotobuf)
-  if(BUILD_protobuf)
-    find_dependency(protobuf CONFIG REQUIRED)
-  endif()
-endif()
-
-# ============================================================================
-# Debug messages for find_package
-
-# message("pybind11_FOUND: ${pybind11_FOUND}") message("pybind11_VERSION:
-# ${pybind11_VERSION}") message("pybind11_VERSION_TYPE:
-# ${pybind11_VERSION_TYPE}") message("pybind11_INCLUDE_DIRS:
-# ${pybind11_INCLUDE_DIRS}") message("pybind11_INCLUDE_DIR:
-# ${pybind11_INCLUDE_DIR}") message("pybind11_DEFINITIONS:
-# ${pybind11_DEFINITIONS}") message("pybind11_LIBRARIES: ${pybind11_LIBRARIES}")
-
-# message("Python_FOUND: ${Python_FOUND}") message("Python_VERSION:
-# ${Python_VERSION}") message("Python_INCLUDE_DIRS: ${Python_INCLUDE_DIRS}")
-# message("Python_LIBRARIES: ${Python_LIBRARIES}")
-
-# message("protobuf_FOUND: ${protobuf_FOUND}") message("protobuf_VERSION:
-# ${protobuf_VERSION}") message("protobuf_INCLUDE_DIRS:
-# ${protobuf_INCLUDE_DIRS}") message("protobuf_SOURCE_DIR:
-# ${protobuf_SOURCE_DIR}") message("protobuf_LIBRARIES: ${protobuf_LIBRARIES}")
-
 # ============================================================================
 # pybind11_proto_utils pybind11 extension module
 pybind11_add_module(
