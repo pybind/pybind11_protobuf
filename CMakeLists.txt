@@ -16,14 +16,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # ============================================================================
 # Options
 
-option(BUILD_absl "Build the abseil-cpp dependency Library" ON)
-message(STATUS "Build abseil-cpp: ${BUILD_absl}")
-
-option(BUILD_protobuf "Build the Protobuf dependency Library" ON)
-message(STATUS "Build protobuf: ${BUILD_protobuf}")
-
-option(BUILD_pybind11 "Build the pybind11 dependency Library" ON)
-message(STATUS "Python: Build pybind11: ${BUILD_pybind11}")
+option(BUILD_TESTS "Build tests." OFF)
 
 # ============================================================================
 # Find Python
@@ -33,9 +26,19 @@ find_package(Python COMPONENTS Interpreter Development)
 # ============================================================================
 # Build dependencies
 
-add_subdirectory(cmake/dependencies dependencies)
+set(_absl_repository "https://github.com/abseil/abseil-cpp.git")
+set(_absl_version 20220623.1)
+set(_absl_tag 20220623.1)
 
-include(deps)
+set(_protobuf_repository "https://github.com/protocolbuffers/protobuf.git")
+set(_protobuf_version 21.5)
+set(_protobuf_tag v21.5)
+
+set(_pybind11_repository "https://github.com/pybind/pybind11.git")
+set(_pybind11_version 2.10)
+set(_pybind11_tag v2.10.1)
+
+add_subdirectory(cmake/dependencies dependencies)
 
 # ============================================================================
 # pybind11_proto_utils pybind11 extension module
