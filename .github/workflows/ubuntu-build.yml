@@ -1,0 +1,48 @@
+name: ubuntu-build
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{github.workflow}}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    name: ubuntu-build
+    steps:
+      - name: Show env
+        run: env
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Build Dependencies
+        shell: bash
+        run: |
+          sudo apt update && sudo apt install --no-install-recommends -y \
+          cmake \
+          make
+
+      - name: Show Python version and platform info
+        run: |
+          python --version
+          python -m platform
+
+      - name: Show CMake version
+        run: cmake --version
+
+      - name: CMake Configure
+        shell: bash
+        run: |
+          cmake -S . -B build -DCMAKE_VERBOSE_MAKEFILE=ON
+
+      - name: CMake Build
+        shell: bash
+        run: |
+          cmake --build build -j$(nproc)
