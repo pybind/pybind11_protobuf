@@ -184,6 +184,7 @@ class GlobalState {
   py::object factory_;
   py::object find_message_type_by_name_;
   py::object get_prototype_;
+  py::object get_message_class_;
 
   absl::flat_hash_map<std::string, py::module_> import_cache_;
 };
@@ -199,9 +200,15 @@ GlobalState::GlobalState() {
     auto message_factory =
         ImportCached("google.protobuf.message_factory");
     global_pool_ = descriptor_pool.attr("Default")();
-    factory_ = message_factory.attr("MessageFactory")(global_pool_);
     find_message_type_by_name_ = global_pool_.attr("FindMessageTypeByName");
-    get_prototype_ = factory_.attr("GetPrototype");
+    if (hasattr(message_factory, "GetMessageClass")) {
+      get_message_class_ = message_factory.attr("GetMessageClass");
+    } else {
+      // TODO(pybind11-infra): Cleanup `MessageFactory.GetProtoType` after it
+      // is deprecated. See b/258832141.
+      factory_ = message_factory.attr("MessageFactory")(global_pool_);
+      get_prototype_ = factory_.attr("GetPrototype");
+    }
   } catch (py::error_already_set& e) {
     if (IsImportError(e)) {
       std::cerr << "Add a python dependency on "
@@ -216,6 +223,7 @@ GlobalState::GlobalState() {
     factory_ = {};
     find_message_type_by_name_ = {};
     get_prototype_ = {};
+    get_message_class_ = {};
   }
 
   // determine the proto implementation.
@@ -296,7 +304,14 @@ py::object GlobalState::PyMessageInstance(const Descriptor* descriptor) {
   if (global_pool_) {
     try {
       auto d = find_message_type_by_name_(descriptor->full_name());
-      auto p = get_prototype_(d);
+      py::object p;
+      if (get_message_class_.check()) {
+        p = get_message_class_(d);
+      } else {
+        // TODO(pybind11-infra): Cleanup `MessageFactory.GetProtoType` after it
+        // is deprecated. See b/258832141.
+        p = get_prototype_(d);
+      }
       return p();
     } catch (...) {
       // TODO(pybind11-infra): narrow down to expected exception(s).
