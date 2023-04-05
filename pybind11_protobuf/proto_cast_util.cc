@@ -305,7 +305,7 @@ py::object GlobalState::PyMessageInstance(const Descriptor* descriptor) {
     try {
       auto d = find_message_type_by_name_(descriptor->full_name());
       py::object p;
-      if (get_message_class_.check()) {
+      if (get_message_class_) {
         p = get_message_class_(d);
       } else {
         // TODO(pybind11-infra): Cleanup `MessageFactory.GetProtoType` after it
