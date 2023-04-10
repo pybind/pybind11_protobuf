@@ -230,7 +230,7 @@ GlobalState::GlobalState() {
   auto type =
       ImportCached("google.protobuf.internal.api_implementation")
           .attr("Type")();
-  using_fast_cpp_ = (CastToOptionalString(type).value_or("") == "cpp");
+  using_fast_cpp_ = (CastToOptionalString(type).value_or("") != "python");
 
 #if defined(PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
   // DANGER: The only way to guarantee that the PyProto_API doesn't have
