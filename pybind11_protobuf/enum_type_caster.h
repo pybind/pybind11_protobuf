@@ -96,6 +96,15 @@ namespace detail {
 //
 constexpr bool pybind11_protobuf_enable_enum_type_caster(...) { return true; }
 
+#if defined(PYBIND11_HAS_NATIVE_ENUM)
+template <typename EnumType>
+struct type_caster_enum_type_enabled<
+    EnumType, std::enable_if_t<(::google::protobuf::is_proto_enum<EnumType>::value &&
+                                pybind11_protobuf_enable_enum_type_caster(
+                                    static_cast<EnumType*>(nullptr)))>>
+    : std::false_type {};
+#endif
+
 // Specialization of pybind11::detail::type_caster<T> for types satisfying
 // ::google::protobuf::is_proto_enum.
 template <typename EnumType>
