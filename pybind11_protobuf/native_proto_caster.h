@@ -67,6 +67,7 @@ inline void AllowUnknownFieldsFor(
 }
 
 }  // namespace pybind11_protobuf
+
 namespace pybind11 {
 namespace detail {
 

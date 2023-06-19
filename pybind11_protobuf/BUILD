@@ -93,6 +93,7 @@ cc_library(
         "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
+        "@com_google_protobuf//:proto_api",
         "@com_google_protobuf//:protobuf",
     ],
 )

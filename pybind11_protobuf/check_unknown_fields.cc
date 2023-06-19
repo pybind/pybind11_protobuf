@@ -66,8 +66,9 @@ bool MessageMayContainExtensionsMemoized(const ::google::protobuf::Descriptor* d
 }
 
 struct HasUnknownFields {
-  HasUnknownFields(const ::google::protobuf::Descriptor* root_descriptor)
-      : root_descriptor(root_descriptor) {}
+  HasUnknownFields(const ::google::protobuf::python::PyProto_API* py_proto_api,
+                   const ::google::protobuf::Descriptor* root_descriptor)
+      : py_proto_api(py_proto_api), root_descriptor(root_descriptor) {}
 
   std::string FieldFQN() const { return absl::StrJoin(field_fqn_parts, "."); }
   std::string FieldFQNWithFieldNumber() const {
@@ -81,6 +82,7 @@ struct HasUnknownFields {
 
   std::string BuildErrorMessage() const;
 
+  const ::google::protobuf::python::PyProto_API* py_proto_api;
   const ::google::protobuf::Descriptor* root_descriptor = nullptr;
   const ::google::protobuf::Descriptor* unknown_field_parent_descriptor = nullptr;
   std::vector<std::string> field_fqn_parts;
@@ -97,9 +99,15 @@ bool HasUnknownFields::FindUnknownFieldsRecursive(
       reflection.GetUnknownFields(*sub_message);
   if (!unknown_field_set.empty()) {
     unknown_field_parent_descriptor = sub_message->GetDescriptor();
-    field_fqn_parts.resize(depth);
     unknown_field_number = unknown_field_set.field(0).number();
-    return true;
+
+    // Stop only if the extension is known by Python.
+    if (py_proto_api->GetDefaultDescriptorPool()->FindExtensionByNumber(
+            unknown_field_parent_descriptor,
+            unknown_field_number)) {
+      field_fqn_parts.resize(depth);
+      return true;
+    }
   }
 
   // If this message does not include submessages which allow extensions,
@@ -174,9 +182,10 @@ void AllowUnknownFieldsFor(absl::string_view top_message_descriptor_full_name,
 }
 
 std::optional<std::string> CheckAndBuildErrorMessageIfAny(
+    const ::google::protobuf::python::PyProto_API* py_proto_api,
     const ::google::protobuf::Message* message) {
   const auto* root_descriptor = message->GetDescriptor();
-  HasUnknownFields search{root_descriptor};
+  HasUnknownFields search{py_proto_api, root_descriptor};
   if (!search.FindUnknownFieldsRecursive(message, 0u)) {
     return std::nullopt;
   }

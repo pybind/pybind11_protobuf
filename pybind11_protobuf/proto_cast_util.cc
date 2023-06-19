@@ -836,7 +836,8 @@ py::handle GenericProtoCast(Message* src, py::return_value_policy policy,
   }
 
   std::optional<std::string> emsg =
-      check_unknown_fields::CheckAndBuildErrorMessageIfAny(src);
+      check_unknown_fields::CheckAndBuildErrorMessageIfAny(
+          GlobalState::instance()->py_proto_api(), src);
   if (emsg) {
     throw py::value_error(*emsg);
   }

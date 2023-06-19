@@ -4,6 +4,7 @@
 #include <optional>
 
 #include "google/protobuf/message.h"
+#include "python/google/protobuf/proto_api.h"
 #include "absl/strings/string_view.h"
 
 namespace pybind11_protobuf::check_unknown_fields {
@@ -12,6 +13,7 @@ void AllowUnknownFieldsFor(absl::string_view top_message_descriptor_full_name,
                            absl::string_view unknown_field_parent_message_fqn);
 
 std::optional<std::string> CheckAndBuildErrorMessageIfAny(
+    const ::google::protobuf::python::PyProto_API* py_proto_api,
     const ::google::protobuf::Message* top_message);
 
 }  // namespace pybind11_protobuf::check_unknown_fields

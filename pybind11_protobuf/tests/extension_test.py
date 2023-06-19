@@ -197,6 +197,12 @@ class ExtensionTest(parameterized.TestCase):
           extension_in_other_file_pb2.AllowUnknownInnerExtension.hook].value
       self.assertEqual(97, b_inner_value)
 
+  def test_reserialize_allow_python_unknown_fields(self):
+    inner = get_allow_unknown_inner(63)
+    # Creates a message with only unknown fields.
+    a = extension_pb2.BaseMessage.FromString(inner.SerializeToString())
+    b = m.reserialize_base_message(a)
+    self.assertEqual(a.SerializeToString(), b.SerializeToString())
 
 if __name__ == '__main__':
   absltest.main()
