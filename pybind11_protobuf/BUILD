@@ -61,8 +61,8 @@ pybind_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
-        "@com_google_protobuf//:proto_api",
         "@com_google_protobuf//:protobuf",
+        "@com_google_protobuf//python:proto_api",
     ],
 )
 
@@ -93,7 +93,7 @@ cc_library(
         "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
-        "@com_google_protobuf//:proto_api",
         "@com_google_protobuf//:protobuf",
+        "@com_google_protobuf//python:proto_api",
     ],
 )
