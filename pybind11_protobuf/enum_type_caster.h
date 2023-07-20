@@ -59,12 +59,8 @@ struct enum_type_caster {
     base_caster base;
     if (base.load(src, convert)) {
       T v = static_cast<T>(base);
-      if (::google::protobuf::GetEnumDescriptor<EnumType>()->FindValueByNumber(v) ==
-          nullptr) {
-        throw pybind11::value_error("Invalid value " + std::to_string(v) +
-                                    " for ::google::protobuf::Enum " +
-                                    pybind11::type_id<EnumType>());
-      }
+      // Behavior change 2023-07-19: Previously we only accept integers that
+      // are valid values of the enum.
       value = static_cast<EnumType>(v);
       return true;
     }

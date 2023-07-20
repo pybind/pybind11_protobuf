@@ -19,8 +19,7 @@ class ProtoEnumTest(absltest.TestCase):
     self.assertEqual(
         m.adjust_enum(test_pb2.TestMessage.ONE), test_pb2.TestMessage.TWO)
     self.assertEqual(m.adjust_enum(m.ZERO), m.ONE)
-    with self.assertRaises(ValueError):
-      m.adjust_enum(7)
+    self.assertEqual(m.adjust_enum(7), m.ZERO)
     with self.assertRaises(TypeError):
       m.adjust_enum('ZERO')
 
