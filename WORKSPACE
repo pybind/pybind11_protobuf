@@ -35,16 +35,16 @@ http_archive(
     ],
 )
 
-## `pybind11_bazel`
-# See https://github.com/pybind/pybind11_bazel
+## `pybind11_bazel` (PINNED)
+# https://github.com/pybind/pybind11_bazel
 http_archive(
   name = "pybind11_bazel",
-  strip_prefix = "pybind11_bazel-faf56fb3df11287f26dbc66fdedf60a2fc2c6631",
-  sha256 = "a2b107b06ffe1049696e132d39987d80e24d73b131d87f1af581c2cb271232f8",
-  urls = ["https://github.com/pybind/pybind11_bazel/archive/faf56fb3df11287f26dbc66fdedf60a2fc2c6631.tar.gz"],
+  strip_prefix = "pybind11_bazel-ff261d2e9190955d0830040b20ea59ab9dbe66c8",
+  sha256 = "c68230f540ae99e6acdec9a79f351d003e2dccefa029c3ce8d25060a6e05dc43",
+  urls = ["https://github.com/pybind/pybind11_bazel/archive/ff261d2e9190955d0830040b20ea59ab9dbe66c8.tar.gz"],
 )
 
-# We still require the pybind library.
+## `pybind11` (FLOATING)
 http_archive(
   name = "pybind11",
   build_file = "@pybind11_bazel//:pybind11.BUILD",
