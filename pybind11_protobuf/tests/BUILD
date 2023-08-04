@@ -1,5 +1,8 @@
 # Tests and examples for the pybind11_protobuf package.
 
+# Placeholder: load py_proto_library
+# Placeholder: load py_library
+
 load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 # [internal] load cc_proto_library.bzl
