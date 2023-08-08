@@ -35,13 +35,12 @@ http_archive(
     ],
 )
 
-## `pybind11_bazel` (PINNED)
-# https://github.com/pybind/pybind11_bazel
+## `pybind11_bazel` (FLOATING)
+# XXX: POINTING AT https://github.com/junyer/pybind11_bazel FOR PR #55
 http_archive(
   name = "pybind11_bazel",
-  strip_prefix = "pybind11_bazel-ff261d2e9190955d0830040b20ea59ab9dbe66c8",
-  sha256 = "c68230f540ae99e6acdec9a79f351d003e2dccefa029c3ce8d25060a6e05dc43",
-  urls = ["https://github.com/pybind/pybind11_bazel/archive/ff261d2e9190955d0830040b20ea59ab9dbe66c8.tar.gz"],
+  strip_prefix = "pybind11_bazel-master",
+  urls = ["https://github.com/junyer/pybind11_bazel/archive/refs/heads/master.tar.gz"],
 )
 
 ## `pybind11` (FLOATING)
