@@ -11,6 +11,7 @@ from __future__ import print_function
 from absl.testing import absltest
 from absl.testing import parameterized
 
+from google.protobuf import unknown_fields
 from google.protobuf.internal import api_implementation
 from pybind11_protobuf.tests import extension_in_other_file_in_deps_pb2
 from pybind11_protobuf.tests import extension_in_other_file_pb2
@@ -179,8 +180,8 @@ class ExtensionTest(parameterized.TestCase):
     a = get_allow_unknown_inner(96)
     b = m.reserialize_allow_unknown_inner(a)
     if api_implementation.Type() == 'cpp':
-      self.assertLen(b.UnknownFields(), 1)
-      self.assertEqual(2001, b.UnknownFields()[0].field_number)
+      self.assertLen(unknown_fields.UnknownFieldSet(b), 1)
+      self.assertEqual(2001, unknown_fields.UnknownFieldSet(b)[0].field_number)
     else:
       b_value = b.Extensions[
           extension_in_other_file_pb2.AllowUnknownInnerExtension.hook].value
@@ -190,8 +191,9 @@ class ExtensionTest(parameterized.TestCase):
     a = extension_pb2.AllowUnknownOuter(inner=get_allow_unknown_inner(97))
     b = m.reserialize_allow_unknown_outer(a)
     if api_implementation.Type() == 'cpp':
-      self.assertLen(b.inner.UnknownFields(), 1)
-      self.assertEqual(2001, b.inner.UnknownFields()[0].field_number)
+      self.assertLen(unknown_fields.UnknownFieldSet(b.inner), 1)
+      self.assertEqual(
+          2001, unknown_fields.UnknownFieldSet(b.inner)[0].field_number)
     else:
       b_inner_value = b.inner.Extensions[
           extension_in_other_file_pb2.AllowUnknownInnerExtension.hook].value
