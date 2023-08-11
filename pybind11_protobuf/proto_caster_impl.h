@@ -40,11 +40,13 @@ struct proto_caster_load_impl {
 
   // load converts from Python -> C++
   bool load(pybind11::handle src, bool convert) {
+    LOG(ERROR) << 1;
     // When given a none, treat it as a nullptr.
     if (src.is_none()) {
       value = nullptr;
       return true;
     }
+    LOG(ERROR) << 1;
     // NOTE: We might need to know whether the proto has extensions that
     // are python-only.
 
@@ -52,8 +54,10 @@ struct proto_caster_load_impl {
     // from the object.
     const ::google::protobuf::Message *message =
         pybind11_protobuf::PyProtoGetCppMessagePointer(src);
+    LOG(ERROR) << 1;
     if (message && message->GetReflection() ==
                        ProtoType::default_instance().GetReflection()) {
+      LOG(ERROR) << 1;
       // If the capability were available, then we could probe PyProto_API and
       // allow c++ mutability based on the python reference count.
       value = static_cast<const ProtoType *>(message);
@@ -62,13 +66,17 @@ struct proto_caster_load_impl {
 
     // The incoming object is not a compatible fast_cpp_proto, so check whether
     // it is otherwise compatible, then serialize it and deserialize into a
+    LOG(ERROR) << 1;
     // native C++ proto type.
     if (!pybind11_protobuf::PyProtoIsCompatible(src,
                                                 ProtoType::GetDescriptor())) {
+      LOG(ERROR) << 1;
       return false;
     }
+    LOG(ERROR) << 1;
     owned = std::unique_ptr<ProtoType>(new ProtoType());
     value = owned.get();
+    LOG(ERROR) << 1;
     return pybind11_protobuf::PyProtoCopyToCProto(src, owned.get());
   }
 
