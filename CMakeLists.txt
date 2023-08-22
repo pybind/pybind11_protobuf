@@ -27,16 +27,19 @@ find_package(Python COMPONENTS Interpreter Development)
 # Build dependencies
 
 set(_absl_repository "https://github.com/abseil/abseil-cpp.git")
-set(_absl_version 20220623.1)
-set(_absl_tag 20220623.1)
+set(_absl_version 20230125)
+set(_absl_tag 20230125.3)
+find_package(absl ${_absl_version} QUIET)
 
 set(_protobuf_repository "https://github.com/protocolbuffers/protobuf.git")
-set(_protobuf_version 21.5)
-set(_protobuf_tag v21.5)
+set(_protobuf_version 3.23.3)
+set(_protobuf_tag v23.3)
+find_package(Protobuf ${_protobuf_version} QUIET)
 
 set(_pybind11_repository "https://github.com/pybind/pybind11.git")
-set(_pybind11_version 2.10)
-set(_pybind11_tag v2.10.1)
+set(_pybind11_version 2.11.1)
+set(_pybind11_tag v2.11.1)
+find_package(pybind11 ${_pybind11_version} QUIET)
 
 add_subdirectory(cmake/dependencies dependencies)
 

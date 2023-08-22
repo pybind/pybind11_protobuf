@@ -3,9 +3,9 @@ include(FetchContent)
 # ============================================================================
 # Declare all dependencies first
 
-find_package(absl ${_absl_version} EXACT QUIET)
 if(NOT absl_FOUND)
   set(ABSL_PROPAGATE_CXX_STD ON)
+  set(ABSL_ENABLE_INSTALL ON)
   FetchContent_Declare(
     absl
     GIT_REPOSITORY ${_absl_repository}
@@ -15,7 +15,6 @@ endif()
 # https://stackoverflow.com/questions/63309544/cmake-protobuf-external-to-application-code
 # https://cmake.org/cmake/help/latest/policy/CMP0077.html
 # https://gitlab.kitware.com/cmake/cmake/-/merge_requests/7565/diffs
-find_package(Protobuf ${_protobuf_version} EXACT QUIET)
 if(NOT Protobuf_FOUND)
   set(protobuf_BUILD_TESTS
       OFF
@@ -27,7 +26,6 @@ if(NOT Protobuf_FOUND)
     GIT_SUBMODULES "")
 endif()
 
-find_package(pybind11 ${_pybind11_version} EXACT QUIET)
 if(NOT pybind11_FOUND)
   set(PYBIND11_TEST OFF)
   FetchContent_Declare(
