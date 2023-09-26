@@ -575,6 +575,11 @@ void ImportProtoDescriptorModule(const Descriptor* descriptor) {
 }
 
 const Message* PyProtoGetCppMessagePointer(py::handle src) {
+#if !defined(PYBIND11_PROTOBUF_ASSUME_FULL_ABI_COMPATIBILITY)
+  return nullptr;
+#else
+  // Assume that C++ proto objects are compatible as long as there is a C++
+  // message pointer.
   assert(PyGILState_Check());
   if (!GlobalState::instance()->py_proto_api()) return nullptr;
   auto* ptr =
@@ -583,9 +588,9 @@ const Message* PyProtoGetCppMessagePointer(py::handle src) {
     // Clear the type_error set by GetMessagePointer sets a type_error when
     // src was not a wrapped C++ proto message.
     PyErr_Clear();
-    return nullptr;
   }
   return ptr;
+#endif
 }
 
 absl::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {

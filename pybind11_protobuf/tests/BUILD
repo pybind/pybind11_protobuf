@@ -1,9 +1,9 @@
 # Tests and examples for the pybind11_protobuf package.
 
+load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
+
 # Placeholder: load py_proto_library
 # Placeholder: load py_library
-
-load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 # [internal] load cc_proto_library.bzl
 
@@ -232,6 +232,16 @@ py_test(
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
         "@com_google_protobuf//:protobuf_python",
+    ],
+)
+
+# Externally this is currently only built but not used.
+pybind_extension(
+    name = "very_large_proto_module",
+    srcs = ["very_large_proto_module.cc"],
+    deps = [
+        "//pybind11_protobuf:native_proto_caster",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 

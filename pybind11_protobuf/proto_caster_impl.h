@@ -99,10 +99,7 @@ struct proto_caster_load_impl<::google::protobuf::Message> {
     // Attempt to use the PyProto_API to get an underlying C++ message pointer
     // from the object.
     value = pybind11_protobuf::PyProtoGetCppMessagePointer(src);
-    if (value && value->GetDescriptor() && value->GetDescriptor()->file() &&
-        value->GetDescriptor()->file()->pool() ==
-            ::google::protobuf::DescriptorPool::generated_pool()) {
-      // Only messages in the same generated_pool() can be referenced directly.
+    if (value) {
       return true;
     }
 

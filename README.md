@@ -64,9 +64,12 @@ avoided, but not universally. Fundamentally, sharing C++ native protobuf
 objects between C++ and Python is unsafe because C++ assumes that it has
 exclusive ownership and may manipulate references in a way that undermines
 Python's much safer ownership semantics. Because of this, sharing mutable
-references or pointers between C++ and Python is not allowed. However, when
-passing a Python protobuf object to C++, the bindings may share the underlying
-C++ native protobuf object with C++ when passed by `const &` or `const *`.
+references or pointers between C++ and Python is not allowed.
+However, when passing a Python protobuf object to
+C++, and with `PYBIND11_PROTOBUF_ASSUME_FULL_ABI_COMPATIBILITY` defined
+(see proto_cast_util.h),
+the bindings will share the underlying C++ native protobuf object with C++ when
+passed by `const &` or `const *`.
 
 ### Protobuf Extensions
 

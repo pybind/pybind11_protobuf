@@ -14,6 +14,16 @@
 #include "google/protobuf/message.h"
 #include "absl/types/optional.h"
 
+// PYBIND11_PROTOBUF_ASSUME_FULL_ABI_COMPATIBILITY can be defined by users
+// certain about ABI compatibility between all Python extensions in their
+// environment using protobufs. If defined, passing protos from Python to C++
+// may skip serialization/deserialization.
+// Assuming full ABI compatibility means (roughly) that the following are
+// compatible between all involved Python extensions:
+// * Protobuf library versions.
+// * Compiler/linker & compiler/linker options.
+// #define PYBIND11_PROTOBUF_ASSUME_FULL_ABI_COMPATIBILITY
+
 namespace pybind11_protobuf {
 
 // Initialize internal proto cast dependencies, which includes importing
