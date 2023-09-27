@@ -52,12 +52,13 @@ struct proto_caster_load_impl {
     // from the object.
     const ::google::protobuf::Message *message =
         pybind11_protobuf::PyProtoGetCppMessagePointer(src);
-    if (message && message->GetReflection() ==
-                       ProtoType::default_instance().GetReflection()) {
-      // If the capability were available, then we could probe PyProto_API and
-      // allow c++ mutability based on the python reference count.
-      value = static_cast<const ProtoType *>(message);
-      return true;
+    if (message) {
+      value = dynamic_cast<const ProtoType *>(message);
+      if (value) {
+        // If the capability were available, then we could probe PyProto_API and
+        // allow c++ mutability based on the python reference count.
+        return true;
+      }
     }
 
     // The incoming object is not a compatible fast_cpp_proto, so check whether
