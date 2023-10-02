@@ -291,12 +291,15 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
           std::is_same<std::remove_reference_t<T_>, const ProtoType *>::value,
               const ProtoType *,
       std::conditional_t<
-          std::is_same<
-              std::remove_reference_t<T_>, ProtoType *>::value, ProtoType *,
+          std::is_same<std::remove_reference_t<T_>, ProtoType *>::value,
+              ProtoType *,
       std::conditional_t<
-          std::is_same<T_, const ProtoType &>::value, const ProtoType &,
-      std::conditional_t<std::is_same<T_, ProtoType &>::value, ProtoType &,
-      /*default is T&&*/ T_>>>>;
+          std::is_same<T_, const ProtoType &>::value,
+              const ProtoType &,
+      std::conditional_t<
+          std::is_same<T_, ProtoType &>::value,
+              ProtoType &,
+      T_>>>>;  // Fall back to `T_` (assumed `T&&`).
   // clang-format on
 };
 
