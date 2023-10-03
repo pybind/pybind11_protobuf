@@ -151,7 +151,7 @@ PYBIND11_MODULE(my_module, m) {
   m.def("mutate_message", [](MyMessage in) {
     MutateMessage(&in);
     return in;
-  }),
+  },
   pybind11::arg("in"));
 }
 ```
