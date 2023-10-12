@@ -112,6 +112,11 @@ py_test(
     name = "proto_enum_test",
     srcs = ["proto_enum_test.py"],
     data = [":proto_enum_module.so"],
+    implementations = [
+        "upb",
+        "cpp",
+        "python",
+    ],
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -136,6 +141,11 @@ py_test(
     name = "dynamic_message_test",
     srcs = ["dynamic_message_test.py"],
     data = [":dynamic_message_module.so"],
+    implementations = [
+        "upb",
+        "cpp",
+        "python",
+    ],
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -167,6 +177,11 @@ py_test(
     data = [
         ":extension_module.so",
         ":proto_enum_module.so",
+    ],
+    implementations = [
+        "upb",
+        "cpp",
+        "python",
     ],
     python_version = "PY3",
     srcs_version = "PY3",
@@ -200,6 +215,11 @@ py_test(
         ":message_module.so",
         ":proto_enum_module.so",
     ],
+    implementations = [
+        "upb",
+        "cpp",
+        "python",
+    ],
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -225,6 +245,11 @@ py_test(
     name = "pass_by_test",
     srcs = ["pass_by_test.py"],
     data = [":pass_by_module.so"],
+    implementations = [
+        "upb",
+        "cpp",
+        "python",
+    ],
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -263,6 +288,11 @@ py_test(
     name = "wrapped_proto_module_test",
     srcs = ["wrapped_proto_module_test.py"],
     data = [":wrapped_proto_module.so"],
+    implementations = [
+        "upb",
+        "cpp",
+        "python",
+    ],
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -289,6 +319,11 @@ py_test(
     name = "thread_module_test",
     srcs = ["thread_module_test.py"],
     data = [":thread_module.so"],
+    implementations = [
+        "upb",
+        "cpp",
+        "python",
+    ],
     python_version = "PY3",
     srcs_version = "PY3",
     deps = [
@@ -312,6 +347,11 @@ py_test(
     name = "regression_wrappers_test",
     srcs = ["regression_wrappers_test.py"],
     data = [":regression_wrappers_module.so"],
+    implementations = [
+        "upb",
+        "cpp",
+        "python",
+    ],
     deps = [
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
