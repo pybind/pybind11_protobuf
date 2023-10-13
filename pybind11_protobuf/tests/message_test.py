@@ -436,11 +436,15 @@ class MessageTest(parameterized.TestCase, compare.ProtoAssertions):
 
   def test_text_format_parse(self):
     message = text_format.Parse(m.TEXT_FORMAT_MESSAGE, m.make_test_message())
-    self.assertMultiLineEqual(str(message), m.TEXT_FORMAT_MESSAGE)
+    self.assertMultiLineEqual(
+        text_format.MessageToString(message), m.TEXT_FORMAT_MESSAGE
+    )
 
   def test_text_format_merge(self):
     message = text_format.Merge(m.TEXT_FORMAT_MESSAGE, m.make_test_message())
-    self.assertMultiLineEqual(str(message), m.TEXT_FORMAT_MESSAGE)
+    self.assertMultiLineEqual(
+        text_format.MessageToString(message), m.TEXT_FORMAT_MESSAGE
+    )
 
   def test_proto_2_equal(self):
     self.assertProtoEqual(m.TEXT_FORMAT_MESSAGE,
