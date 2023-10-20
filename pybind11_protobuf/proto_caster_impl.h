@@ -190,7 +190,7 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
   using Loader::value;
 
  public:
-  static constexpr auto name = pybind11::detail::_<ProtoType>();
+  static constexpr auto name = pybind11::detail::const_name<ProtoType>();
 
   // cast converts from C++ -> Python
   //

@@ -138,7 +138,7 @@ struct wrapped_proto_caster : public pybind11_protobuf::proto_caster_load_impl<
   using pybind11_protobuf::native_cast_impl::cast_impl;
 
  public:
-  static constexpr auto name = pybind11::detail::_<WrappedProtoType>();
+  static constexpr auto name = pybind11::detail::const_name<WrappedProtoType>();
 
   // cast converts from C++ -> Python
   static pybind11::handle cast(WrappedProtoType src,
@@ -244,7 +244,8 @@ template <typename ProtoType>
 struct wrapped_proto_vector_caster {
   static constexpr auto name =
       (pybind11::detail::const_name("List[") +
-       pybind11::detail::_<ProtoType>() + pybind11::detail::const_name("]"));
+       pybind11::detail::const_name<ProtoType>() +
+       pybind11::detail::const_name("]"));
 
   // cast converts from Python -> C++
   bool load(pybind11::handle src, bool convert) {

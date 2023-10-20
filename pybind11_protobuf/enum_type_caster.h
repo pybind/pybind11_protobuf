@@ -45,7 +45,7 @@ struct enum_type_caster {
   using base_caster = pybind11::detail::make_caster<T>;
 
  public:
-  static constexpr auto name = pybind11::detail::_<EnumType>();
+  static constexpr auto name = pybind11::detail::const_name<EnumType>();
 
   // cast converts from C++ -> Python
   static pybind11::handle cast(EnumType src,
