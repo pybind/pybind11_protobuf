@@ -1,3 +1,8 @@
+// IWYU pragma: always_keep // Appears to be the best we can do at the moment.
+// What we really want (but does not work with Include Cleaner @ 2023-10-27):
+// * If native_proto_caster.h is included: suggest removing enum_type_caster.h
+// * If only enum_type_caster.h is included: always_keep
+
 #ifndef PYBIND11_PROTOBUF_ENUM_TYPE_CASTER_H_
 #define PYBIND11_PROTOBUF_ENUM_TYPE_CASTER_H_
 

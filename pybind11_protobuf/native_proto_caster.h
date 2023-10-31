@@ -1,3 +1,5 @@
+// IWYU pragma: always_keep // See pybind11/docs/type_caster_iwyu.rst
+
 #ifndef PYBIND11_PROTOBUF_NATIVE_PROTO_CASTERS_H_
 #define PYBIND11_PROTOBUF_NATIVE_PROTO_CASTERS_H_
 

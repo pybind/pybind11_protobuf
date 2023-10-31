@@ -1,3 +1,5 @@
+// IWYU pragma: private, include "pybind11_protobuf/native_proto_caster.h"
+
 #ifndef PYBIND11_PROTOBUF_PROTO_CAST_UTIL_H_
 #define PYBIND11_PROTOBUF_PROTO_CAST_UTIL_H_
 
