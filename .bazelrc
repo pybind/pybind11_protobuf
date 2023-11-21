@@ -5,8 +5,8 @@ common --announce_rc
 build --verbose_failures
 
 # Compiler options.
-build --cxxopt=-std=c++17
-build --host_cxxopt=-std=c++17
+build --cxxopt=-std=c++17 --enable_bzlmod
+build --host_cxxopt=-std=c++17 --enable_bzlmod
 
 # Enable logging error output.
 test --test_output=errors

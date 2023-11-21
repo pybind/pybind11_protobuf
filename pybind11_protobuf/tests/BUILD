@@ -1,6 +1,6 @@
 # Tests and examples for the pybind11_protobuf package.
 
-load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
+load("@grpc//bazel:python_rules.bzl", "py_proto_library")
 
 # Placeholder: load py_proto_library
 # Placeholder: load py_library
@@ -14,7 +14,7 @@ py_library(
     srcs = ["compare.py"],
     srcs_version = "PY3",
     visibility = ["//visibility:public"],
-    deps = ["@com_google_protobuf//:protobuf_python"],
+    deps = ["@protobuf//:protobuf_python"],
 )
 
 proto_library(
@@ -117,7 +117,7 @@ py_test(
     deps = [
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
-        "@com_google_protobuf//:protobuf_python",
+        "@protobuf//:protobuf_python",
     ],
 )
 
@@ -143,7 +143,7 @@ py_test(
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
-        "@com_google_protobuf//:protobuf_python",
+        "@protobuf//:protobuf_python",
     ],
 )
 
@@ -178,7 +178,7 @@ py_test(
         ":test_py_pb2",  # fixdeps: keep - Direct dependency needed in open-source version, see https://github.com/grpc/grpc/issues/22811
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
-        "@com_google_protobuf//:protobuf_python",
+        "@protobuf//:protobuf_python",
     ],
 )
 
@@ -207,7 +207,7 @@ py_test(
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
-        "@com_google_protobuf//:protobuf_python",
+        "@protobuf//:protobuf_python",
     ],
 )
 
@@ -231,7 +231,7 @@ py_test(
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
-        "@com_google_protobuf//:protobuf_python",
+        "@protobuf//:protobuf_python",
     ],
 )
 
@@ -270,7 +270,7 @@ py_test(
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
-        "@com_google_protobuf//:protobuf_python",
+        "@protobuf//:protobuf_python",
     ],
 )
 
@@ -293,9 +293,9 @@ py_test(
     srcs_version = "PY3",
     deps = [
         ":test_py_pb2",
-        "@com_google_absl_py//absl/testing:absltest",
-        "@com_google_absl_py//absl/testing:parameterized",
-        "@com_google_protobuf//:protobuf_python",
+        "@abseil-py//absl/testing:absltest",
+        "@abseil-py//absl/testing:parameterized",
+        "@protobuf//:protobuf_python",
     ],
 )
 
@@ -313,8 +313,8 @@ py_test(
     srcs = ["regression_wrappers_test.py"],
     data = [":regression_wrappers_module.so"],
     deps = [
-        "@com_google_absl_py//absl/testing:absltest",
-        "@com_google_absl_py//absl/testing:parameterized",
-        "@com_google_protobuf//:protobuf_python",
+        "@abseil-py//absl/testing:absltest",
+        "@abseil-py//absl/testing:parameterized",
+        "@protobuf//:protobuf_python",
     ],
 )
