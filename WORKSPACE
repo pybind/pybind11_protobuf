@@ -39,9 +39,9 @@ http_archive(
 # https://github.com/pybind/pybind11_bazel
 http_archive(
   name = "pybind11_bazel",
-  strip_prefix = "pybind11_bazel-ff261d2e9190955d0830040b20ea59ab9dbe66c8",
-  sha256 = "c68230f540ae99e6acdec9a79f351d003e2dccefa029c3ce8d25060a6e05dc43",
-  urls = ["https://github.com/pybind/pybind11_bazel/archive/ff261d2e9190955d0830040b20ea59ab9dbe66c8.tar.gz"],
+  strip_prefix = "pybind11_bazel-23926b00e2b2eb2fc46b17e587cf0c0cfd2f2c4b",
+  sha256 = "f58c0d5bfd125b08075224c319a02a901c3bce11ff2cf8310c024d40f4af823e",
+  urls = ["https://github.com/pybind/pybind11_bazel/archive/23926b00e2b2eb2fc46b17e587cf0c0cfd2f2c4b.tar.gz"],
 )
 
 ## `pybind11` (FLOATING)
