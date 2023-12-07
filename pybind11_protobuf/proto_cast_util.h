@@ -41,12 +41,9 @@ const ::google::protobuf::Message *PyProtoGetCppMessagePointer(pybind11::handle 
 // Returns the protocol buffer's py_proto.DESCRIPTOR.full_name attribute.
 absl::optional<std::string> PyProtoDescriptorName(pybind11::handle py_proto);
 
-// Return whether py_proto is compatible with the C++ descriptor.
-// The py_proto name must match the C++ Descriptor::full_name(), and is
-// expected to originate from the python default pool, which means that
-// this method will return false for dynamic protos.
-bool PyProtoIsCompatible(pybind11::handle py_proto,
-                         const ::google::protobuf::Descriptor *descriptor);
+absl::optional<pybind11::bytes> PyProtoSerializePartialToString(
+    pybind11::handle py_proto, bool convert,
+    const ::google::protobuf::Descriptor *descriptor);
 
 // Allocates a C++ protocol buffer for a given name.
 std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(

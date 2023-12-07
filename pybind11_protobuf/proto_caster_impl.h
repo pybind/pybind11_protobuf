@@ -63,16 +63,18 @@ struct proto_caster_load_impl {
       }
     }
 
-    // The incoming object is not a compatible fast_cpp_proto, so check whether
-    // it is otherwise compatible, then serialize it and deserialize into a
-    // native C++ proto type.
-    if (!pybind11_protobuf::PyProtoIsCompatible(src,
-                                                ProtoType::GetDescriptor())) {
+    absl::optional<pybind11::bytes> serialized_bytes =
+        PyProtoSerializePartialToString(src, convert,
+                                        ProtoType::GetDescriptor());
+    if (!serialized_bytes) {
       return false;
     }
+
     owned = std::unique_ptr<ProtoType>(new ProtoType());
     value = owned.get();
-    return pybind11_protobuf::PyProtoCopyToCProto(src, owned.get());
+    return owned.get()->ParsePartialFromArray(
+        PyBytes_AsString(serialized_bytes->ptr()),
+        PyBytes_Size(serialized_bytes->ptr()));
   }
 
   // ensure_owned ensures that the owned member contains a copy of the

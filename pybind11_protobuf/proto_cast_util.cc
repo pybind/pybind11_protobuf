@@ -602,20 +602,14 @@ absl::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
   return absl::nullopt;
 }
 
-bool PyProtoIsCompatible(py::handle py_proto, const Descriptor* descriptor) {
+absl::optional<py::bytes> PyProtoSerializePartialToString(
+    py::handle py_proto, bool convert, const Descriptor* descriptor) {
   assert(PyGILState_Check());
-  if (descriptor->file()->pool() != DescriptorPool::generated_pool()) {
-    /// This indicates that the C++ descriptor does not come from the C++
-    /// DescriptorPool. This may happen if the C++ code has the same proto
-    /// in different descriptor pools, perhaps from different shared objects,
-    /// and could be result in undefined behavior.
-    return false;
-  }
 
   auto py_descriptor = ResolveAttrs(py_proto, {"DESCRIPTOR"});
   if (!py_descriptor) {
     // Not a valid protobuf -- missing DESCRIPTOR.
-    return false;
+    return absl::nullopt;
   }
 
   // Test full_name equivalence.
@@ -623,28 +617,42 @@ bool PyProtoIsCompatible(py::handle py_proto, const Descriptor* descriptor) {
     auto py_full_name = ResolveAttrs(*py_descriptor, {"full_name"});
     if (!py_full_name) {
       // Not a valid protobuf -- missing DESCRIPTOR.full_name
-      return false;
+      return absl::nullopt;
     }
     auto full_name = CastToOptionalString(*py_full_name);
     if (!full_name || *full_name != descriptor->full_name()) {
       // Name mismatch.
-      return false;
+      return absl::nullopt;
     }
   }
 
-  // The C++ descriptor is compiled in (see above assert), so the py_proto
-  // is expected to be from the global pool, i.e. the DESCRIPTOR.file.pool
-  // instance is the global python pool, and not a custom pool.
-  auto py_pool = ResolveAttrs(*py_descriptor, {"file", "pool"});
-  if (py_pool) {
-    return py_pool->is(GlobalState::instance()->global_pool());
-  }
-
   // The py_proto is missing a DESCRIPTOR.file.pool, but the name matches.
-  // This will not happen with a native python implementation, but does
-  // occur with the deprecated :proto_casters, and could happen with other
-  // mocks.  Returning true allows the caster to call PyProtoCopyToCProto.
-  return true;
+  // This will not happen with a native python implementation, but
+  // could happen with mocks.
+
+  auto serialize_fn = ResolveAttrMRO(py_proto, "SerializePartialToString");
+  if (!serialize_fn) {
+    return absl::nullopt;
+  }
+  auto serialized_bytes = py::reinterpret_steal<py::object>(
+      PyObject_CallObject(serialize_fn->ptr(), nullptr));
+  if (!serialized_bytes) {
+    if (convert) {
+      // TODO(rwgk): More comprehensive error message.
+      throw py::error_already_set();
+    }
+    return absl::nullopt;
+  }
+  if (!PyBytes_Check(serialized_bytes.ptr())) {
+    if (convert) {
+      // TODO(rwgk): More comprehensive error message.
+      py::set_error(PyExc_TypeError,
+                    "SerializePartialToString did not return bytes");
+      throw py::error_already_set();
+    }
+    return absl::nullopt;
+  }
+  return py::bytes(serialized_bytes);
 }
 
 bool PyProtoCopyToCProto(py::handle py_proto, Message* message) {
