@@ -63,16 +63,19 @@ struct proto_caster_load_impl {
       }
     }
 
-    // The incoming object is not a compatible fast_cpp_proto, so check whether
-    // it is otherwise compatible, then serialize it and deserialize into a
-    // native C++ proto type.
-    if (!pybind11_protobuf::PyProtoIsCompatible(src,
-                                                ProtoType::GetDescriptor())) {
+    if (!PyProtoHasMatchingFullName(src, ProtoType::GetDescriptor())) {
       return false;
     }
+    pybind11::bytes serialized_bytes =
+        PyProtoSerializePartialToString(src, convert);
+    if (!serialized_bytes) {
+      return false;
+    }
+
     owned = std::unique_ptr<ProtoType>(new ProtoType());
     value = owned.get();
-    return pybind11_protobuf::PyProtoCopyToCProto(src, owned.get());
+    return owned.get()->ParsePartialFromString(
+        PyBytesAsStringView(serialized_bytes));
   }
 
   // ensure_owned ensures that the owned member contains a copy of the
@@ -108,16 +111,23 @@ struct proto_caster_load_impl<::google::protobuf::Message> {
 
     // `src` is not a C++ proto instance from the generated_pool,
     // so create a compatible native C++ proto.
-    auto descriptor_name = pybind11_protobuf::PyProtoDescriptorName(src);
+    auto descriptor_name = pybind11_protobuf::PyProtoDescriptorFullName(src);
     if (!descriptor_name) {
       return false;
     }
+    pybind11::bytes serialized_bytes =
+        PyProtoSerializePartialToString(src, convert);
+    if (!serialized_bytes) {
+      return false;
+    }
+
     owned.reset(static_cast<ProtoType *>(
         pybind11_protobuf::AllocateCProtoFromPythonSymbolDatabase(
             src, *descriptor_name)
             .release()));
     value = owned.get();
-    return pybind11_protobuf::PyProtoCopyToCProto(src, owned.get());
+    return owned.get()->ParsePartialFromString(
+        PyBytesAsStringView(serialized_bytes));
   }
 
   // ensure_owned ensures that the owned member contains a copy of the
