@@ -9,33 +9,28 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
-#include <vector>
 
 #include "google/protobuf/descriptor.pb.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/dynamic_message.h"
+#include "google/protobuf/message.h"
+#include "python/google/protobuf/proto_api.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/log/check.h"
-#include "absl/log/log.h"
-#include "absl/memory/memory.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_replace.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/descriptor_database.h"
-#include "google/protobuf/dynamic_message.h"
-#include "python/google/protobuf/proto_api.h"
 #include "pybind11_protobuf/check_unknown_fields.h"
-
-#if defined(GOOGLE_PROTOBUF_VERSION)
-#include "absl/strings/numbers.h"
-#include "absl/strings/str_split.h"
-#endif
 
 namespace py = pybind11;
 
 using ::google::protobuf::Descriptor;
 using ::google::protobuf::DescriptorDatabase;
 using ::google::protobuf::DescriptorPool;
+using ::google::protobuf::DescriptorProto;
 using ::google::protobuf::DynamicMessageFactory;
 using ::google::protobuf::FileDescriptor;
 using ::google::protobuf::FileDescriptorProto;
