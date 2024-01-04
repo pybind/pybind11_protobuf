@@ -819,18 +819,24 @@ py::handle GenericProtoCast(Message* src, py::return_value_policy policy,
   // 1. The binary does not have a py_proto_api instance, or
   // 2. a) the proto is from the default pool and
   //    b) the binary is not using fast_cpp_protos.
-  if ((GlobalState::instance()->py_proto_api() == nullptr) ||
+  if (GlobalState::instance()->py_proto_api() == nullptr ||
       (src->GetDescriptor()->file()->pool() ==
            DescriptorPool::generated_pool() &&
        !GlobalState::instance()->using_fast_cpp())) {
     return GenericPyProtoCast(src, policy, parent, is_const);
   }
 
-  std::optional<std::string> emsg =
-      check_unknown_fields::CheckAndBuildErrorMessageIfAny(
-          GlobalState::instance()->py_proto_api(), src);
-  if (emsg) {
-    throw py::value_error(*emsg);
+  std::optional<std::string> unknown_field_message =
+      check_unknown_fields::CheckRecursively(
+          GlobalState::instance()->py_proto_api(), src,
+          check_unknown_fields::ExtensionsWithUnknownFieldsPolicy::
+              UnknownFieldsAreDisallowed());
+  if (unknown_field_message) {
+    if (!unknown_field_message->empty()) {
+      throw py::value_error(*unknown_field_message);
+    }
+    // Fall back to serialize/parse.
+    return GenericPyProtoCast(src, policy, parent, is_const);
   }
 
   // If this is a dynamically generated proto, then we're going to need to

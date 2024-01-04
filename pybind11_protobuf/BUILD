@@ -100,3 +100,15 @@ cc_library(
         "@com_google_protobuf//python:proto_api",
     ],
 )
+
+cc_library(
+    name = "disallow_extensions_with_unknown_fields",
+    srcs = ["disallow_extensions_with_unknown_fields.cc"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        ":check_unknown_fields",
+    ],
+    alwayslink = 1,
+)
