@@ -13,7 +13,8 @@ package pybind11.test;
 import "pybind11_protobuf/tests/test.proto";
 
 message BaseMessage {
-  extensions 1000 to max;
+  extensions 1000 to max
+  [verification = UNVERIFIED];
 }
 
 extend BaseMessage {
@@ -29,7 +30,8 @@ message NestLevel2 {
 }
 
 message AllowUnknownInner {
-  extensions 2000 to max;
+  extensions 2000 to max
+  [verification = UNVERIFIED];
 }
 
 message AllowUnknownOuter {
