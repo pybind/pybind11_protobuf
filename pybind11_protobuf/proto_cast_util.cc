@@ -9,27 +9,33 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/dynamic_message.h"
-#include "google/protobuf/message.h"
-#include "python/google/protobuf/proto_api.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/strings/numbers.h"
+#include "absl/log/check.h"
+#include "absl/log/log.h"
+#include "absl/memory/memory.h"
 #include "absl/strings/str_replace.h"
-#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/descriptor_database.h"
+#include "google/protobuf/dynamic_message.h"
+#include "python/google/protobuf/proto_api.h"
 #include "pybind11_protobuf/check_unknown_fields.h"
+
+#if defined(GOOGLE_PROTOBUF_VERSION)
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_split.h"
+#endif
 
 namespace py = pybind11;
 
 using ::google::protobuf::Descriptor;
 using ::google::protobuf::DescriptorDatabase;
 using ::google::protobuf::DescriptorPool;
-using ::google::protobuf::DescriptorProto;
 using ::google::protobuf::DynamicMessageFactory;
 using ::google::protobuf::FileDescriptor;
 using ::google::protobuf::FileDescriptorProto;
@@ -534,10 +540,8 @@ class PythonDescriptorPoolWrapper {
         }
       }
 
-      py::object wire = py_file_descriptor.attr("serialized_pb");
-      const char* bytes = PYBIND11_BYTES_AS_STRING(wire.ptr());
-      return output->ParsePartialFromArray(bytes,
-                                           PYBIND11_BYTES_SIZE(wire.ptr()));
+      return output->ParsePartialFromString(
+          PyBytesAsStringView(py_file_descriptor.attr("serialized_pb")));
     }
 
     py::object pool_;  // never dereferenced.
@@ -548,6 +552,11 @@ class PythonDescriptorPoolWrapper {
 };
 
 }  // namespace
+
+absl::string_view PyBytesAsStringView(py::bytes py_bytes) {
+  return absl::string_view(PyBytes_AsString(py_bytes.ptr()),
+                           PyBytes_Size(py_bytes.ptr()));
+}
 
 void InitializePybindProtoCastUtil() {
   assert(PyGILState_Check());
@@ -593,7 +602,7 @@ const Message* PyProtoGetCppMessagePointer(py::handle src) {
 #endif
 }
 
-absl::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
+absl::optional<std::string> PyProtoDescriptorFullName(py::handle py_proto) {
   assert(PyGILState_Check());
   auto py_full_name = ResolveAttrs(py_proto, {"DESCRIPTOR", "full_name"});
   if (py_full_name) {
@@ -602,66 +611,42 @@ absl::optional<std::string> PyProtoDescriptorName(py::handle py_proto) {
   return absl::nullopt;
 }
 
-bool PyProtoIsCompatible(py::handle py_proto, const Descriptor* descriptor) {
-  assert(PyGILState_Check());
-  if (descriptor->file()->pool() != DescriptorPool::generated_pool()) {
-    /// This indicates that the C++ descriptor does not come from the C++
-    /// DescriptorPool. This may happen if the C++ code has the same proto
-    /// in different descriptor pools, perhaps from different shared objects,
-    /// and could be result in undefined behavior.
-    return false;
-  }
-
-  auto py_descriptor = ResolveAttrs(py_proto, {"DESCRIPTOR"});
-  if (!py_descriptor) {
-    // Not a valid protobuf -- missing DESCRIPTOR.
-    return false;
-  }
-
-  // Test full_name equivalence.
-  {
-    auto py_full_name = ResolveAttrs(*py_descriptor, {"full_name"});
-    if (!py_full_name) {
-      // Not a valid protobuf -- missing DESCRIPTOR.full_name
-      return false;
-    }
-    auto full_name = CastToOptionalString(*py_full_name);
-    if (!full_name || *full_name != descriptor->full_name()) {
-      // Name mismatch.
-      return false;
-    }
-  }
-
-  // The C++ descriptor is compiled in (see above assert), so the py_proto
-  // is expected to be from the global pool, i.e. the DESCRIPTOR.file.pool
-  // instance is the global python pool, and not a custom pool.
-  auto py_pool = ResolveAttrs(*py_descriptor, {"file", "pool"});
-  if (py_pool) {
-    return py_pool->is(GlobalState::instance()->global_pool());
-  }
-
-  // The py_proto is missing a DESCRIPTOR.file.pool, but the name matches.
-  // This will not happen with a native python implementation, but does
-  // occur with the deprecated :proto_casters, and could happen with other
-  // mocks.  Returning true allows the caster to call PyProtoCopyToCProto.
-  return true;
+bool PyProtoHasMatchingFullName(py::handle py_proto,
+                                const Descriptor* descriptor) {
+  auto full_name = PyProtoDescriptorFullName(py_proto);
+  return full_name && *full_name == descriptor->full_name();
 }
 
-bool PyProtoCopyToCProto(py::handle py_proto, Message* message) {
-  assert(PyGILState_Check());
-  auto serialize_fn = ResolveAttrMRO(py_proto, "SerializePartialToString");
+py::bytes PyProtoSerializePartialToString(py::handle py_proto,
+                                          bool raise_if_error) {
+  static const char* serialize_fn_name = "SerializePartialToString";
+  auto serialize_fn = ResolveAttrMRO(py_proto, serialize_fn_name);
   if (!serialize_fn) {
-    throw py::type_error(
-        "SerializePartialToString method not found; is this a " +
-        message->GetDescriptor()->full_name());
+    return py::object();
   }
-  auto wire = (*serialize_fn)();
-  const char* bytes = PYBIND11_BYTES_AS_STRING(wire.ptr());
-  if (!bytes) {
-    throw py::type_error("SerializePartialToString failed; is this a " +
-                         message->GetDescriptor()->full_name());
+  auto serialized_bytes = py::reinterpret_steal<py::object>(
+      PyObject_CallObject(serialize_fn->ptr(), nullptr));
+  if (!serialized_bytes) {
+    if (raise_if_error) {
+      std::string msg = py::repr(py_proto).cast<std::string>() + "." +
+                        serialize_fn_name + "() function call FAILED";
+      py::raise_from(PyExc_TypeError, msg.c_str());
+      throw py::error_already_set();
+    }
+    return py::object();
   }
-  return message->ParsePartialFromArray(bytes, PYBIND11_BYTES_SIZE(wire.ptr()));
+  if (!PyBytes_Check(serialized_bytes.ptr())) {
+    if (raise_if_error) {
+      std::string msg = py::repr(py_proto).cast<std::string>() + "." +
+                        serialize_fn_name +
+                        "() function call is expected to return bytes, but the "
+                        "returned value is " +
+                        py::repr(serialized_bytes).cast<std::string>();
+      throw py::type_error(msg);
+    }
+    return py::object();
+  }
+  return serialized_bytes;
 }
 
 void CProtoCopyToPyProto(Message* message, py::handle py_proto) {
@@ -686,7 +671,8 @@ std::unique_ptr<Message> AllocateCProtoFromPythonSymbolDatabase(
   assert(PyGILState_Check());
   auto pool = ResolveAttrs(src, {"DESCRIPTOR", "file", "pool"});
   if (!pool) {
-    throw py::type_error("Object is not a valid protobuf");
+    throw py::type_error(py::repr(src).cast<std::string>() +
+                         " object is not a valid protobuf");
   }
 
   auto pool_data =
@@ -833,18 +819,24 @@ py::handle GenericProtoCast(Message* src, py::return_value_policy policy,
   // 1. The binary does not have a py_proto_api instance, or
   // 2. a) the proto is from the default pool and
   //    b) the binary is not using fast_cpp_protos.
-  if ((GlobalState::instance()->py_proto_api() == nullptr) ||
+  if (GlobalState::instance()->py_proto_api() == nullptr ||
       (src->GetDescriptor()->file()->pool() ==
            DescriptorPool::generated_pool() &&
        !GlobalState::instance()->using_fast_cpp())) {
     return GenericPyProtoCast(src, policy, parent, is_const);
   }
 
-  std::optional<std::string> emsg =
-      check_unknown_fields::CheckAndBuildErrorMessageIfAny(
-          GlobalState::instance()->py_proto_api(), src);
-  if (emsg) {
-    throw py::value_error(*emsg);
+  std::optional<std::string> unknown_field_message =
+      check_unknown_fields::CheckRecursively(
+          GlobalState::instance()->py_proto_api(), src,
+          check_unknown_fields::ExtensionsWithUnknownFieldsPolicy::
+              UnknownFieldsAreDisallowed());
+  if (unknown_field_message) {
+    if (!unknown_field_message->empty()) {
+      throw py::value_error(*unknown_field_message);
+    }
+    // Fall back to serialize/parse.
+    return GenericPyProtoCast(src, policy, parent, is_const);
   }
 
   // If this is a dynamically generated proto, then we're going to need to

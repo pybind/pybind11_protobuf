@@ -170,6 +170,34 @@ class PassByTest(parameterized.TestCase):
   def test_overload_fn(self, message_fn, expected):
     self.assertEqual(expected, m.fn_overload(message_fn()))
 
+  def test_bad_serialize_partial_function_calls(self):
+    class FakeDescr:
+      full_name = 'fake_full_name'
+
+    class FakeProto:
+      DESCRIPTOR = FakeDescr()
+
+      def __init__(self, serialize_fn_return_value=None):
+        self.serialize_fn_return_value = serialize_fn_return_value
+
+      def SerializePartialToString(self):  # pylint: disable=invalid-name
+        if self.serialize_fn_return_value is None:
+          raise RuntimeError('Broken serialize_fn.')
+        return self.serialize_fn_return_value
+
+    with self.assertRaisesRegex(
+        TypeError, r'\.SerializePartialToString\(\) function call FAILED$'
+    ):
+      m.fn_overload(FakeProto())
+    with self.assertRaisesRegex(
+        TypeError,
+        r'\.SerializePartialToString\(\) function call is expected to return'
+        r' bytes, but the returned value is \[\]$',
+    ):
+      m.fn_overload(FakeProto([]))
+    with self.assertRaisesRegex(TypeError, r' object is not a valid protobuf$'):
+      m.fn_overload(FakeProto(b''))
+
 
 if __name__ == '__main__':
   absltest.main()

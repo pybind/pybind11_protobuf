@@ -14,6 +14,7 @@
 
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 
 // PYBIND11_PROTOBUF_ASSUME_FULL_ABI_COMPATIBILITY can be defined by users
@@ -28,6 +29,10 @@
 
 namespace pybind11_protobuf {
 
+// Simple helper. Caller has to ensure that the py_bytes argument outlives the
+// returned string_view.
+absl::string_view PyBytesAsStringView(pybind11::bytes py_bytes);
+
 // Initialize internal proto cast dependencies, which includes importing
 // various protobuf-related modules.
 void InitializePybindProtoCastUtil();
@@ -39,14 +44,16 @@ void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor *);
 const ::google::protobuf::Message *PyProtoGetCppMessagePointer(pybind11::handle src);
 
 // Returns the protocol buffer's py_proto.DESCRIPTOR.full_name attribute.
-absl::optional<std::string> PyProtoDescriptorName(pybind11::handle py_proto);
+absl::optional<std::string> PyProtoDescriptorFullName(
+    pybind11::handle py_proto);
 
-// Return whether py_proto is compatible with the C++ descriptor.
-// The py_proto name must match the C++ Descriptor::full_name(), and is
-// expected to originate from the python default pool, which means that
-// this method will return false for dynamic protos.
-bool PyProtoIsCompatible(pybind11::handle py_proto,
-                         const ::google::protobuf::Descriptor *descriptor);
+// Returns true if py_proto full name matches descriptor full name.
+bool PyProtoHasMatchingFullName(pybind11::handle py_proto,
+                                const ::google::protobuf::Descriptor *descriptor);
+
+// Caller should enforce any type identity that is required.
+pybind11::bytes PyProtoSerializePartialToString(pybind11::handle py_proto,
+                                                bool raise_if_error);
 
 // Allocates a C++ protocol buffer for a given name.
 std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(
@@ -54,7 +61,6 @@ std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatab
 
 // Serialize the py_proto and deserialize it into the provided message.
 // Caller should enforce any type identity that is required.
-bool PyProtoCopyToCProto(pybind11::handle py_proto, ::google::protobuf::Message *message);
 void CProtoCopyToPyProto(::google::protobuf::Message *message, pybind11::handle py_proto);
 
 // Returns a handle to a python protobuf suitably
