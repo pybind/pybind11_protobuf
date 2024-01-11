@@ -41,7 +41,7 @@ set(_pybind11_repository "https://github.com/pybind/pybind11.git")
 set(_pybind11_version 2.11.1)
 set(_pybind11_tag v2.11.1)
 
-add_subdirectory(cmake/dependencies dependencies)
+#add_subdirectory(cmake/dependencies dependencies)
 
 # ============================================================================
 # pybind11_proto_utils pybind11 extension module
@@ -62,7 +62,7 @@ target_include_directories(
 # We need to make it static to avoid an "undefined symbol" error when running the python code.
 # There should be a solution which allows us to use a shared library, but it is not clear what is missing.
 add_library(
-  pybind11_native_proto_caster
+  pybind11_native_proto_caster STATIC
   # bazel: pybind_library: native_proto_caster
   pybind11_protobuf/native_proto_caster.h
   # bazel: pybind_library: enum_type_caster
