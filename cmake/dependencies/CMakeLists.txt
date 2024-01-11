@@ -12,20 +12,6 @@ if(NOT absl_FOUND)
     GIT_TAG ${_absl_tag})
 endif()
 
-# https://stackoverflow.com/questions/63309544/cmake-protobuf-external-to-application-code
-# https://cmake.org/cmake/help/latest/policy/CMP0077.html
-# https://gitlab.kitware.com/cmake/cmake/-/merge_requests/7565/diffs
-if(NOT Protobuf_FOUND)
-  set(protobuf_BUILD_TESTS
-      OFF
-      CACHE INTERNAL "")
-  FetchContent_Declare(
-    Protobuf
-    GIT_REPOSITORY ${_protobuf_repository}
-    GIT_TAG ${_protobuf_tag}
-    GIT_SUBMODULES "")
-endif()
-
 if(NOT pybind11_FOUND)
   set(PYBIND11_TEST OFF)
   FetchContent_Declare(
@@ -41,14 +27,6 @@ if(NOT absl_FOUND)
   message(CHECK_START "Fetching Abseil-cpp")
   list(APPEND CMAKE_MESSAGE_INDENT "  ")
   FetchContent_MakeAvailable(absl)
-  list(POP_BACK CMAKE_MESSAGE_INDENT)
-  message(CHECK_PASS "fetched")
-endif()
-
-if(NOT Protobuf_FOUND)
-  message(CHECK_START "Fetching Protobuf")
-  list(APPEND CMAKE_MESSAGE_INDENT "  ")
-  FetchContent_MakeAvailable(Protobuf)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
   message(CHECK_PASS "fetched")
 endif()
