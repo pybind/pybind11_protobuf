@@ -32,15 +32,19 @@ find_package(Python COMPONENTS Interpreter Development)
 set(_absl_repository "https://github.com/abseil/abseil-cpp.git")
 set(_absl_version 20230802)
 set(_absl_tag 20230802.1)
-
-# We use the protobuf version that is installed via debian package available with the chosen ubuntu version.
-find_package(Protobuf ${_protobuf_version} QUIET)
+find_package(absl ${_absl_version} REQUIRED)
 
 # We use the latest version of pybind11. It is not available as debian package.
 set(_pybind11_repository "https://github.com/pybind/pybind11.git")
 set(_pybind11_version 2.11.1)
 set(_pybind11_tag v2.11.1)
+find_package(pybind11 ${_pybind11_version} REQUIRED)
 
+# We use the protobuf version that is installed via debian package available with the chosen ubuntu version.
+set(_protobuf_version 3.6.1)
+find_package(Protobuf ${_protobuf_version} QUIET)
+
+#Use compiled debians rather than subdirs
 #add_subdirectory(cmake/dependencies dependencies)
 
 # ============================================================================
