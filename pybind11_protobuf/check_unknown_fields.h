@@ -47,7 +47,7 @@ void AllowUnknownFieldsFor(absl::string_view top_message_descriptor_full_name,
 
 std::optional<std::string> CheckRecursively(
     const ::google::protobuf::python::PyProto_API* py_proto_api,
-    const ::google::protobuf::Message* top_message, bool build_error_message_if_any);
+    const ::google::protobuf::Message* top_message);
 
 }  // namespace pybind11_protobuf::check_unknown_fields
 

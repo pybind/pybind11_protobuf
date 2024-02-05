@@ -161,6 +161,16 @@ pybind_extension(
     ],
 )
 
+EXTENSION_TEST_DEPS_COMMON = [
+    ":extension_in_other_file_in_deps_py_pb2",
+    ":extension_in_other_file_py_pb2",
+    ":extension_nest_repeated_py_pb2",
+    ":extension_py_pb2",
+    ":test_py_pb2",  # fixdeps: keep - Direct dependency needed in open-source version, see https://github.com/grpc/grpc/issues/22811
+    "@com_google_absl_py//absl/testing:absltest",
+    "@com_google_absl_py//absl/testing:parameterized",
+]
+
 py_test(
     name = "extension_test",
     srcs = ["extension_test.py"],
@@ -170,14 +180,20 @@ py_test(
     ],
     python_version = "PY3",
     srcs_version = "PY3",
-    deps = [
-        ":extension_in_other_file_in_deps_py_pb2",
-        ":extension_in_other_file_py_pb2",
-        ":extension_nest_repeated_py_pb2",
-        ":extension_py_pb2",
-        ":test_py_pb2",  # fixdeps: keep - Direct dependency needed in open-source version, see https://github.com/grpc/grpc/issues/22811
-        "@com_google_absl_py//absl/testing:absltest",
-        "@com_google_absl_py//absl/testing:parameterized",
+    deps = EXTENSION_TEST_DEPS_COMMON + ["@com_google_protobuf//:protobuf_python"],
+)
+
+py_test(
+    name = "extension_disallow_unknown_fields_test",
+    srcs = ["extension_test.py"],
+    data = [
+        ":extension_module.so",
+        ":proto_enum_module.so",
+    ],
+    main = "extension_test.py",
+    python_version = "PY3",
+    srcs_version = "PY3",
+    deps = EXTENSION_TEST_DEPS_COMMON + [
         "@com_google_protobuf//:protobuf_python",
     ],
 )
