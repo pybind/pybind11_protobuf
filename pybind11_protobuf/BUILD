@@ -1,7 +1,15 @@
 # Pybind11 bindings for Google's Protocol Buffers
 
+load("//tools/build_defs/license:license.bzl", "license")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+
+package(default_applicable_licenses = ["//pybind11_protobuf:license"])
+
+license(
+    name = "license",
+    package_name = "pybind11_protobuf",
+)
 
 licenses(["notice"])
 
