@@ -15,6 +15,18 @@ load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
 bazel_skylib_workspace()
 
+## `rules_python` (PINNED)
+# https://github.com/bazelbuild/rules_python
+http_archive(
+    name = "rules_python",
+    sha256 = "3b8b4cdc991bc9def8833d118e4c850f1b7498b3d65d5698eea92c3528b8cf2c",
+    strip_prefix = "rules_python-0.30.0",
+    url = "https://github.com/bazelbuild/rules_python/releases/download/0.30.0/rules_python-0.30.0.tar.gz",
+)
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+
+py_repositories()
 
 http_archive(
     name = "com_google_absl",
@@ -35,25 +47,22 @@ http_archive(
     ],
 )
 
-## `pybind11_bazel` (PINNED)
+## `pybind11_bazel` (FLOATING)
 # https://github.com/pybind/pybind11_bazel
 http_archive(
   name = "pybind11_bazel",
-  strip_prefix = "pybind11_bazel-23926b00e2b2eb2fc46b17e587cf0c0cfd2f2c4b",
-  sha256 = "f58c0d5bfd125b08075224c319a02a901c3bce11ff2cf8310c024d40f4af823e",
-  urls = ["https://github.com/pybind/pybind11_bazel/archive/23926b00e2b2eb2fc46b17e587cf0c0cfd2f2c4b.tar.gz"],
+  strip_prefix = "pybind11_bazel-master",
+  urls = ["https://github.com/pybind/pybind11_bazel/archive/refs/heads/master.tar.gz"],
 )
 
 ## `pybind11` (FLOATING)
+# https://github.com/pybind/pybind11
 http_archive(
   name = "pybind11",
   build_file = "@pybind11_bazel//:pybind11.BUILD",
   strip_prefix = "pybind11-master",
   urls = ["https://github.com/pybind/pybind11/archive/refs/heads/master.tar.gz"],
 )
-
-load("@pybind11_bazel//:python_configure.bzl", "python_configure")
-python_configure(name = "local_config_python", python_version = "3")
 
 # proto_library, cc_proto_library, and java_proto_library rules implicitly
 # depend on @com_google_protobuf for protoc and proto runtimes.
@@ -83,5 +92,5 @@ grpc_deps()
 
 bind(
     name = "python_headers",
-    actual = "@local_config_python//:python_headers",
+    actual = "@rules_python//python/cc:current_py_cc_headers",
 )
