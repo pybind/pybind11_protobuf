@@ -183,7 +183,7 @@ void AllowUnknownFieldsFor(absl::string_view top_message_descriptor_full_name,
 
 std::optional<std::string> CheckRecursively(
     const ::google::protobuf::python::PyProto_API* py_proto_api,
-    const ::google::protobuf::Message* message, bool build_error_message_if_any) {
+    const ::google::protobuf::Message* message) {
   const auto* root_descriptor = message->GetDescriptor();
   HasUnknownFields search{py_proto_api, root_descriptor};
   if (!search.FindUnknownFieldsRecursive(message, 0u)) {
@@ -192,9 +192,6 @@ std::optional<std::string> CheckRecursively(
   if (GetAllowList()->count(MakeAllowListKey(root_descriptor->full_name(),
                                              search.FieldFQN())) != 0) {
     return std::nullopt;
-  }
-  if (!build_error_message_if_any) {
-    return "";  // This indicates that an unknown field was found.
   }
   return search.BuildErrorMessage();
 }

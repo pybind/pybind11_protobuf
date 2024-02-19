@@ -9,6 +9,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -828,14 +829,18 @@ py::handle GenericProtoCast(Message* src, py::return_value_policy policy,
 
   std::optional<std::string> unknown_field_message =
       check_unknown_fields::CheckRecursively(
-          GlobalState::instance()->py_proto_api(), src,
-          check_unknown_fields::ExtensionsWithUnknownFieldsPolicy::
-              UnknownFieldsAreDisallowed());
+          GlobalState::instance()->py_proto_api(), src);
   if (unknown_field_message) {
-    if (!unknown_field_message->empty()) {
+    if (check_unknown_fields::ExtensionsWithUnknownFieldsPolicy::
+            UnknownFieldsAreDisallowed()) {
       throw py::value_error(*unknown_field_message);
     }
-    // Fall back to serialize/parse.
+    // Emit one LOG(WARNING) per unique unknown_field_message:
+    static auto fall_back_log_shown = new std::unordered_set<std::string>();
+    if (fall_back_log_shown->insert(*unknown_field_message).second) {
+      LOG(WARNING) << "FALL BACK TO PROTOBUF SERIALIZE/PARSE: "
+                   << *unknown_field_message;
+    }
     return GenericPyProtoCast(src, policy, parent, is_const);
   }
 

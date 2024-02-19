@@ -20,6 +20,13 @@ from pybind11_protobuf.tests import extension_nest_repeated_pb2
 from pybind11_protobuf.tests import extension_pb2
 
 
+def unknown_field_exception_is_expected():
+  return (
+      api_implementation.Type() == 'cpp'
+      and m.extensions_with_unknown_fields_are_disallowed()
+  )
+
+
 def get_py_message(value=5,
                    in_other_file_in_deps_value=None,
                    in_other_file_value=None):
@@ -103,7 +110,7 @@ class ExtensionTest(parameterized.TestCase):
 
   def test_reserialize_base_message(self):
     a = get_py_message(in_other_file_value=63)
-    if api_implementation.Type() == 'cpp':
+    if unknown_field_exception_is_expected():
       with self.assertRaises(ValueError) as ctx:
         m.reserialize_base_message(a)
       self.assertStartsWith(
@@ -127,7 +134,7 @@ class ExtensionTest(parameterized.TestCase):
     a = extension_pb2.NestLevel2(
         nest_lvl1=extension_pb2.NestLevel1(
             base_msg=get_py_message(in_other_file_value=52)))
-    if api_implementation.Type() == 'cpp':
+    if unknown_field_exception_is_expected():
       with self.assertRaises(ValueError) as ctx:
         m.reserialize_nest_level2(a)
       self.assertStartsWith(
@@ -154,7 +161,7 @@ class ExtensionTest(parameterized.TestCase):
         get_py_message(in_other_file_value=74),
         get_py_message(in_other_file_value=85)
     ])
-    if api_implementation.Type() == 'cpp':
+    if unknown_field_exception_is_expected():
       with self.assertRaises(ValueError) as ctx:
         m.reserialize_nest_repeated(a)
       self.assertStartsWith(

@@ -87,9 +87,6 @@ cc_library(
     name = "check_unknown_fields",
     srcs = ["check_unknown_fields.cc"],
     hdrs = ["check_unknown_fields.h"],
-    visibility = [
-        "//visibility:private",
-    ],
     deps = [
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
