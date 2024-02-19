@@ -1,11 +1,10 @@
-# Tests and examples for the pybind11_protobuf package.
-
-load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
-
 # Placeholder: load py_proto_library
 # Placeholder: load py_library
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 # [internal] load cc_proto_library.bzl
+
+# Tests and examples for the pybind11_protobuf package.
+load("@rules_python//python:proto.bzl", "py_proto_library")
 
 licenses(["notice"])
 

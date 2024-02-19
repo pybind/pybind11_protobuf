@@ -1,7 +1,7 @@
 # Pybind11 bindings for Google's Protocol Buffers
 
-load("@pybind11_bazel//:build_defs.bzl", "pybind_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@pybind11_bazel//:build_defs.bzl", "pybind_library")
 
 licenses(["notice"])
 
@@ -33,8 +33,8 @@ pybind_library(
 # To enable PyProto_API use, specify:
 # bazel build --@//:enable_pyproto_api
 bool_flag(
-  name = "enable_pyproto_api",
-  build_setting_default = False,
+    name = "enable_pyproto_api",
+    build_setting_default = False,
 )
 
 config_setting(
