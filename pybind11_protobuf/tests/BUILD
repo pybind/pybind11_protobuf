@@ -6,6 +6,7 @@ load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 # Placeholder: load py_library
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 # [internal] load cc_proto_library.bzl
+load("@pypi//:requirements.bzl", "requirement")
 
 licenses(["notice"])
 
@@ -118,6 +119,7 @@ py_test(
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_protobuf//:protobuf_python",
+        requirement("absl_py"),
     ],
 )
 
@@ -141,9 +143,10 @@ py_test(
     deps = [
         ":compare",
         ":test_py_pb2",
+        "@com_google_protobuf//:protobuf_python",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
-        "@com_google_protobuf//:protobuf_python",
+        requirement("absl_py"),
     ],
 )
 
@@ -221,9 +224,10 @@ py_test(
     deps = [
         ":compare",
         ":test_py_pb2",
+        "@com_google_protobuf//:protobuf_python",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
-        "@com_google_protobuf//:protobuf_python",
+        requirement("absl_py"),
     ],
 )
 
@@ -245,9 +249,10 @@ py_test(
     srcs_version = "PY3",
     deps = [
         ":test_py_pb2",
+        "@com_google_protobuf//:protobuf_python",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
-        "@com_google_protobuf//:protobuf_python",
+        requirement("absl_py"),
     ],
 )
 
@@ -287,6 +292,7 @@ py_test(
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
         "@com_google_protobuf//:protobuf_python",
+        requirement("absl_py"),
     ],
 )
 
@@ -312,6 +318,7 @@ py_test(
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
         "@com_google_protobuf//:protobuf_python",
+        requirement("absl_py"),
     ],
 )
 
@@ -329,8 +336,9 @@ py_test(
     srcs = ["regression_wrappers_test.py"],
     data = [":regression_wrappers_module.so"],
     deps = [
+        "@com_google_protobuf//:protobuf_python",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
-        "@com_google_protobuf//:protobuf_python",
+        requirement("absl_py"),
     ],
 )
