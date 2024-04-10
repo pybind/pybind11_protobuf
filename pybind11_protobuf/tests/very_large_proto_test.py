@@ -5,8 +5,8 @@
 
 from absl.testing import absltest
 
+from pybind11_protobuf.tests import pass_proto2_message_module
 from pybind11_protobuf.tests import test_pb2
-from pybind11_protobuf.tests import very_large_proto_module as m
 
 
 class MessageTest(absltest.TestCase):
@@ -18,7 +18,9 @@ class MessageTest(absltest.TestCase):
     kb = 1024
     msg_size = 2 * kb**3 + kb  # A little over 2 GB.
     msg = test_pb2.TestMessage(string_value='x' * msg_size)
-    space_used_estimate = m.get_space_used_estimate(msg)
+    space_used_estimate = pass_proto2_message_module.get_space_used_estimate(
+        msg
+    )
     self.assertGreater(space_used_estimate, msg_size)
 
 

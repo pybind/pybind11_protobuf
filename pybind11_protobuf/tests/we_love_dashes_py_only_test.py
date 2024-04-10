@@ -5,7 +5,7 @@
 
 from absl.testing import absltest
 
-from pybind11_protobuf.tests import very_large_proto_module
+from pybind11_protobuf.tests import pass_proto2_message_module
 from pybind11_protobuf.tests import we_love_dashes_pb2
 
 
@@ -13,7 +13,9 @@ class MessageTest(absltest.TestCase):
 
   def test_pass_proto2_message(self):
     msg = we_love_dashes_pb2.TokenEffort(score=345)
-    space_used_estimate = very_large_proto_module.get_space_used_estimate(msg)
+    space_used_estimate = pass_proto2_message_module.get_space_used_estimate(
+        msg
+    )
     self.assertGreater(space_used_estimate, 0)
 
 

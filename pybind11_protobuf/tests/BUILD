@@ -273,8 +273,8 @@ py_test(
 
 # Externally this is currently only built but not used.
 pybind_extension(
-    name = "very_large_proto_module",
-    srcs = ["very_large_proto_module.cc"],
+    name = "pass_proto2_message_module",
+    srcs = ["pass_proto2_message_module.cc"],
     deps = [
         "//pybind11_protobuf:native_proto_caster",
         "@com_google_protobuf//:protobuf",
@@ -394,7 +394,7 @@ py_test(
     name = "we_love_dashes_py_only_test",
     srcs = ["we_love_dashes_py_only_test.py"],
     deps = [
-        ":very_large_proto_module",
+        ":pass_proto2_message_module",
         ":we-love-dashes_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_protobuf//:protobuf_python",
