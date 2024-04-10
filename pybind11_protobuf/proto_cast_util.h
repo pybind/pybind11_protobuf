@@ -29,6 +29,21 @@
 
 namespace pybind11_protobuf {
 
+// Strips ".proto" or ".protodevel" from the end of a filename.
+// Similar to
+// https://github.com/protocolbuffers/protobuf/blob/b375d010bf57a6d673125330ec47f6e6a7e03f5c/src/google/protobuf/compiler/code_generator.cc#L129-L136
+// which is not public, unfortunately. Providing a public function here until
+// that situation changes.
+std::string StripProtoSuffixFromDescriptorFileName(absl::string_view filename);
+
+// Returns the Python module name expected for a given .proto filename.
+// Similar to
+// https://github.com/protocolbuffers/protobuf/blob/b375d010bf57a6d673125330ec47f6e6a7e03f5c/src/google/protobuf/compiler/python/helpers.cc#L31-L35
+// which is not public, unfortunately. Providing a public function here until
+// that situation changes.
+std::string InferPythonModuleNameFromDescriptorFileName(
+    absl::string_view filename);
+
 // Simple helper. Caller has to ensure that the py_bytes argument outlives the
 // returned string_view.
 absl::string_view PyBytesAsStringView(pybind11::bytes py_bytes);

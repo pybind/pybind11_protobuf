@@ -18,8 +18,11 @@
 #include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "absl/memory/memory.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
 #include "absl/types/optional.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor_database.h"
@@ -46,15 +49,23 @@ using ::google::protobuf::python::PyProto_API;
 using ::google::protobuf::python::PyProtoAPICapsuleName;
 
 namespace pybind11_protobuf {
-namespace {
 
-std::string PythonPackageForDescriptor(const FileDescriptor* file) {
-  std::vector<std::pair<const absl::string_view, std::string>> replacements;
-  replacements.emplace_back("/", ".");
-  replacements.emplace_back(".proto", "_pb2");
-  std::string name = file->name();
-  return absl::StrReplaceAll(name, replacements);
+std::string StripProtoSuffixFromDescriptorFileName(absl::string_view filename) {
+  if (absl::EndsWith(filename, ".protodevel")) {
+    return std::string(absl::StripSuffix(filename, ".protodevel"));
+  } else {
+    return std::string(absl::StripSuffix(filename, ".proto"));
+  }
 }
+
+std::string InferPythonModuleNameFromDescriptorFileName(
+    absl::string_view filename) {
+  std::string basename = StripProtoSuffixFromDescriptorFileName(filename);
+  absl::StrReplaceAll({{"-", "_"}, {"/", "."}}, &basename);
+  return absl::StrCat(basename, "_pb2");
+}
+
+namespace {
 
 // Resolves the class name of a descriptor via d->containing_type()
 py::object ResolveDescriptor(py::object p, const Descriptor* d) {
@@ -299,7 +310,8 @@ py::module_ GlobalState::ImportCached(const std::string& module_name) {
 }
 
 py::object GlobalState::PyMessageInstance(const Descriptor* descriptor) {
-  auto module_name = PythonPackageForDescriptor(descriptor->file());
+  auto module_name =
+      InferPythonModuleNameFromDescriptorFileName(descriptor->file()->name());
   if (!module_name.empty()) {
     auto cached = import_cache_.find(module_name);
     if (cached != import_cache_.end()) {
@@ -567,7 +579,8 @@ void InitializePybindProtoCastUtil() {
 void ImportProtoDescriptorModule(const Descriptor* descriptor) {
   assert(PyGILState_Check());
   if (!descriptor) return;
-  auto module_name = PythonPackageForDescriptor(descriptor->file());
+  auto module_name =
+      InferPythonModuleNameFromDescriptorFileName(descriptor->file()->name());
   if (module_name.empty()) return;
   try {
     GlobalState::instance()->ImportCached(module_name);

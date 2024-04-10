@@ -98,6 +98,21 @@ py_proto_library(
     deps = [":extension_in_other_file_proto"],
 )
 
+proto_library(
+    name = "we-love-dashes_proto",
+    srcs = ["we-love-dashes.proto"],
+)
+
+cc_proto_library(
+    name = "we_love_dashes_cc_proto",
+    deps = [":we-love-dashes_proto"],
+)
+
+py_proto_library(
+    name = "we-love-dashes_py_pb2",
+    deps = [":we-love-dashes_proto"],
+)
+
 # Tests for enum_type_caster
 
 pybind_extension(
@@ -339,6 +354,50 @@ py_test(
         "@com_google_protobuf//:protobuf_python",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_absl_py//absl/testing:parameterized",
+        requirement("absl_py"),
+    ],
+)
+
+pybind_extension(
+    name = "we_love_dashes_module",
+    srcs = ["we_love_dashes_module.cc"],
+    deps = [
+        ":we_love_dashes_cc_proto",
+        "//pybind11_protobuf:native_proto_caster",
+    ],
+)
+
+py_test(
+    name = "we_love_dashes_cc_only_test",
+    srcs = ["we_love_dashes_cc_only_test.py"],
+    deps = [
+        ":we_love_dashes_module",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_protobuf//:protobuf_python",
+        requirement("absl_py"),
+    ],
+)
+
+py_test(
+    name = "we_love_dashes_cc_and_py_in_deps_test",
+    srcs = ["we_love_dashes_cc_and_py_in_deps_test.py"],
+    deps = [
+        ":we_love_dashes_module",
+        ":we-love-dashes_py_pb2",  # fixdeps: keep
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_protobuf//:protobuf_python",
+        requirement("absl_py"),
+    ],
+)
+
+py_test(
+    name = "we_love_dashes_py_only_test",
+    srcs = ["we_love_dashes_py_only_test.py"],
+    deps = [
+        ":very_large_proto_module",
+        ":we-love-dashes_py_pb2",
+        "@com_google_absl_py//absl/testing:absltest",
+        "@com_google_protobuf//:protobuf_python",
         requirement("absl_py"),
     ],
 )

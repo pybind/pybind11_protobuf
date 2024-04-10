@@ -1,0 +1,7 @@
+syntax = "proto2";
+
+package pybind11.test;
+
+message TokenEffort {
+  optional int32 score = 1;
+}
