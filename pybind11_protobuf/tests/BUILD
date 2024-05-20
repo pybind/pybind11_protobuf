@@ -5,6 +5,7 @@ load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 # Placeholder: load py_proto_library
 # Placeholder: load py_library
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
+
 # [internal] load cc_proto_library.bzl
 load("@pypi//:requirements.bzl", "requirement")
 
@@ -359,8 +360,8 @@ py_test(
 )
 
 pybind_extension(
-    name = "we_love_dashes_module",
-    srcs = ["we_love_dashes_module.cc"],
+    name = "we_love_dashes_cc_only_module",
+    srcs = ["we_love_dashes_cc_only_module.cc"],
     deps = [
         ":we_love_dashes_cc_proto",
         "//pybind11_protobuf:native_proto_caster",
@@ -371,7 +372,7 @@ py_test(
     name = "we_love_dashes_cc_only_test",
     srcs = ["we_love_dashes_cc_only_test.py"],
     deps = [
-        ":we_love_dashes_module",
+        ":we_love_dashes_cc_only_module",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_protobuf//:protobuf_python",
         requirement("absl_py"),
@@ -382,8 +383,8 @@ py_test(
     name = "we_love_dashes_cc_and_py_in_deps_test",
     srcs = ["we_love_dashes_cc_and_py_in_deps_test.py"],
     deps = [
-        ":we_love_dashes_module",
-        ":we-love-dashes_py_pb2",  # fixdeps: keep
+        ":we_love_dashes_cc_only_module",
+        ":we-love-dashes_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_protobuf//:protobuf_python",
         requirement("absl_py"),

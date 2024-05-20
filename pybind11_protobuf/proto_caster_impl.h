@@ -315,6 +315,105 @@ struct proto_caster : public proto_caster_load_impl<ProtoType>,
   // clang-format on
 };
 
+// move_only_holder_caster enables using move-only holder types such as
+// std::unique_ptr. It uses type_caster<Proto> to manage the conversion
+// and construct a holder type.
+template <typename MessageType, typename HolderType>
+struct move_only_holder_caster_impl {
+ private:
+  using Base =
+      pybind11::detail::type_caster<pybind11::detail::intrinsic_t<MessageType>>;
+  static constexpr bool const_element =
+      std::is_const<typename HolderType::element_type>::value;
+
+ public:
+  static constexpr auto name = Base::name;
+
+  // C++->Python.
+  static pybind11::handle cast(HolderType &&src, pybind11::return_value_policy,
+                               pybind11::handle p) {
+    auto *ptr = pybind11::detail::holder_helper<HolderType>::get(src);
+    if (!ptr) return pybind11::none().release();
+    return Base::cast(std::move(*ptr), pybind11::return_value_policy::move, p);
+  }
+
+  // Convert Python->C++.
+  bool load(pybind11::handle src, bool convert) {
+    Base base;
+    if (!base.load(src, convert)) {
+      return false;
+    }
+    holder = base.as_unique_ptr();
+    return true;
+  }
+
+  // PYBIND11_TYPE_CASTER
+  explicit operator HolderType *() { return &holder; }
+  explicit operator HolderType &() { return holder; }
+  explicit operator HolderType &&() && { return std::move(holder); }
+
+  template <typename T_>
+  using cast_op_type = pybind11::detail::movable_cast_op_type<T_>;
+
+ protected:
+  HolderType holder;
+};
+
+// copyable_holder_caster enables using copyable holder types such
+// as std::shared_ptr. It uses type_caster<Proto> to manage the
+// conversion and construct a copy of the proto, then returns the
+// shared_ptr.
+//
+// NOTE: When using pybind11 bindings, std::shared_ptr<Proto> is
+// almost never correct, as it always makes a copy. It's mostly
+// useful for handling methods that return a shared_ptr<const T>,
+// which the caller never intends to mutate and where copy semantics
+// will work just as well.
+//
+template <typename MessageType, typename HolderType>
+struct copyable_holder_caster_impl {
+ private:
+  using Base =
+      pybind11::detail::type_caster<pybind11::detail::intrinsic_t<MessageType>>;
+  static constexpr bool const_element =
+      std::is_const<typename HolderType::element_type>::value;
+
+ public:
+  static constexpr auto name = Base::name;
+
+  // C++->Python.
+  static pybind11::handle cast(const HolderType &src,
+                               pybind11::return_value_policy,
+                               pybind11::handle p) {
+    // The default path calls into cast_holder so that the
+    // holder/deleter gets added to the proto. Here we just make a
+    // copy
+    const auto *ptr = pybind11::detail::holder_helper<HolderType>::get(src);
+    if (!ptr) return pybind11::none().release();
+    return Base::cast(*ptr, pybind11::return_value_policy::copy, p);
+  }
+
+  // Convert Python->C++.
+  bool load(pybind11::handle src, bool convert) {
+    Base base;
+    if (!base.load(src, convert)) {
+      return false;
+    }
+    // This always makes a copy, but it could, in some cases, grab a
+    // reference and construct a shared_ptr, since the intention is
+    // clearly to mutate the existing object...
+    holder = base.as_unique_ptr();
+    return true;
+  }
+
+  explicit operator HolderType &() { return holder; }
+
+  template <typename>
+  using cast_op_type = HolderType &;
+
+ protected:
+  HolderType holder;
+};
 }  // namespace pybind11_protobuf
 
 #endif  // PYBIND11_PROTOBUF_PROTO_CASTER_IMPL_H_

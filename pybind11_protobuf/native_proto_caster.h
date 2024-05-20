@@ -109,43 +109,9 @@ struct move_only_holder_caster<
     ProtoType, HolderType,
     std::enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
                       pybind11_protobuf_enable_type_caster(
-                          static_cast<ProtoType *>(nullptr)))>> {
- private:
-  using Base = type_caster<intrinsic_t<ProtoType>>;
-  static constexpr bool const_element =
-      std::is_const<typename HolderType::element_type>::value;
-
- public:
-  static constexpr auto name = Base::name;
-
-  // C++->Python.
-  static handle cast(HolderType &&src, return_value_policy, handle p) {
-    auto *ptr = holder_helper<HolderType>::get(src);
-    if (!ptr) return none().release();
-    return Base::cast(std::move(*ptr), return_value_policy::move, p);
-  }
-
-  // Convert Python->C++.
-  bool load(handle src, bool convert) {
-    Base base;
-    if (!base.load(src, convert)) {
-      return false;
-    }
-    holder = base.as_unique_ptr();
-    return true;
-  }
-
-  // PYBIND11_TYPE_CASTER
-  explicit operator HolderType *() { return &holder; }
-  explicit operator HolderType &() { return holder; }
-  explicit operator HolderType &&() && { return std::move(holder); }
-
-  template <typename T_>
-  using cast_op_type = pybind11::detail::movable_cast_op_type<T_>;
-
- protected:
-  HolderType holder;
-};
+                          static_cast<ProtoType *>(nullptr)))>>
+    : public pybind11_protobuf::move_only_holder_caster_impl<ProtoType,
+                                                             HolderType> {};
 
 // copyable_holder_caster enables using copyable holder types such as
 // std::shared_ptr. It uses type_caster<Proto> to manage the conversion
@@ -161,45 +127,9 @@ struct copyable_holder_caster<
     ProtoType, HolderType,
     std::enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
                       pybind11_protobuf_enable_type_caster(
-                          static_cast<ProtoType *>(nullptr)))>> {
- private:
-  using Base = type_caster<intrinsic_t<ProtoType>>;
-  static constexpr bool const_element =
-      std::is_const<typename HolderType::element_type>::value;
-
- public:
-  static constexpr auto name = Base::name;
-
-  // C++->Python.
-  static handle cast(const HolderType &src, return_value_policy, handle p) {
-    // The default path calls into cast_holder so that the holder/deleter
-    // gets added to the proto. Here we just make a copy
-    const auto *ptr = holder_helper<HolderType>::get(src);
-    if (!ptr) return none().release();
-    return Base::cast(*ptr, return_value_policy::copy, p);
-  }
-
-  // Convert Python->C++.
-  bool load(handle src, bool convert) {
-    Base base;
-    if (!base.load(src, convert)) {
-      return false;
-    }
-    // This always makes a copy, but it could, in some cases, grab a reference
-    // and construct a shared_ptr, since the intention is clearly to mutate
-    // the existing object...
-    holder = base.as_unique_ptr();
-    return true;
-  }
-
-  explicit operator HolderType &() { return holder; }
-
-  template <typename>
-  using cast_op_type = HolderType &;
-
- protected:
-  HolderType holder;
-};
+                          static_cast<ProtoType *>(nullptr)))>>
+    : public pybind11_protobuf::copyable_holder_caster_impl<ProtoType,
+                                                            HolderType> {};
 
 // NOTE: We also need to add support and/or test classes:
 //

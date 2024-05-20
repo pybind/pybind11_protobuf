@@ -10,7 +10,7 @@
 
 namespace {
 
-PYBIND11_MODULE(we_love_dashes_module, m) {
+PYBIND11_MODULE(we_love_dashes_cc_only_module, m) {
   pybind11_protobuf::ImportNativeProtoCasters();
 
   m.def("return_token_effort", [](int score) {
