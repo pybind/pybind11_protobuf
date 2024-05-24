@@ -12,9 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  cmake:
     runs-on: ubuntu-22.04
-    name: ubuntu-build
     steps:
       - name: Show env
         run: env
@@ -46,3 +45,15 @@ jobs:
         shell: bash
         run: |
           cmake --build build -j$(nproc)
+
+  bazel:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: bazel-contrib/setup-bazel@0.8.4
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+      - run: BAZEL_CXXOPTS="-std=c++17" bazel test //...
+      - run: BAZEL_CXXOPTS="-std=c++20" bazel test //...

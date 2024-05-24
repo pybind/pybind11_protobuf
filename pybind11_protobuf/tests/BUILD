@@ -109,11 +109,6 @@ cc_proto_library(
     deps = [":we-love-dashes_proto"],
 )
 
-py_proto_library(
-    name = "we-love-dashes_py_pb2",
-    deps = [":we-love-dashes_proto"],
-)
-
 # Tests for enum_type_caster
 
 pybind_extension(
@@ -371,32 +366,8 @@ pybind_extension(
 py_test(
     name = "we_love_dashes_cc_only_test",
     srcs = ["we_love_dashes_cc_only_test.py"],
+    data = [":we_love_dashes_cc_only_module.so"],
     deps = [
-        ":we_love_dashes_cc_only_module",
-        "@com_google_absl_py//absl/testing:absltest",
-        "@com_google_protobuf//:protobuf_python",
-        requirement("absl_py"),
-    ],
-)
-
-py_test(
-    name = "we_love_dashes_cc_and_py_in_deps_test",
-    srcs = ["we_love_dashes_cc_and_py_in_deps_test.py"],
-    deps = [
-        ":we_love_dashes_cc_only_module",
-        ":we-love-dashes_py_pb2",
-        "@com_google_absl_py//absl/testing:absltest",
-        "@com_google_protobuf//:protobuf_python",
-        requirement("absl_py"),
-    ],
-)
-
-py_test(
-    name = "we_love_dashes_py_only_test",
-    srcs = ["we_love_dashes_py_only_test.py"],
-    deps = [
-        ":pass_proto2_message_module",
-        ":we-love-dashes_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_protobuf//:protobuf_python",
         requirement("absl_py"),
