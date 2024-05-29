@@ -55,7 +55,7 @@ struct proto_caster_load_impl {
     const ::google::protobuf::Message *message =
         pybind11_protobuf::PyProtoGetCppMessagePointer(src);
     if (message) {
-      value = dynamic_cast<const ProtoType *>(message);
+      value = ::google::protobuf::DynamicCastToGenerated<ProtoType>(message);
       if (value) {
         // If the capability were available, then we could probe PyProto_API and
         // allow c++ mutability based on the python reference count.
