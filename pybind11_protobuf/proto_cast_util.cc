@@ -27,7 +27,13 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor_database.h"
 #include "google/protobuf/dynamic_message.h"
+#if defined(PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
 #include "python/google/protobuf/proto_api.h"
+#else
+namespace google::protobuf::python {
+struct PyProto_API;
+}
+#endif
 #include "pybind11_protobuf/check_unknown_fields.h"
 
 #if defined(GOOGLE_PROTOBUF_VERSION)
@@ -46,7 +52,6 @@ using ::google::protobuf::FileDescriptorProto;
 using ::google::protobuf::Message;
 using ::google::protobuf::MessageFactory;
 using ::google::protobuf::python::PyProto_API;
-using ::google::protobuf::python::PyProtoAPICapsuleName;
 
 namespace pybind11_protobuf {
 
@@ -266,6 +271,7 @@ GlobalState::GlobalState() {
   //
   // By default (3) is used, however if the define is set *and* the version
   // matches, then pybind11_protobuf will assume that this will work.
+  using ::google::protobuf::python::PyProtoAPICapsuleName;
   py_proto_api_ =
       static_cast<PyProto_API*>(PyCapsule_Import(PyProtoAPICapsuleName(), 0));
   if (py_proto_api_ == nullptr) {
@@ -355,6 +361,7 @@ py::object GlobalState::PyMessageInstance(const Descriptor* descriptor) {
                        module_name + "?");
 }
 
+#if defined(PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
 std::pair<py::object, Message*> GlobalState::PyFastCppProtoMessageInstance(
     const Descriptor* descriptor) {
   assert(descriptor != nullptr);
@@ -395,6 +402,7 @@ std::pair<py::object, Message*> GlobalState::PyFastCppProtoMessageInstance(
   }
   return {std::move(result), message};
 }
+#endif
 
 // Create C++ DescriptorPools based on Python DescriptorPools.
 // The Python pool will provide message definitions when they are needed.
@@ -534,6 +542,7 @@ class PythonDescriptorPoolWrapper {
    private:
     bool CopyToFileDescriptorProto(py::handle py_file_descriptor,
                                    FileDescriptorProto* output) {
+#if defined(PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
       if (GlobalState::instance()->py_proto_api()) {
         try {
           py::object c_proto = py::reinterpret_steal<py::object>(
@@ -552,6 +561,7 @@ class PythonDescriptorPoolWrapper {
           PyErr_Print();
         }
       }
+#endif
 
       return output->ParsePartialFromString(
           PyBytesAsStringView(py_file_descriptor.attr("serialized_pb")));
@@ -750,6 +760,7 @@ py::handle GenericPyProtoCast(Message* src, py::return_value_policy policy,
   return py_proto.release();
 }
 
+#if defined(PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
 py::handle GenericFastCppProtoCast(Message* src, py::return_value_policy policy,
                                    py::handle parent, bool is_const) {
   assert(policy != pybind11::return_value_policy::automatic);
@@ -823,6 +834,7 @@ py::handle GenericFastCppProtoCast(Message* src, py::return_value_policy policy,
       throw py::cast_error(message + ReturnValuePolicyName(policy));
   }
 }
+#endif
 
 py::handle GenericProtoCast(Message* src, py::return_value_policy policy,
                             py::handle parent, bool is_const) {
@@ -833,6 +845,9 @@ py::handle GenericProtoCast(Message* src, py::return_value_policy policy,
   // 1. The binary does not have a py_proto_api instance, or
   // 2. a) the proto is from the default pool and
   //    b) the binary is not using fast_cpp_protos.
+#if ! defined(PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
+  return GenericPyProtoCast(src, policy, parent, is_const);
+#else
   if (GlobalState::instance()->py_proto_api() == nullptr ||
       (src->GetDescriptor()->file()->pool() ==
            DescriptorPool::generated_pool() &&
@@ -861,6 +876,7 @@ py::handle GenericProtoCast(Message* src, py::return_value_policy policy,
   // construct a mapping between C++ pool() and python pool(), and then
   // use the PyProto_API to make it work.
   return GenericFastCppProtoCast(src, policy, parent, is_const);
+#endif
 }
 
 }  // namespace pybind11_protobuf

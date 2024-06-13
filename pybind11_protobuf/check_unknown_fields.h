@@ -3,9 +3,12 @@
 
 #include <optional>
 
-#include "google/protobuf/message.h"
-#include "python/google/protobuf/proto_api.h"
 #include "absl/strings/string_view.h"
+#include "google/protobuf/message.h"
+
+#if defined(PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
+#include "python/google/protobuf/proto_api.h"
+#endif // PYBIND11_PROTOBUF_ENABLE_PYPROTO_API
 
 namespace pybind11_protobuf::check_unknown_fields {
 
@@ -45,9 +48,11 @@ class ExtensionsWithUnknownFieldsPolicy {
 void AllowUnknownFieldsFor(absl::string_view top_message_descriptor_full_name,
                            absl::string_view unknown_field_parent_message_fqn);
 
+#if defined(PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
 std::optional<std::string> CheckRecursively(
     const ::google::protobuf::python::PyProto_API* py_proto_api,
     const ::google::protobuf::Message* top_message);
+#endif // PYBIND11_PROTOBUF_ENABLE_PYPROTO_API
 
 }  // namespace pybind11_protobuf::check_unknown_fields
 
