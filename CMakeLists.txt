@@ -61,7 +61,7 @@ target_include_directories(
 # ============================================================================
 # pybind11_native_proto_caster shared library
 add_library(
-  pybind11_native_proto_caster SHARED
+  pybind11_native_proto_caster STATIC
   # bazel: pybind_library: native_proto_caster
   pybind11_protobuf/native_proto_caster.h
   # bazel: pybind_library: enum_type_caster
@@ -101,7 +101,7 @@ target_include_directories(
 # ============================================================================
 # pybind11_wrapped_proto_caster shared library
 add_library(
-  pybind11_wrapped_proto_caster SHARED
+  pybind11_wrapped_proto_caster STATIC
   # bazel: pybind_library: wrapped_proto_caster
   pybind11_protobuf/wrapped_proto_caster.h
   # bazel: pybind_library: proto_cast_util
