@@ -16,11 +16,14 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # ============================================================================
 # Options
 
-option(BUILD_TESTS "Build tests." OFF)
 option(ENABLE_PYPROTO_API "Enable usage of proto_api." OFF)
 option(USE_SYSTEM_ABSEIL "Force usage of system provided abseil-cpp" OFF)
 option(USE_SYSTEM_PROTOBUF "Force usage of system provided Protobuf" OFF)
 option(USE_SYSTEM_PYBIND "Force usage of system provided pybind11" OFF)
+
+# ============================================================================
+# Testing
+include(CTest)
 
 # ============================================================================
 # Find Python
@@ -57,13 +60,15 @@ FetchContent_Declare(
   GIT_TAG 20230125.3
   FIND_PACKAGE_ARGS ${_absl_package_args} NAMES absl)
 
+# cmake-format: off
 FetchContent_Declare(
   Protobuf
   GIT_REPOSITORY "https://github.com/protocolbuffers/protobuf.git"
   GIT_TAG v23.3
-  GIT_SUBMODULES "" #
+  GIT_SUBMODULES ""
   FIND_PACKAGE_ARGS ${_protobuf_package_args} NAMES protobuf)
 set(protobuf_BUILD_TESTS OFF CACHE INTERNAL "")
+# cmake-format: on
 
 FetchContent_Declare(
   pybind11
@@ -167,6 +172,10 @@ target_include_directories(
   pybind11_wrapped_proto_caster
   PRIVATE ${PROJECT_SOURCE_DIR} ${protobuf_INCLUDE_DIRS} ${protobuf_SOURCE_DIR}
           ${pybind11_INCLUDE_DIRS})
+
+if(BUILD_TESTING)
+  add_subdirectory(pybind11_protobuf/tests)
+endif()
 
 # bazel equivs. checklist
 #
