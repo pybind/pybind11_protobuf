@@ -17,6 +17,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Options
 
 option(BUILD_TESTS "Build tests." OFF)
+option(ENABLE_PYPROTO_API "Enable usage of proto_api." OFF)
 
 # ============================================================================
 # Find Python
@@ -68,10 +69,18 @@ add_library(
   # bazel: pybind_library: proto_cast_util
   pybind11_protobuf/proto_cast_util.cc
   pybind11_protobuf/proto_cast_util.h
-  pybind11_protobuf/proto_caster_impl.h
+  pybind11_protobuf/proto_caster_impl.h)
+
+target_sources(
   # bazel: cc_library::check_unknown_fields
-  pybind11_protobuf/check_unknown_fields.cc
-  pybind11_protobuf/check_unknown_fields.h)
+  pybind11_native_proto_caster #
+  PRIVATE pybind11_protobuf/check_unknown_fields.cc
+          pybind11_protobuf/check_unknown_fields.h)
+
+if(ENABLE_PYPROTO_API)
+  target_compile_definitions(pybind11_native_proto_caster
+                             PRIVATE PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
+endif()
 
 target_link_libraries(
   pybind11_native_proto_caster
@@ -98,10 +107,18 @@ add_library(
   # bazel: pybind_library: proto_cast_util
   pybind11_protobuf/proto_cast_util.cc
   pybind11_protobuf/proto_cast_util.h
-  pybind11_protobuf/proto_caster_impl.h
-  # bazel: cc_library: check_unknown_fields
-  pybind11_protobuf/check_unknown_fields.cc
-  pybind11_protobuf/check_unknown_fields.h)
+  pybind11_protobuf/proto_caster_impl.h)
+
+target_sources(
+  # bazel: cc_library::check_unknown_fields
+  pybind11_wrapped_proto_caster
+  PRIVATE pybind11_protobuf/check_unknown_fields.cc
+          pybind11_protobuf/check_unknown_fields.h)
+
+if(ENABLE_PYPROTO_API)
+  target_compile_definitions(pybind11_wrapped_proto_caster
+                             PRIVATE PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
+endif()
 
 target_link_libraries(
   pybind11_wrapped_proto_caster
@@ -118,9 +135,6 @@ target_include_directories(
   pybind11_wrapped_proto_caster
   PRIVATE ${PROJECT_SOURCE_DIR} ${protobuf_INCLUDE_DIRS} ${protobuf_SOURCE_DIR}
           ${pybind11_INCLUDE_DIRS})
-
-# TODO set defines PYBIND11_PROTOBUF_ENABLE_PYPROTO_API see: bazel:
-# pybind_library: proto_cast_util
 
 # bazel equivs. checklist
 #
