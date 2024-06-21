@@ -49,8 +49,7 @@ PYBIND11_MODULE(extension_module, m) {
   pybind11_protobuf::ImportNativeProtoCasters();
 
   m.def("extensions_with_unknown_fields_are_disallowed", []() {
-    return pybind11_protobuf::check_unknown_fields::
-        ExtensionsWithUnknownFieldsPolicy::UnknownFieldsAreDisallowed();
+    return false;
   });
 
   m.def("get_base_message", []() -> BaseMessage { return {}; });

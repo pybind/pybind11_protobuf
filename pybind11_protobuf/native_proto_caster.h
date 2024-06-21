@@ -20,7 +20,6 @@
 
 #include "google/protobuf/message.h"
 #include "absl/strings/string_view.h"
-#include "pybind11_protobuf/check_unknown_fields.h"
 #include "pybind11_protobuf/enum_type_caster.h"
 #include "pybind11_protobuf/proto_caster_impl.h"
 
@@ -64,8 +63,6 @@ inline void ImportNativeProtoCasters() { InitializePybindProtoCastUtil(); }
 inline void AllowUnknownFieldsFor(
     absl::string_view top_message_descriptor_full_name,
     absl::string_view unknown_field_parent_message_fqn) {
-  check_unknown_fields::AllowUnknownFieldsFor(top_message_descriptor_full_name,
-                                              unknown_field_parent_message_fqn);
 }
 
 }  // namespace pybind11_protobuf
