@@ -34,7 +34,6 @@ std::string MakeAllowListKey(
   return absl::StrCat(top_message_descriptor_full_name, ":",
                       unknown_field_parent_message_fqn);
 }
-#if defined(PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
 
 /// Recurses through the message Descriptor class looking for valid extensions.
 /// Stores the result to `memoized`.
@@ -174,7 +173,6 @@ std::string HasUnknownFields::BuildErrorMessage() const {
   return emsg;
 }
 
-#endif
 }  // namespace
 
 void AllowUnknownFieldsFor(absl::string_view top_message_descriptor_full_name,
@@ -183,7 +181,6 @@ void AllowUnknownFieldsFor(absl::string_view top_message_descriptor_full_name,
                                           unknown_field_parent_message_fqn));
 }
 
-#if defined(PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
 std::optional<std::string> CheckRecursively(
     const ::google::protobuf::python::PyProto_API* py_proto_api,
     const ::google::protobuf::Message* message) {
@@ -198,6 +195,5 @@ std::optional<std::string> CheckRecursively(
   }
   return search.BuildErrorMessage();
 }
-#endif
 
 }  // namespace pybind11_protobuf::check_unknown_fields
