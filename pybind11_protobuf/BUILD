@@ -1,7 +1,6 @@
 # Pybind11 bindings for Google's Protocol Buffers
 
 load("@pybind11_bazel//:build_defs.bzl", "pybind_library")
-load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 licenses(["notice"])
 
@@ -30,21 +29,6 @@ pybind_library(
     ],
 )
 
-# To enable PyProto_API use, specify:
-# bazel build --@//:enable_pyproto_api
-bool_flag(
-  name = "enable_pyproto_api",
-  build_setting_default = False,
-)
-
-config_setting(
-    name = "enable_pyproto_api_setting",
-    flag_values = {
-        ":enable_pyproto_api": "True",
-    },
-    visibility = ["//visibility:private"],
-)
-
 pybind_library(
     name = "proto_cast_util",
     srcs = ["proto_cast_util.cc"],
@@ -52,10 +36,6 @@ pybind_library(
         "proto_cast_util.h",
         "proto_caster_impl.h",
     ],
-    local_defines = select({
-        ":enable_pyproto_api_setting": ["PYBIND11_PROTOBUF_ENABLE_PYPROTO_API"],
-        "//conditions:default": [],
-    }),
     deps = [
         ":check_unknown_fields",
         "@com_google_absl//absl/container:flat_hash_map",

@@ -16,7 +16,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # ============================================================================
 # Options
 
-option(ENABLE_PYPROTO_API "Enable usage of proto_api." OFF)
 option(USE_SYSTEM_ABSEIL "Force usage of system provided abseil-cpp" OFF)
 option(USE_SYSTEM_PROTOBUF "Force usage of system provided Protobuf" OFF)
 option(USE_SYSTEM_PYBIND "Force usage of system provided pybind11" OFF)
@@ -108,17 +107,6 @@ add_library(
   pybind11_protobuf/proto_cast_util.h
   pybind11_protobuf/proto_caster_impl.h)
 
-target_sources(
-  # bazel: cc_library::check_unknown_fields
-  pybind11_native_proto_caster #
-  PRIVATE pybind11_protobuf/check_unknown_fields.cc
-          pybind11_protobuf/check_unknown_fields.h)
-
-if(ENABLE_PYPROTO_API)
-  target_compile_definitions(pybind11_native_proto_caster
-                             PRIVATE PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
-endif()
-
 target_link_libraries(
   pybind11_native_proto_caster
   absl::flat_hash_map
@@ -145,17 +133,6 @@ add_library(
   pybind11_protobuf/proto_cast_util.cc
   pybind11_protobuf/proto_cast_util.h
   pybind11_protobuf/proto_caster_impl.h)
-
-target_sources(
-  # bazel: cc_library::check_unknown_fields
-  pybind11_wrapped_proto_caster
-  PRIVATE pybind11_protobuf/check_unknown_fields.cc
-          pybind11_protobuf/check_unknown_fields.h)
-
-if(ENABLE_PYPROTO_API)
-  target_compile_definitions(pybind11_wrapped_proto_caster
-                             PRIVATE PYBIND11_PROTOBUF_ENABLE_PYPROTO_API)
-endif()
 
 target_link_libraries(
   pybind11_wrapped_proto_caster
