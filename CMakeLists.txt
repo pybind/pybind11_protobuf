@@ -16,7 +16,13 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # ============================================================================
 # Options
 
-option(BUILD_TESTS "Build tests." OFF)
+option(USE_SYSTEM_ABSEIL "Force usage of system provided abseil-cpp" OFF)
+option(USE_SYSTEM_PROTOBUF "Force usage of system provided Protobuf" OFF)
+option(USE_SYSTEM_PYBIND "Force usage of system provided pybind11" OFF)
+
+# ============================================================================
+# Testing
+include(CTest)
 
 # ============================================================================
 # Find Python
@@ -26,22 +32,53 @@ find_package(Python COMPONENTS Interpreter Development)
 # ============================================================================
 # Build dependencies
 
-set(_absl_repository "https://github.com/abseil/abseil-cpp.git")
-set(_absl_version 20230125)
-set(_absl_tag 20230125.3)
-find_package(absl ${_absl_version} QUIET)
+if(USE_SYSTEM_ABSEIL)
+  # Version omitted, as absl only allows EXACT version matches
+  set(_absl_package_args REQUIRED)
+else()
+  set(_absl_package_args 20230125)
+endif()
+if(USE_SYSTEM_PROTOBUF)
+  set(_protobuf_package_args 4.23.3 REQUIRED)
+else()
+  set(_protobuf_package_args 4.23.3)
+endif()
+if(USE_SYSTEM_PYBIND)
+  set(_pybind11_package_args 2.11.1 REQUIRED)
+else()
+  set(_pybind11_package_args 2.11.1)
+endif()
 
-set(_protobuf_repository "https://github.com/protocolbuffers/protobuf.git")
-set(_protobuf_version 3.23.3)
-set(_protobuf_tag v23.3)
-find_package(Protobuf ${_protobuf_version} QUIET)
+set(ABSL_PROPAGATE_CXX_STD ON)
+set(ABSL_ENABLE_INSTALL ON)
 
-set(_pybind11_repository "https://github.com/pybind/pybind11.git")
-set(_pybind11_version 2.11.1)
-set(_pybind11_tag v2.11.1)
-find_package(pybind11 ${_pybind11_version} QUIET)
+include(FetchContent)
+FetchContent_Declare(
+  absl
+  GIT_REPOSITORY "https://github.com/abseil/abseil-cpp.git"
+  GIT_TAG 20230125.3
+  FIND_PACKAGE_ARGS ${_absl_package_args} NAMES absl)
 
-add_subdirectory(cmake/dependencies dependencies)
+# cmake-format: off
+FetchContent_Declare(
+  Protobuf
+  GIT_REPOSITORY "https://github.com/protocolbuffers/protobuf.git"
+  GIT_TAG v23.3
+  GIT_SUBMODULES ""
+  FIND_PACKAGE_ARGS ${_protobuf_package_args} NAMES protobuf)
+set(protobuf_BUILD_TESTS OFF CACHE INTERNAL "")
+# cmake-format: on
+
+FetchContent_Declare(
+  pybind11
+  GIT_REPOSITORY "https://github.com/pybind/pybind11.git"
+  GIT_TAG v2.11.1
+  FIND_PACKAGE_ARGS ${_pybind11_package_args} NAMES pybind11)
+
+message(CHECK_START "Checking for external dependencies")
+list(APPEND CMAKE_MESSAGE_INDENT "  ")
+FetchContent_MakeAvailable(absl Protobuf pybind11)
+list(POP_BACK CMAKE_MESSAGE_INDENT)
 
 # ============================================================================
 # pybind11_proto_utils pybind11 extension module
@@ -60,7 +97,7 @@ target_include_directories(
 # ============================================================================
 # pybind11_native_proto_caster shared library
 add_library(
-  pybind11_native_proto_caster SHARED
+  pybind11_native_proto_caster STATIC
   # bazel: pybind_library: native_proto_caster
   pybind11_protobuf/native_proto_caster.h
   # bazel: pybind_library: enum_type_caster
@@ -89,7 +126,7 @@ target_include_directories(
 # ============================================================================
 # pybind11_wrapped_proto_caster shared library
 add_library(
-  pybind11_wrapped_proto_caster SHARED
+  pybind11_wrapped_proto_caster STATIC
   # bazel: pybind_library: wrapped_proto_caster
   pybind11_protobuf/wrapped_proto_caster.h
   # bazel: pybind_library: proto_cast_util
@@ -112,6 +149,10 @@ target_include_directories(
   pybind11_wrapped_proto_caster
   PRIVATE ${PROJECT_SOURCE_DIR} ${protobuf_INCLUDE_DIRS} ${protobuf_SOURCE_DIR}
           ${pybind11_INCLUDE_DIRS})
+
+if(BUILD_TESTING)
+  add_subdirectory(pybind11_protobuf/tests)
+endif()
 
 # bazel equivs. checklist
 #

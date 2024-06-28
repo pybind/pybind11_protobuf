@@ -197,21 +197,6 @@ py_test(
     deps = EXTENSION_TEST_DEPS_COMMON + ["@com_google_protobuf//:protobuf_python"],
 )
 
-py_test(
-    name = "extension_disallow_unknown_fields_test",
-    srcs = ["extension_test.py"],
-    data = [
-        ":extension_module.so",
-        ":proto_enum_module.so",
-    ],
-    main = "extension_test.py",
-    python_version = "PY3",
-    srcs_version = "PY3",
-    deps = EXTENSION_TEST_DEPS_COMMON + [
-        "@com_google_protobuf//:protobuf_python",
-    ],
-)
-
 pybind_extension(
     name = "message_module",
     srcs = ["message_module.cc"],
