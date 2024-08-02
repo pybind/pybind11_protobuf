@@ -29,6 +29,8 @@
 
 namespace pybind11_protobuf {
 
+inline void dummy_function() {}
+
 // Strips ".proto" or ".protodevel" from the end of a filename.
 // Similar to
 // https://github.com/protocolbuffers/protobuf/blob/b375d010bf57a6d673125330ec47f6e6a7e03f5c/src/google/protobuf/compiler/code_generator.cc#L129-L136
