@@ -91,7 +91,7 @@ struct type_caster<
     : public pybind11_protobuf::proto_caster<
           ProtoType, pybind11_protobuf::native_cast_impl> {};
 
-#if defined(PYBIND11_HAVE_INTERNALS_WITH_SMART_HOLDER_SUPPORT)
+#if defined(PYBIND11_HAS_INTERNALS_WITH_SMART_HOLDER_SUPPORT)
 
 template <typename ProtoType>
 struct copyable_holder_caster_shared_ptr_with_smart_holder_support_enabled<
@@ -103,7 +103,7 @@ struct move_only_holder_caster_unique_ptr_with_smart_holder_support_enabled<
     ProtoType, enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>>
     : std::false_type {};
 
-#endif  // PYBIND11_HAVE_INTERNALS_WITH_SMART_HOLDER_SUPPORT
+#endif  // PYBIND11_HAS_INTERNALS_WITH_SMART_HOLDER_SUPPORT
 
 // NOTE: If smart_holders becomes the default we will need to change this to
 //    type_caster<std::unique_ptr<ProtoType, D>, ...
