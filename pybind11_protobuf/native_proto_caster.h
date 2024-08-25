@@ -18,6 +18,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "net/proto/rawmessage.h"
 #include "google/protobuf/message.h"
 #include "absl/strings/string_view.h"
 #include "pybind11_protobuf/enum_type_caster.h"
@@ -80,6 +81,10 @@ namespace detail {
 //
 constexpr bool pybind11_protobuf_enable_type_caster(...) { return true; }
 
+constexpr bool pybind11_protobuf_enable_type_caster(::RawMessage *) {
+  return false;
+}
+
 // pybind11 type_caster<> specialization for c++ protocol buffer types using
 // inheritance from google::proto_caster<>.
 template <typename ProtoType>
@@ -95,13 +100,17 @@ struct type_caster<
 
 template <typename ProtoType>
 struct copyable_holder_caster_shared_ptr_with_smart_holder_support_enabled<
-    ProtoType, enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>>
-    : std::false_type {};
+    ProtoType,
+    enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
+                 pybind11_protobuf_enable_type_caster(
+                     static_cast<ProtoType *>(nullptr)))>> : std::false_type {};
 
 template <typename ProtoType>
 struct move_only_holder_caster_unique_ptr_with_smart_holder_support_enabled<
-    ProtoType, enable_if_t<std::is_base_of<::google::protobuf::Message, ProtoType>::value>>
-    : std::false_type {};
+    ProtoType,
+    enable_if_t<(std::is_base_of<::google::protobuf::Message, ProtoType>::value &&
+                 pybind11_protobuf_enable_type_caster(
+                     static_cast<ProtoType *>(nullptr)))>> : std::false_type {};
 
 #endif  // PYBIND11_HAS_INTERNALS_WITH_SMART_HOLDER_SUPPORT
 

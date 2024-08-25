@@ -25,6 +25,7 @@ pybind_library(
         ":check_unknown_fields",
         ":enum_type_caster",
         ":proto_cast_util",
+        "//net/proto:rawmessage",
         "@com_google_absl//absl/strings:string_view",
         "@com_google_protobuf//:protobuf",
     ],

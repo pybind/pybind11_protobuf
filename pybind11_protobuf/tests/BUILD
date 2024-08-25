@@ -358,3 +358,12 @@ py_test(
         requirement("absl_py"),
     ],
 )
+
+pybind_extension(
+    name = "classh_rawmessage",
+    srcs = ["classh_rawmessage.cpp"],
+    deps = [
+        "//net/proto:rawmessage",
+        "//pybind11_protobuf:native_proto_caster",
+    ],
+)

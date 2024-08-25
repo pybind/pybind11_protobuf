@@ -27,6 +27,24 @@
 
 namespace pybind11_protobuf {
 
+namespace internal {
+
+template <
+    typename To, typename Proto2Message = ::google::protobuf::Message,
+    std::enable_if<std::is_polymorphic<Proto2Message>::value, int>::type = 0>
+const To *dynamic_cast_proxy(const ::google::protobuf::Message *message) {
+  return dynamic_cast<const To *>(message);
+}
+
+template <
+    typename To, typename Proto2Message = ::google::protobuf::Message,
+    std::enable_if<!std::is_polymorphic<Proto2Message>::value, int>::type = 0>
+const To *dynamic_cast_proxy(const ::google::protobuf::Message *message) {
+  return ::google::protobuf::DynamicCastToGenerated<To>(message);
+}
+
+}  // namespace internal
+
 // pybind11 constructs c++ references using the following mechanism, for
 // example:
 //
@@ -55,7 +73,7 @@ struct proto_caster_load_impl {
     const ::google::protobuf::Message *message =
         pybind11_protobuf::PyProtoGetCppMessagePointer(src);
     if (message) {
-      value = ::google::protobuf::DynamicCastToGenerated<ProtoType>(message);
+      value = internal::dynamic_cast_proxy<ProtoType>(message);
       if (value) {
         // If the capability were available, then we could probe PyProto_API and
         // allow c++ mutability based on the python reference count.
