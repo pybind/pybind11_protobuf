@@ -61,8 +61,8 @@ namespace {
 // Resolves the class name of a descriptor via d->containing_type()
 py::object ResolveDescriptor(py::object p, const Descriptor* d) {
   return d->containing_type() ? ResolveDescriptor(p, d->containing_type())
-                                    .attr(d->name().c_str())
-                              : p.attr(d->name().c_str());
+                                    .attr(py::str(d->name()))
+                              : p.attr(py::str(d->name()));
 }
 
 // Returns true if an exception is an import error.
@@ -266,10 +266,11 @@ py::object GlobalState::PyMessageInstance(const Descriptor* descriptor) {
     }
   }
 
-  throw py::type_error("Cannot construct a protocol buffer message type " +
-                       descriptor->full_name() +
-                       " in python. Is there a missing dependency on module " +
-                       module_name + "?");
+  throw py::type_error(
+      absl::StrCat("Cannot construct a protocol buffer message type ",
+                   descriptor->full_name(),
+                   " in python. Is there a missing dependency on module ",
+                   module_name, "?"));
 }
 
 // Create C++ DescriptorPools based on Python DescriptorPools.
@@ -525,8 +526,9 @@ void CProtoCopyToPyProto(Message* message, py::handle py_proto) {
   assert(PyGILState_Check());
   auto merge_fn = ResolveAttrMRO(py_proto, "MergeFromString");
   if (!merge_fn) {
-    throw py::type_error("MergeFromString method not found; is this a " +
-                         message->GetDescriptor()->full_name());
+    throw py::type_error(
+        absl::StrCat("MergeFromString method not found; is this a ",
+                     message->GetDescriptor()->full_name()));
   }
 
   auto serialized = message->SerializePartialAsString();
