@@ -16,6 +16,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
 #include "google/protobuf/reflection.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 
 namespace pybind11 {
@@ -45,9 +46,9 @@ void ProtoSetField(::google::protobuf::Message* message,
 bool PyProtoFullName(handle py_proto, std::string* name);
 
 // Returns whether py_proto is a proto and matches the expected_type.
-bool PyProtoCheckType(handle py_proto, const std::string& expected_type);
+bool PyProtoCheckType(handle py_proto, absl::string_view expected_type);
 // Throws a type error if py_proto is not a proto or the wrong message type.
-void PyProtoCheckTypeOrThrow(handle py_proto, const std::string& expected_type);
+void PyProtoCheckTypeOrThrow(handle py_proto, absl::string_view expected_type);
 
 // Returns whether py_proto is a proto and matches the ProtoType.
 template <typename ProtoType>
@@ -419,7 +420,9 @@ class ProtoFieldContainer<GenericEnum> : public ProtoFieldContainerBase {
   void Append(handle value) {
     reflection_->AddEnumValue(proto_, field_desc_, CastOrTypeError<int>(value));
   }
-  std::string ElementRepr(int idx) const { return GetDesc(idx)->name(); }
+  std::string ElementRepr(int idx) const {
+    return std::string(GetDesc(idx)->name());
+  }
 };
 
 // A container for a repeated field.
@@ -677,10 +680,8 @@ const ::google::protobuf::FieldDescriptor* GetFieldDescriptor(
   message->GetDescriptor()->FindFieldByName(std::string(name));
 
   if (!field_desc) {
-    std::string error_str =
-        "'" + message->GetTypeName() + "' object has no attribute '";
-    error_str.append(std::string(name));
-    error_str.append("'");
+    std::string error_str = absl::StrCat(
+        "'", message->GetTypeName(), "' object has no attribute '", name, "'");
     PyErr_SetString(error_type, error_str.c_str());
     throw error_already_set();
   }
@@ -736,14 +737,13 @@ bool PyProtoFullName(handle py_proto, std::string* name) {
   return false;
 }
 
-bool PyProtoCheckType(handle py_proto, const std::string& expected_type) {
+bool PyProtoCheckType(handle py_proto, absl::string_view expected_type) {
   std::string name;
   if (PyProtoFullName(py_proto, &name)) return name == expected_type;
   return false;
 }
 
-void PyProtoCheckTypeOrThrow(handle py_proto,
-                             const std::string& expected_type) {
+void PyProtoCheckTypeOrThrow(handle py_proto, absl::string_view expected_type) {
   std::string name;
   if (!PyProtoFullName(py_proto, &name)) {
     auto builtins = module::import(PYBIND11_BUILTINS_MODULE);
@@ -751,8 +751,8 @@ void PyProtoCheckTypeOrThrow(handle py_proto,
         str(builtins.attr("repr")(builtins.attr("type")(py_proto)));
     throw type_error("Expected a proto, got a " + type_str + ".");
   } else if (name != expected_type) {
-    throw type_error("Passed proto is the wrong type. Expected " +
-                     expected_type + " but got " + name + ".");
+    throw type_error(absl::StrCat("Passed proto is the wrong type. Expected ",
+                                  expected_type, " but got ", name, "."));
   }
 }
 
@@ -798,8 +798,8 @@ std::unique_ptr<::google::protobuf::Message> PyProtoAllocateMessage(
       ::google::protobuf::MessageFactory::generated_factory()->GetPrototype(descriptor);
   if (!prototype) {
     throw std::runtime_error(
-        "Not able to generate prototype for descriptor of: " +
-        descriptor->full_name());
+        absl::StrCat("Not able to generate prototype for descriptor of: ",
+                     descriptor->full_name()));
   }
   auto message = std::unique_ptr<::google::protobuf::Message>(prototype->New());
   ProtoInitFields(message.get(), kwargs_in);
@@ -824,8 +824,9 @@ void ProtoSetField(::google::protobuf::Message* message,
                    const ::google::protobuf::FieldDescriptor* field_desc, handle value) {
   if (field_desc->is_map() || field_desc->is_repeated() ||
       field_desc->type() == ::google::protobuf::FieldDescriptor::TYPE_MESSAGE) {
-    std::string error = "Assignment not allowed to field \"" +
-                        field_desc->name() + "\" in protocol message object.";
+    std::string error =
+        absl::StrCat("Assignment not allowed to field \"", field_desc->name(),
+                     "\" in protocol message object.");
     PyErr_SetString(PyExc_AttributeError, error.c_str());
     throw error_already_set();
   }
