@@ -12,8 +12,8 @@ from absl.testing import parameterized
 
 from pybind11_protobuf.tests import pass_by_module as m
 from pybind11_protobuf.tests import test_pb2
-from google.protobuf import descriptor_pool
-from google.protobuf import message_factory
+from google3.net.proto2.python.public import descriptor_pool
+from google3.net.proto2.python.public import message_factory
 
 
 def get_abstract_pass_by_params():

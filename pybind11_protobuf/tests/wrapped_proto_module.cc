@@ -11,7 +11,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "google/protobuf/dynamic_message.h"
+#include "net/proto2/public/dynamic_message.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
 #include "pybind11_protobuf/tests/test.pb.h"

@@ -19,7 +19,7 @@ from google.protobuf import any_pb2
 from pybind11_protobuf.tests import compare
 from pybind11_protobuf.tests import message_module as m
 from pybind11_protobuf.tests import test_pb2
-from google.protobuf import text_format
+from google3.net.proto2.python.public import text_format
 
 
 def get_py_message():

@@ -140,8 +140,9 @@ pybind_extension(
     name = "dynamic_message_module",
     srcs = ["dynamic_message_module.cc"],
     deps = [
+        "//net/proto2/proto:descriptor_cc_proto",
+        "//net/proto2/public",
         "//pybind11_protobuf:native_proto_caster",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -170,7 +171,7 @@ pybind_extension(
         ":extension_in_other_file_in_deps_cc_proto",
         ":extension_nest_repeated_cc_proto",
         ":test_cc_proto",
-        "@com_google_protobuf//:protobuf",
+        "//net/proto2/public",
         "//pybind11_protobuf:native_proto_caster",
     ],
 )
@@ -202,8 +203,8 @@ pybind_extension(
     srcs = ["message_module.cc"],
     deps = [
         ":test_cc_proto",
+        "//net/proto2/public",
         "//pybind11_protobuf:native_proto_caster",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -232,8 +233,9 @@ pybind_extension(
     srcs = ["pass_by_module.cc"],
     deps = [
         ":test_cc_proto",
+        "//net/proto2/proto:descriptor_cc_proto",
+        "//net/proto2/public",
         "//pybind11_protobuf:native_proto_caster",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -257,8 +259,8 @@ pybind_extension(
     name = "pass_proto2_message_module",
     srcs = ["pass_proto2_message_module.cc"],
     deps = [
+        "//net/proto2/public",
         "//pybind11_protobuf:native_proto_caster",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -269,10 +271,10 @@ pybind_extension(
     srcs = ["wrapped_proto_module.cc"],
     deps = [
         ":test_cc_proto",
+        "//net/proto2/public",
         "//pybind11_protobuf:wrapped_proto_caster",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/types:optional",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -322,8 +324,8 @@ pybind_extension(
     name = "regression_wrappers_module",
     srcs = ["regression_wrappers_module.cc"],
     deps = [
+        "//net/proto2/public",
         "//pybind11_protobuf:native_proto_caster",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 

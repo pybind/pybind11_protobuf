@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-#include "google/protobuf/descriptor.pb.h"
+#include "net/proto2/proto/descriptor.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
 #include "absl/log/log.h"
@@ -183,11 +183,11 @@ GlobalState::GlobalState() {
 
   // pybind11_protobuf casting needs a dependency on proto internals to work.
   try {
-    ImportCached("google.protobuf.descriptor");
+    ImportCached("google3.net.proto2.python.public.descriptor");
     auto descriptor_pool =
-        ImportCached("google.protobuf.descriptor_pool");
+        ImportCached("google3.net.proto2.python.public.descriptor_pool");
     auto message_factory =
-        ImportCached("google.protobuf.message_factory");
+        ImportCached("google3.net.proto2.python.public.message_factory");
     global_pool_ = descriptor_pool.attr("Default")();
     find_message_type_by_name_ = global_pool_.attr("FindMessageTypeByName");
     if (hasattr(message_factory, "GetMessageClass")) {

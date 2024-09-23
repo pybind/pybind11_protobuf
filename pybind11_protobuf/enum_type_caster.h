@@ -14,9 +14,9 @@
 #include <string>
 #include <type_traits>
 
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/generated_enum_reflection.h"
-#include "google/protobuf/generated_enum_util.h"
+#include "net/proto2/public/descriptor.h"
+#include "net/proto2/public/generated_enum_reflection.h"
+#include "net/proto2/public/generated_enum_util.h"
 
 // pybind11 type_caster specialization which translates Proto::Enum types
 // to/from ints. This will have ODR conflicts when users specify wrappers for

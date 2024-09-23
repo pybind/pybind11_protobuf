@@ -12,8 +12,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/message.h"
+#include "net/proto2/public/descriptor.h"
+#include "net/proto2/public/message.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 

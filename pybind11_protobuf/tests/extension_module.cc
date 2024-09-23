@@ -9,7 +9,7 @@
 #include <memory>
 #include <stdexcept>
 
-#include "google/protobuf/message.h"
+#include "net/proto2/public/message.h"
 #include "pybind11_protobuf/native_proto_caster.h"
 #include "pybind11_protobuf/tests/extension.pb.h"
 #include "pybind11_protobuf/tests/extension_nest_repeated.pb.h"

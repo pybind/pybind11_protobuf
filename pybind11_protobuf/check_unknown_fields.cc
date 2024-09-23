@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/message.h"
-#include "google/protobuf/unknown_field_set.h"
+#include "net/proto2/public/descriptor.h"
+#include "net/proto2/public/message.h"
+#include "net/proto2/public/unknown_field_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"

@@ -10,7 +10,7 @@
 
 #include <memory>
 
-#include "google/protobuf/message.h"
+#include "net/proto2/public/message.h"
 
 namespace pybind11 {
 namespace google {

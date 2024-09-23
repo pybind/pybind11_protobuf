@@ -12,10 +12,10 @@
 #include <stdexcept>
 #include <string>
 
-#include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/message.h"
-#include "google/protobuf/reflection.h"
+#include "net/proto2/proto/descriptor.pb.h"
+#include "net/proto2/public/descriptor.h"
+#include "net/proto2/public/message.h"
+#include "net/proto2/public/reflection.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 

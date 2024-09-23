@@ -18,7 +18,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "google/protobuf/message.h"
+#include "net/proto2/public/message.h"
 #include "absl/strings/string_view.h"
 #include "pybind11_protobuf/enum_type_caster.h"
 #include "pybind11_protobuf/proto_caster_impl.h"

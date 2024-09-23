@@ -5,8 +5,8 @@
 
 #include <pybind11/pybind11.h>
 
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/message.h"
+#include "net/proto2/public/descriptor.h"
+#include "net/proto2/public/message.h"
 #include "pybind11_protobuf/native_proto_caster.h"
 
 namespace {

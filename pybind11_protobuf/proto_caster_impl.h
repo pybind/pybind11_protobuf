@@ -15,9 +15,9 @@
 #include <type_traits>
 #include <utility>
 
-#include "google/protobuf/descriptor.pb.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/message.h"
+#include "net/proto2/proto/descriptor.pb.h"
+#include "net/proto2/public/descriptor.h"
+#include "net/proto2/public/message.h"
 #include "pybind11_protobuf/proto_cast_util.h"
 
 // Enables unsafe conversions; currently these are a work in progress.

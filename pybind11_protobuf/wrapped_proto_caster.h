@@ -14,7 +14,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "google/protobuf/message.h"
+#include "net/proto2/public/message.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
 #include "pybind11_protobuf/proto_cast_util.h"
