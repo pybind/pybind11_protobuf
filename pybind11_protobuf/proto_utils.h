@@ -10,7 +10,7 @@
 
 #include <memory>
 
-#include "net/proto2/public/message.h"
+#include "google/protobuf/message.h"
 
 namespace pybind11 {
 namespace google {
@@ -19,9 +19,9 @@ namespace google {
 // Unlike ProtoSetField, this allows setting message, map and repeated fields.
 void ProtoInitFields(::google::protobuf::Message* message, kwargs kwargs_in);
 
-// Wrapper around ::google::protobuf::Message::CopyFrom which can efficiently copy from
-// either a wrapped C++ or native python proto. Throws an error if `other`
-// is not a proto of the correct type.
+// Wrapper around ::google::protobuf::Message::CopyFrom which can efficiently
+// copy from either a wrapped C++ or native python proto. Throws an error if
+// `other` is not a proto of the correct type.
 void ProtoCopyFrom(::google::protobuf::Message* msg, handle other);
 
 // Allocate and return the ProtoType given by the template argument.

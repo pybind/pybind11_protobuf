@@ -2,10 +2,11 @@
 #define PYBIND11_PROTOBUF_CHECK_UNKNOWN_FIELDS_H_
 
 #include <optional>
+#include <string>
 
-#include "net/proto2/public/message.h"
-#include "net/proto2/python/public/proto_api.h"
 #include "absl/strings/string_view.h"
+#include "google/protobuf/message.h"
+#include "python/google/protobuf/proto_api.h"
 
 namespace pybind11_protobuf::check_unknown_fields {
 

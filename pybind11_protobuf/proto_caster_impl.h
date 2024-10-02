@@ -8,16 +8,14 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
-#include <functional>
 #include <memory>
 #include <optional>
-#include <string>
 #include <type_traits>
 #include <utility>
 
-#include "net/proto2/proto/descriptor.pb.h"
-#include "net/proto2/public/descriptor.h"
-#include "net/proto2/public/message.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/descriptor.pb.h"
+#include "google/protobuf/message.h"
 #include "pybind11_protobuf/proto_cast_util.h"
 
 // Enables unsafe conversions; currently these are a work in progress.
@@ -74,8 +72,7 @@ struct proto_caster_load_impl {
 
     owned = std::unique_ptr<ProtoType>(new ProtoType());
     value = owned.get();
-    return owned.get()->ParsePartialFromString(
-        PyBytesAsStringView(serialized_bytes));
+    return owned->ParsePartialFromString(PyBytesAsStringView(serialized_bytes));
   }
 
   // ensure_owned ensures that the owned member contains a copy of the
@@ -126,8 +123,7 @@ struct proto_caster_load_impl<::google::protobuf::Message> {
             src, *descriptor_name)
             .release()));
     value = owned.get();
-    return owned.get()->ParsePartialFromString(
-        PyBytesAsStringView(serialized_bytes));
+    return owned->ParsePartialFromString(PyBytesAsStringView(serialized_bytes));
   }
 
   // ensure_owned ensures that the owned member contains a copy of the
@@ -156,7 +152,8 @@ struct fast_cpp_cast_impl {
         (policy == pybind11::return_value_policy::reference ||
          policy == pybind11::return_value_policy::reference_internal)) {
       throw pybind11::type_error(
-          "Cannot return a const reference to a ::google::protobuf::Message derived "
+          "Cannot return a const reference to a ::google::protobuf::Message "
+          "derived "
           "type.  Consider setting return_value_policy::copy in the "
           "pybind11 def().");
     }

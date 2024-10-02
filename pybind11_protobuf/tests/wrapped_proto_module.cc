@@ -6,14 +6,15 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <functional>
-#include <memory>
-#include <stdexcept>
+#include <cstdint>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
-#include "net/proto2/public/dynamic_message.h"
+#include "absl/functional/function_ref.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
+#include "google/protobuf/dynamic_message.h"
 #include "pybind11_protobuf/tests/test.pb.h"
 #include "pybind11_protobuf/wrapped_proto_caster.h"
 
@@ -21,11 +22,11 @@ namespace py = ::pybind11;
 
 namespace {
 
-using pybind11::test::IntMessage;
-using pybind11::test::TestMessage;
-using pybind11_protobuf::WithWrappedProtos;
-using pybind11_protobuf::WrappedProto;
-using pybind11_protobuf::WrappedProtoKind;
+using ::pybind11::test::IntMessage;
+using ::pybind11::test::TestMessage;
+using ::pybind11_protobuf::WithWrappedProtos;
+using ::pybind11_protobuf::WrappedProto;
+using ::pybind11_protobuf::WrappedProtoKind;
 
 const TestMessage& GetStatic() {
   static TestMessage test_message = [] {

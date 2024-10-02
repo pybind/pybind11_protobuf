@@ -5,12 +5,10 @@
 
 #include <pybind11/pybind11.h>
 
-#include <functional>
-#include <memory>
-#include <stdexcept>
+#include <string>
 
-#include "net/proto2/public/message.h"
-#include "net/proto2/public/text_format.h"
+#include "google/protobuf/message.h"
+#include "google/protobuf/text_format.h"
 #include "pybind11_protobuf/native_proto_caster.h"
 #include "pybind11_protobuf/tests/test.pb.h"
 
@@ -18,8 +16,8 @@ namespace py = ::pybind11;
 
 namespace {
 
-using pybind11::test::IntMessage;
-using pybind11::test::TestMessage;
+using ::pybind11::test::IntMessage;
+using ::pybind11::test::TestMessage;
 
 PYBIND11_MODULE(message_module, m) {
   pybind11_protobuf::ImportNativeProtoCasters();

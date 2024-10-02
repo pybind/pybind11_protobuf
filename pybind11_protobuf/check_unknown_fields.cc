@@ -6,15 +6,16 @@
 #include <string>
 #include <vector>
 
-#include "net/proto2/public/descriptor.h"
-#include "net/proto2/public/message.h"
-#include "net/proto2/public/unknown_field_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/message.h"
+#include "google/protobuf/unknown_field_set.h"
+#include "python/google/protobuf/proto_api.h"
 
 namespace pybind11_protobuf::check_unknown_fields {
 namespace {
@@ -103,8 +104,7 @@ bool HasUnknownFields::FindUnknownFieldsRecursive(
 
     // Stop only if the extension is known by Python.
     if (py_proto_api->GetDefaultDescriptorPool()->FindExtensionByNumber(
-            unknown_field_parent_descriptor,
-            unknown_field_number)) {
+            unknown_field_parent_descriptor, unknown_field_number)) {
       field_fqn_parts.resize(depth);
       return true;
     }

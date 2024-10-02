@@ -5,15 +5,17 @@
 
 #include <pybind11/pybind11.h>
 
-#include <functional>
+#include <cassert>
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
+#include <string>
 
-#include "net/proto2/proto/descriptor.pb.h"
-#include "net/proto2/public/descriptor.h"
-#include "net/proto2/public/dynamic_message.h"
-#include "net/proto2/public/message.h"
-#include "net/proto2/public/text_format.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/descriptor.pb.h"
+#include "google/protobuf/dynamic_message.h"
+#include "google/protobuf/message.h"
+#include "google/protobuf/text_format.h"
 #include "pybind11_protobuf/native_proto_caster.h"
 
 namespace py = ::pybind11;

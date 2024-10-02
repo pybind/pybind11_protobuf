@@ -7,21 +7,18 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
-#include <functional>
 #include <memory>
-#include <optional>
-#include <string>
 #include <type_traits>
 #include <utility>
 
-#include "net/proto2/public/message.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
+#include "google/protobuf/message.h"
 #include "pybind11_protobuf/proto_cast_util.h"
 #include "pybind11_protobuf/proto_caster_impl.h"
 
-// pybind11::type_caster<> specialization for ::google::protobuf::Message types using
-// pybind11_protobuf::WrappedProto<> wrappers. When passing from C++ to
+// pybind11::type_caster<> specialization for ::google::protobuf::Message types
+// using pybind11_protobuf::WrappedProto<> wrappers. When passing from C++ to
 // python a copy is always made. When passing from python to C++ a copy is
 // made for mutable and by-value types, but not for const reference types.
 //
@@ -68,10 +65,10 @@ inline void ImportWrappedProtoCasters() { InitializePybindProtoCastUtil(); }
 /// Tag types for WrappedProto specialization.
 enum WrappedProtoKind : int { kConst, kValue, kMutable };
 
-/// WrappedProto<T, kind> wraps a ::google::protobuf::Message subtype, exposing implicit
-/// constructors and implicit cast operators. The ConstTag variant allows
-/// conversion to const; the MutableTag allows mutable conversion and enables
-/// the type-caster specialization to enforce that a copy is made.
+/// WrappedProto<T, kind> wraps a ::google::protobuf::Message subtype, exposing
+/// implicit constructors and implicit cast operators. The ConstTag variant
+/// allows conversion to const; the MutableTag allows mutable conversion and
+/// enables the type-caster specialization to enforce that a copy is made.
 ///
 /// WrappedProto<T, kMutable> ALWAYS creates a copy.
 /// WrappedProto<T, kValue> ALWAYS creates a copy.
@@ -342,8 +339,8 @@ struct WrapHelper<ProtoType,  //
                       ::google::protobuf::Message, intrinsic_t<ProtoType>>::value>> {
   static constexpr auto kKind = DetectKind<ProtoType>();
   static_assert(kKind != WrappedProtoKind::kMutable,
-                "WithWrappedProtos() does not support mutable ::google::protobuf::Message "
-                "parameters.");
+                "WithWrappedProtos() does not support mutable "
+                "::google::protobuf::Message parameters.");
 
   using type = WrappedProto<intrinsic_t<ProtoType>, kKind>;
 };
@@ -355,8 +352,8 @@ struct WrapHelper<absl::optional<ProtoType>,  //
                       ::google::protobuf::Message, intrinsic_t<ProtoType>>::value>> {
   static constexpr auto kKind = DetectKind<ProtoType>();
   static_assert(kKind != WrappedProtoKind::kMutable,
-                "WithWrappedProtos() does not support mutable ::google::protobuf::Message "
-                "parameters.");
+                "WithWrappedProtos() does not support mutable "
+                "::google::protobuf::Message parameters.");
 
   using type = absl::optional<WrappedProto<intrinsic_t<ProtoType>, kKind>>;
 };
@@ -371,8 +368,8 @@ struct WrapHelper<absl::StatusOr<ProtoType>,  //
                       ::google::protobuf::Message, intrinsic_t<ProtoType>>::value>> {
   static constexpr auto kKind = DetectKind<ProtoType>();
   static_assert(kKind != WrappedProtoKind::kMutable,
-                "WithWrappedProtos() does not support mutable ::google::protobuf::Message "
-                "parameters.");
+                "WithWrappedProtos() does not support mutable "
+                "::google::protobuf::Message parameters.");
 
   using type = absl::StatusOr<WrappedProto<intrinsic_t<ProtoType>, kKind>>;
 };
@@ -401,8 +398,8 @@ struct WrapHelper<absl::StatusOr<std::vector<ProtoType>>,  //
 };
 
 /// FunctionInvoker/ConstMemberInvoker/MemberInvoker are internal functions
-/// that expose calls with equivalent signatures, replacing ::google::protobuf::Message
-/// derived types with WrappedProto<T, ...> types.
+/// that expose calls with equivalent signatures, replacing
+/// ::google::protobuf::Message derived types with WrappedProto<T, ...> types.
 template <typename F, typename>
 struct FunctionInvoker;
 
@@ -464,8 +461,8 @@ struct LambdaSignature<U T::*> {
 }  // namespace impl
 
 /// WithWrappedProtos(...) wraps a function type and converts any
-/// ::google::protobuf::Message derived types into a WrappedProto<...> of the same
-/// underlying proto2 type.
+/// ::google::protobuf::Message derived types into a WrappedProto<...> of the
+/// same underlying proto2 type.
 template <typename F, int&... ExplicitArgumentBarrier,
           typename S = impl::LambdaSignature<decltype(&F::operator())>>
 auto WithWrappedProtos(F f) ->

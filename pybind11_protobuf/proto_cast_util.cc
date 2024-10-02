@@ -11,9 +11,7 @@
 #include <string>
 #include <unordered_set>
 #include <utility>
-#include <vector>
 
-#include "net/proto2/proto/descriptor.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
 #include "absl/log/log.h"
@@ -25,6 +23,7 @@
 #include "absl/strings/strip.h"
 #include "absl/types/optional.h"
 #include "google/protobuf/descriptor.h"
+#include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor_database.h"
 #include "google/protobuf/dynamic_message.h"
 
@@ -34,7 +33,6 @@ using ::google::protobuf::Descriptor;
 using ::google::protobuf::DescriptorDatabase;
 using ::google::protobuf::DescriptorPool;
 using ::google::protobuf::DynamicMessageFactory;
-using ::google::protobuf::FileDescriptor;
 using ::google::protobuf::FileDescriptorProto;
 using ::google::protobuf::Message;
 using ::google::protobuf::MessageFactory;
@@ -183,11 +181,9 @@ GlobalState::GlobalState() {
 
   // pybind11_protobuf casting needs a dependency on proto internals to work.
   try {
-    ImportCached("google3.net.proto2.python.public.descriptor");
-    auto descriptor_pool =
-        ImportCached("google3.net.proto2.python.public.descriptor_pool");
-    auto message_factory =
-        ImportCached("google3.net.proto2.python.public.message_factory");
+    ImportCached("google.protobuf.descriptor");
+    auto descriptor_pool = ImportCached("google.protobuf.descriptor_pool");
+    auto message_factory = ImportCached("google.protobuf.message_factory");
     global_pool_ = descriptor_pool.attr("Default")();
     find_message_type_by_name_ = global_pool_.attr("FindMessageTypeByName");
     if (hasattr(message_factory, "GetMessageClass")) {

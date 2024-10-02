@@ -7,17 +7,20 @@
 
 #include <pybind11/functional.h>
 
-#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
-#include "net/proto2/proto/descriptor.pb.h"
-#include "net/proto2/public/descriptor.h"
-#include "net/proto2/public/message.h"
-#include "net/proto2/public/reflection.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/descriptor.pb.h"
+#include "google/protobuf/message.h"
+#include "google/protobuf/reflection.h"
 
 namespace pybind11 {
 namespace google {
@@ -516,7 +519,7 @@ struct FindMapPair {
                                       handle key, bool add_key = true) {
     // When using the proto reflection API, maps are represented as repeated
     // message fields (messages with 2 elements: 'key' and 'value'). If protocol
-    // buffers guarrantee a consistent (and useful) ordering of elements,
+    // buffers guarantee a consistent (and useful) ordering of elements,
     // it should be possible to do this search in O(log(n)) time. However, that
     // requires more knowledge of protobuf internals than I have, so for now
     // assume a random ordering of elements, in which case a O(n) search is

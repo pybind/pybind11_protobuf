@@ -47,10 +47,10 @@ Alternatively:
 import collections.abc as collections_abc
 import difflib
 
-from google3.net.proto2.python.public import descriptor
-from google3.net.proto2.python.public import descriptor_pool
-from google3.net.proto2.python.public import message
-from google3.net.proto2.python.public import text_format
+from google.protobuf import descriptor
+from google.protobuf import descriptor_pool
+from google.protobuf import message
+from google.protobuf import text_format
 
 
 def assertProtoEqual(self, a, b, check_initialized=True,  # pylint: disable=invalid-name

@@ -11,21 +11,18 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
-#include <string>
 #include <type_traits>
 
-#include "net/proto2/public/descriptor.h"
-#include "net/proto2/public/generated_enum_reflection.h"
-#include "net/proto2/public/generated_enum_util.h"
+#include "google/protobuf/generated_enum_util.h"
 
 // pybind11 type_caster specialization which translates Proto::Enum types
 // to/from ints. This will have ODR conflicts when users specify wrappers for
 // enums using py::enum_<T>.
 //
-// ::google::protobuf::is_proto_enum and ::google::protobuf::GetEnumDescriptor are require
+// ::google::protobuf::is_proto_enum and ::google::protobuf::GetEnumDescriptor are required.
 //
-// NOTE: The protobuf compiler does not generate ::google::protobuf::is_proto_enum traits
-// for enumerations of oneof fields.
+// NOTE: The protobuf compiler does not generate ::google::protobuf::is_proto_enum
+// traits for enumerations of oneof fields.
 //
 // Example:
 //  #include <pybind11/pybind11.h>

@@ -7,7 +7,7 @@
 
 #include <cstddef>
 
-#include "net/proto2/public/message.h"
+#include "google/protobuf/message.h"
 #include "pybind11_protobuf/native_proto_caster.h"
 
 PYBIND11_MODULE(pass_proto2_message_module, m) {

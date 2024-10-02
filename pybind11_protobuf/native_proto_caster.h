@@ -11,22 +11,17 @@
 // IWYU
 #include <Python.h>
 
-#include <functional>
-#include <memory>
-#include <optional>
-#include <string>
 #include <type_traits>
-#include <utility>
 
-#include "net/proto2/public/message.h"
 #include "absl/strings/string_view.h"
+#include "google/protobuf/message.h"
 #include "pybind11_protobuf/enum_type_caster.h"
 #include "pybind11_protobuf/proto_caster_impl.h"
 
-// pybind11::type_caster<> specialization for ::google::protobuf::Message types that
-// that converts protocol buffer objects between C++ and python representations.
-// This binder supports binaries linked with both native python protos
-// and fast cpp python protos.
+// pybind11::type_caster<> specialization for ::google::protobuf::Message types
+// that that converts protocol buffer objects between C++ and python
+// representations. This binder supports binaries linked with both native python
+// protos and fast cpp python protos.
 //
 // When passing protos between python and C++, if possible, an underlying C++
 // object may have ownership transferred, or may be copied if both instances

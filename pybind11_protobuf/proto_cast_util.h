@@ -6,16 +6,13 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
-#include <functional>
 #include <memory>
 #include <string>
-#include <type_traits>
-#include <utility>
 
-#include "net/proto2/public/descriptor.h"
-#include "net/proto2/public/message.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/message.h"
 
 // PYBIND11_PROTOBUF_ASSUME_FULL_ABI_COMPATIBILITY can be defined by users
 // certain about ABI compatibility between all Python extensions in their

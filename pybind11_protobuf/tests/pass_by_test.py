@@ -9,11 +9,11 @@ from __future__ import print_function
 
 from absl.testing import absltest
 from absl.testing import parameterized
+from google.protobuf import descriptor_pool
+from google.protobuf import message_factory
 
 from pybind11_protobuf.tests import pass_by_module as m
 from pybind11_protobuf.tests import test_pb2
-from google3.net.proto2.python.public import descriptor_pool
-from google3.net.proto2.python.public import message_factory
 
 
 def get_abstract_pass_by_params():
@@ -60,7 +60,7 @@ def get_pass_by_params():
       'concrete_uptr_ref',
       'concrete_wref',
       'std_variant',
-      'std_optional,'
+      'std_optional,',
   ]:
     try:
       p.append((x, getattr(m, x)))
@@ -115,7 +115,8 @@ class PassByTest(parameterized.TestCase):
     pool = descriptor_pool.Default()
     factory = message_factory.MessageFactory(pool)
     prototype = factory.GetPrototype(
-        pool.FindMessageTypeByName('pybind11.test.IntMessage'))
+        pool.FindMessageTypeByName('pybind11.test.IntMessage')
+    )
     message = prototype(value=9)
     self.assertTrue(check_method(message, 9))
 
