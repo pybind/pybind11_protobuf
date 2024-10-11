@@ -19,7 +19,6 @@ from pybind11_protobuf.tests import dynamic_message_module as m
 from pybind11_protobuf.tests import test_pb2
 
 POOL = descriptor_pool.DescriptorPool()
-FACTORY = message_factory.MessageFactory(POOL)
 POOL.Add(
     descriptor_pb2.FileDescriptorProto(
         name='pybind11_protobuf/tests',
@@ -42,16 +41,18 @@ POOL.Add(
 
 def get_py_dynamic_message(value=5):
   """Returns a dynamic message that is wire-compatible with IntMessage."""
-  prototype = FACTORY.CreatePrototype(
-      POOL.FindMessageTypeByName('pybind11.test.DynamicMessage'))
+  prototype = message_factory.GetMessageClass(
+      POOL.FindMessageTypeByName('pybind11.test.DynamicMessage')
+  )
   msg = prototype(value=value)
   return msg
 
 
 def get_py_dynamic_int_message(value=5):
   """Returns a dynamic message named pybind11.test.IntMessage."""
-  prototype = FACTORY.CreatePrototype(
-      POOL.FindMessageTypeByName('pybind11.test.IntMessage'))
+  prototype = message_factory.GetMessageClass(
+      POOL.FindMessageTypeByName('pybind11.test.IntMessage')
+  )
   msg = prototype(value=value)
   return msg
 
