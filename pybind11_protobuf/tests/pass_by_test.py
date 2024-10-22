@@ -113,8 +113,7 @@ class PassByTest(parameterized.TestCase):
   @parameterized.named_parameters(get_pass_by_params())
   def test_pool_proto_check(self, check_method):
     pool = descriptor_pool.Default()
-    factory = message_factory.MessageFactory(pool)
-    prototype = factory.GetPrototype(
+    prototype = message_factory.GetMessageClass(
         pool.FindMessageTypeByName('pybind11.test.IntMessage')
     )
     message = prototype(value=9)
