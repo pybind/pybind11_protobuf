@@ -59,8 +59,8 @@ namespace {
 // Resolves the class name of a descriptor via d->containing_type()
 py::object ResolveDescriptor(py::object p, const Descriptor* d) {
   return d->containing_type() ? ResolveDescriptor(p, d->containing_type())
-                                    .attr(py::str(d->name()))
-                              : p.attr(py::str(d->name()));
+                                    .attr(py::str(std::string_view(d->name())))
+                              : p.attr(py::str(std::string_view(d->name())));
 }
 
 // Returns true if an exception is an import error.
