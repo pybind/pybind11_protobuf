@@ -8,3 +8,16 @@ absl-py==2.1.0 \
     --hash=sha256:526a04eadab8b4ee719ce68f204172ead1027549089702d99b9059f129ff1308 \
     --hash=sha256:7820790efbb316739cde8b4e19357243fc3608a152024288513dd968d7d959ff
     # via -r pybind11_protobuf/requirements/requirements.in
+protobuf==5.29.2 \
+    --hash=sha256:13d6d617a2a9e0e82a88113d7191a1baa1e42c2cc6f5f1398d3b054c8e7e714a \
+    --hash=sha256:2d2e674c58a06311c8e99e74be43e7f3a8d1e2b2fdf845eaa347fbd866f23355 \
+    --hash=sha256:36000f97ea1e76e8398a3f02936aac2a5d2b111aae9920ec1b769fc4a222c4d9 \
+    --hash=sha256:494229ecd8c9009dd71eda5fd57528395d1eacdf307dbece6c12ad0dd09e912e \
+    --hash=sha256:842de6d9241134a973aab719ab42b008a18a90f9f07f06ba480df268f86432f9 \
+    --hash=sha256:a0c53d78383c851bfa97eb42e3703aefdc96d2036a41482ffd55dc5f529466eb \
+    --hash=sha256:b2cc8e8bb7c9326996f0e160137b0861f1a82162502658df2951209d0cb0309e \
+    --hash=sha256:b6b0d416bbbb9d4fbf9d0561dbfc4e324fd522f61f7af0fe0f282ab67b22477e \
+    --hash=sha256:c12ba8249f5624300cf51c3d0bfe5be71a60c63e4dcf51ffe9a68771d958c851 \
+    --hash=sha256:e621a98c0201a7c8afe89d9646859859be97cb22b8bf1d8eacfd90d5bda2eb19 \
+    --hash=sha256:fde4554c0e578a5a0bcc9a276339594848d1e89f9ea47b4427c80e5d72f90181
+    # via -r pybind11_protobuf/requirements/requirements.in

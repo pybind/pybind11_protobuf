@@ -1,11 +1,7 @@
+# ref: https://github.com/actions/runner-images
 name: ubuntu-build
 
-on:
-  workflow_dispatch:
-  pull_request:
-  push:
-    branches:
-      - main
+on: [push, pull_request, workflow_dispatch]
 
 concurrency:
   group: ci-${{github.workflow}}-${{ github.ref }}
@@ -13,47 +9,75 @@ concurrency:
 
 jobs:
   cmake:
+    name: cmake
     runs-on: ubuntu-22.04
     steps:
       - name: Show env
         run: env
-
-      - name: Checkout
-        uses: actions/checkout@v3
-
+      - uses: actions/checkout@v4
       - name: Install Build Dependencies
-        shell: bash
-        run: |
-          sudo apt update && sudo apt install --no-install-recommends -y \
-          cmake \
-          make
-
+        run: >
+          sudo apt update &&
+          sudo apt install --no-install-recommends -y
+          cmake make
       - name: Show Python version and platform info
         run: |
           python --version
           python -m platform
-
       - name: Show CMake version
         run: cmake --version
-
       - name: CMake Configure
-        shell: bash
-        run: |
-          cmake -S . -B build -DCMAKE_VERBOSE_MAKEFILE=ON
-
+        run: cmake -S. -Bbuild -DCMAKE_VERBOSE_MAKEFILE=ON
       - name: CMake Build
-        shell: bash
-        run: |
-          cmake --build build -j$(nproc)
+        run: cmake --build build -j$(nproc)
 
-  bazel:
+  bazel_inner:
+    strategy:
+      matrix:
+        options: [
+          {version: 14, flags: "-std=c++14"},
+          {version: 17, flags: "-std=c++17"},
+          {version: 20, flags: "-std=c++20"},
+        ]
+      fail-fast: false # Don't cancel all jobs if one fails.
+    name: bazel c++${{ matrix.options.version }}
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12 # Current default version in MODULE.bazel
+      - name: Show Python version and platform info
+        run: |
+          python --version
+          python -m platform
       - uses: bazel-contrib/setup-bazel@0.8.4
         with:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
-      - run: BAZEL_CXXOPTS="-std=c++17" bazel test //...
-      - run: BAZEL_CXXOPTS="-std=c++20" bazel test //...
+      - name: Show Bazel version
+        run: bazel --version
+      - name: Bazel Build
+        shell: bash
+        run: >
+          bazel build
+          --cxxopt=${{ matrix.options.flags }} --host_cxxopt=${{ matrix.options.flags }}
+          --subcommands=pretty_print
+          --enable_bzlmod
+          //...
+      - name: Bazel Test
+        shell: bash
+        run: >
+          bazel test
+          --cxxopt=${{ matrix.options.flags }} --host_cxxopt=${{ matrix.options.flags }}
+          --subcommands=pretty_print
+          --enable_bzlmod
+          //...
+
+  bazel:
+    runs-on: ubuntu-latest
+    needs: bazel_inner
+    steps:
+      - uses: actions/checkout@v4
