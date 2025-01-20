@@ -1,0 +1,6 @@
+/bazel-*
+/build
+/tmp_build
+
+user.bazelrc
+.*.swp

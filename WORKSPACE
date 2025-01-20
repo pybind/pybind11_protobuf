@@ -1,26 +1,41 @@
-workspace(name = "com_google_pybind11_protobuf")
-
+workspace(name = "pybind11_protobuf")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
 
-http_archive(
+################################################################################
+#
+# WORKSPACE is being deprecated in favor of the new Bzlmod dependency system.
+# It will be removed at some point in the future.
+#
+################################################################################
+
+## `bazel_skylib`
+# Needed for Abseil.
+git_repository(
     name = "bazel_skylib",
-    urls = [
-        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz"
-    ],
-    sha256 = "cd55a062e763b9349921f0f5db8c3933288dc8ba4f76dd9416aac68acee3cb94",
+    commit = "27d429d8d036af3d010be837cc5924de1ca8d163",
+    #tag = "1.7.1",
+    remote = "https://github.com/bazelbuild/bazel-skylib.git",
 )
-
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
-
 bazel_skylib_workspace()
 
-http_archive(
+## Bazel rules...
+git_repository(
+    name = "platforms",
+    commit = "05ec3a3df23fde62471f8288e344cc021dd87bab",
+    #tag = "0.0.10",
+    remote = "https://github.com/bazelbuild/platforms.git",
+)
+
+## abseil-cpp
+# https://github.com/abseil/abseil-cpp
+## Abseil-cpp
+git_repository(
     name = "com_google_absl",
-    sha256 = "59d2976af9d6ecf001a81a35749a6e551a335b949d34918cfade07737b9d93c5",  # SHARED_ABSL_SHA
-    strip_prefix = "abseil-cpp-20230802.0",
-    urls = [
-        "https://github.com/abseil/abseil-cpp/archive/refs/tags/20230802.0.tar.gz"
-    ],
+    commit = "4447c7562e3bc702ade25105912dce503f0c4010",
+    #tag = "20240722.0",
+    remote = "https://github.com/abseil/abseil-cpp.git",
 )
 
 http_archive(
@@ -32,17 +47,18 @@ http_archive(
     ],
 )
 
-http_archive(
+git_repository(
     name = "rules_python",
-    sha256 = "c68bdc4fbec25de5b5493b8819cfc877c4ea299c0dcb15c244c5a00208cde311",
-    strip_prefix = "rules_python-0.31.0",
-    url = "https://github.com/bazelbuild/rules_python/releases/download/0.31.0/rules_python-0.31.0.tar.gz",
+    commit = "1944874f6ba507f70d8c5e70df84622e0c783254",
+    #tag = "0.40.0",
+    remote = "https://github.com/bazelbuild/rules_python.git",
 )
 
 load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_multi_toolchains")
-
 py_repositories()
 
+load("@rules_python//python/pip_install:repositories.bzl", "pip_install_dependencies")
+pip_install_dependencies()
 
 DEFAULT_PYTHON = "3.11"
 
@@ -57,7 +73,6 @@ python_register_multi_toolchains(
       "3.8"
     ],
 )
-
 
 load("@python//:pip.bzl", "multi_pip_parse")
 
@@ -81,47 +96,47 @@ multi_pip_parse(
 )
 
 load("@pypi//:requirements.bzl", "install_deps")
-
 install_deps()
 
-## `pybind11_bazel` (PINNED)
+## `pybind11_bazel`
 # https://github.com/pybind/pybind11_bazel
-http_archive(
-  name = "pybind11_bazel",
-  strip_prefix = "pybind11_bazel-2.11.1.bzl.2",
-  sha256 = "e2ba5f81f3bf6a3fc0417448d49389cc7950bebe48c42c33dfeb4dd59859b9a4",
-  urls = ["https://github.com/pybind/pybind11_bazel/releases/download/v2.11.1.bzl.2/pybind11_bazel-2.11.1.bzl.2.tar.gz"],
+git_repository(
+    name = "pybind11_bazel",
+    commit = "2b6082a4d9d163a52299718113fa41e4b7978db5",
+    #tag = "v2.13.6", # 2024/10/21
+    remote = "https://github.com/pybind/pybind11_bazel.git",
 )
 
-## `pybind11` (FLOATING)
-http_archive(
-  name = "pybind11",
-  build_file = "@pybind11_bazel//:pybind11.BUILD",
-  strip_prefix = "pybind11-master",
-  urls = ["https://github.com/pybind/pybind11/archive/refs/heads/master.tar.gz"],
+## `pybind11`
+# https://github.com/pybind/pybind11
+new_git_repository(
+    name = "pybind11",
+    build_file = "@pybind11_bazel//:pybind11-BUILD.bazel",
+    commit = "a2e59f0e7065404b44dfe92a28aca47ba1378dc4",
+    #tag = "v2.13.6",
+    remote = "https://github.com/pybind/pybind11.git",
 )
 
 # proto_library, cc_proto_library, and java_proto_library rules implicitly
 # depend on @com_google_protobuf for protoc and proto runtimes.
-# This statement defines the @com_google_protobuf repo.
-http_archive(
+git_repository(
     name = "com_google_protobuf",
-    sha256 = "d19643d265b978383352b3143f04c0641eea75a75235c111cc01a1350173180e",
-    strip_prefix = "protobuf-25.3",
-    urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v25.3/protobuf-25.3.tar.gz"],
+    commit = "233098326bc268fc03b28725c941519fc77703e6",
+    #tag = "v29.2",
+    remote = "https://github.com/protocolbuffers/protobuf.git",
 )
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 protobuf_deps()
 
-# GRPC v1.42, for proto rules.
+# GRPC, for proto rules.
 # For a related discussion of the pro/cons of various open-source py proto rule
 # repositories, see b/189457935.
-http_archive(
+git_repository(
     name = "com_github_grpc_grpc",
-    sha256 = "84e31a77017911b2f1647ecadb0172671d96049ea9ad5109f02b4717c0f03702",
-    strip_prefix = "grpc-1.56.3",
-    urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.56.3.tar.gz"],
+    commit = "d3286610f703a339149c3f9be69f0d7d0abb130a",
+    #tag = "v1.67.1",
+    remote = "https://github.com/grpc/grpc.git",
 )
 
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
