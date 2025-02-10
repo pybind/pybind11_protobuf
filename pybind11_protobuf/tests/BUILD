@@ -12,7 +12,6 @@ licenses(["notice"])
 py_library(
     name = "compare",
     srcs = ["compare.py"],
-    srcs_version = "PY3",
     visibility = ["//visibility:public"],
     deps = ["@com_google_protobuf//:protobuf_python"],
 )
@@ -122,8 +121,6 @@ py_test(
     name = "proto_enum_test",
     srcs = ["proto_enum_test.py"],
     data = [":proto_enum_module.so"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
@@ -147,8 +144,6 @@ py_test(
     name = "dynamic_message_test",
     srcs = ["dynamic_message_test.py"],
     data = [":dynamic_message_module.so"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":compare",
         ":test_py_pb2",
@@ -190,8 +185,6 @@ py_test(
         ":extension_module.so",
         ":proto_enum_module.so",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = EXTENSION_TEST_DEPS_COMMON + ["@com_google_protobuf//:protobuf_python"],
 )
 
@@ -213,8 +206,6 @@ py_test(
         ":message_module.so",
         ":proto_enum_module.so",
     ],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":compare",
         ":test_py_pb2",
@@ -242,8 +233,6 @@ py_test(
     name = "pass_by_test",
     srcs = ["pass_by_test.py"],
     data = [":pass_by_module.so"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
@@ -282,8 +271,6 @@ py_test(
     name = "wrapped_proto_module_test",
     srcs = ["wrapped_proto_module_test.py"],
     data = [":wrapped_proto_module.so"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":compare",
         ":test_py_pb2",
@@ -310,8 +297,6 @@ py_test(
     name = "thread_module_test",
     srcs = ["thread_module_test.py"],
     data = [":thread_module.so"],
-    python_version = "PY3",
-    srcs_version = "PY3",
     deps = [
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
