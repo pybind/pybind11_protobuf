@@ -9,17 +9,31 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <optional>
-#include <variant>
 
+#include "absl/types/optional.h"
+#include "absl/types/variant.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
+#include "pybind11_abseil/absl_casters.h"
 #include "pybind11_protobuf/native_proto_caster.h"
 #include "pybind11_protobuf/tests/test.pb.h"
 
 namespace py = ::pybind11;
+
+// @TODO(mizux) To remove once BCR provides a pybind11_abseil version with it.
+namespace pybind11 {
+namespace detail {
+#ifndef ABSL_HAVE_STD_VARIANT
+template <>
+struct type_caster<absl::monostate>
+    : void_caster<absl::monostate> {};
+#endif
+
+}  // namespace detail
+}  // namespace pybind11
+
 
 namespace {
 
@@ -158,9 +172,9 @@ PYBIND11_MODULE(pass_by_module, m) {
 
   m.def(
       "std_variant",
-      [](std::variant<std::monostate, IntMessage> message, int value) {
-        if (auto* msg = std::get_if<IntMessage>(&message)) {
-          return CheckIntMessage(msg, value);
+      [](absl::variant<absl::monostate, IntMessage> message, int value) {
+        if (absl::holds_alternative<IntMessage>(message)) {
+          return CheckIntMessage(&absl::get<IntMessage>(message), value);
         }
         return false;
       },
@@ -168,7 +182,7 @@ PYBIND11_MODULE(pass_by_module, m) {
 
   m.def(
       "std_optional",
-      [](std::optional<IntMessage> message, int value) {
+      [](absl::optional<IntMessage> message, int value) {
         if (message.has_value()) {
           return CheckIntMessage(&message.value(), value);
         }

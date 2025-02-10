@@ -12,6 +12,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "pybind11_abseil/absl_casters.h"
 #include "pybind11_protobuf/native_proto_caster.h"
 #include "pybind11_protobuf/tests/test.pb.h"
 

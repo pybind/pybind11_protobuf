@@ -65,13 +65,25 @@ generate_extension(
   "extension_in_other_file_in_deps_cc_proto;extension_nest_repeated_cc_proto;test_cc_proto;extension_cc_proto;pybind11_native_proto_caster"
 )
 generate_extension(message "test_cc_proto;pybind11_native_proto_caster")
-generate_extension(pass_by "test_cc_proto;pybind11_native_proto_caster")
+generate_extension(
+  pass_by
+  "test_cc_proto;pybind11_native_proto_caster;pybind11_abseil::absl_casters")
 generate_extension(pass_proto2_message "pybind11_native_proto_caster")
 generate_extension(wrapped_proto "test_cc_proto;pybind11_wrapped_proto_caster")
-generate_extension(thread "test_cc_proto;pybind11_native_proto_caster")
+generate_extension(
+  thread
+  "test_cc_proto;pybind11_native_proto_caster;pybind11_abseil::absl_casters")
 generate_extension(regression_wrappers "pybind11_native_proto_caster")
 generate_extension(we_love_dashes_cc_only #
                    "we-love-dashes_cc_proto;pybind11_native_proto_caster")
+
+if(NOT DEFINED Python_EXECUTABLE)
+  if(NOT DEFINED PYBIND11_PYTHON_EXECUTABLE_LAST)
+    set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
+  else()
+    set(Python_EXECUTABLE ${PYBIND11_PYTHON_EXECUTABLE_LAST})
+  endif()
+endif()
 
 function(add_py_test testname)
   add_test(NAME ${testname}_test

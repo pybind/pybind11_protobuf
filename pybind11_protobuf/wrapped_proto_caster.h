@@ -277,7 +277,7 @@ struct wrapped_proto_vector_caster {
                                pybind11::return_value_policy policy,
                                pybind11::handle parent) {
     pybind11::list l(src.protos.size());
-    ssize_t index = 0;
+    Py_ssize_t index = 0;
     for (auto&& value : src.protos) {
       auto value_ = pybind11::reinterpret_steal<pybind11::object>(
           pybind11_protobuf::native_cast_impl::cast_impl(
