@@ -37,6 +37,8 @@ using ::google::protobuf::FileDescriptorProto;
 using ::google::protobuf::Message;
 using ::google::protobuf::MessageFactory;
 
+// noop
+
 namespace pybind11_protobuf {
 
 std::string StripProtoSuffixFromDescriptorFileName(absl::string_view filename) {
