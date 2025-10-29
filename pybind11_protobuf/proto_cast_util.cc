@@ -2,6 +2,7 @@
 
 #include <Python.h>
 #include <pybind11/cast.h>
+#include <pybind11/gil_safe_call_once.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
@@ -150,8 +151,12 @@ class GlobalState {
   // due to order of destruction conflict with python threads. See
   // https://github.com/pybind/pybind11/issues/1598
   static GlobalState* instance() {
-    static auto instance = new GlobalState();
-    return instance;
+    PYBIND11_CONSTINIT static pybind11::gil_safe_call_once_and_store<
+        GlobalState*>
+        storage;
+    return storage
+        .call_once_and_store_result([]() { return new GlobalState(); })
+        .get_stored();
   }
 
   py::handle global_pool() { return global_pool_; }
