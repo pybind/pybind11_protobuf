@@ -62,7 +62,7 @@ bool MessageMayContainExtensionsRecursive(const ::google::protobuf::Descriptor* 
 bool MessageMayContainExtensionsMemoized(const ::google::protobuf::Descriptor* descriptor) {
   static auto* memoized = new MayContainExtensionsMap();
   static absl::Mutex lock;
-  absl::MutexLock l(&lock);
+  absl::MutexLock l(lock);
   return MessageMayContainExtensionsRecursive(descriptor, memoized);
 }
 
