@@ -404,9 +404,15 @@ class PythonDescriptorPoolWrapper {
         int field_number, FileDescriptorProto* output) override {
       try {
         auto descriptor = pool_.attr("FindMessageTypeByName")(containing_type);
-        auto file =
-            pool_.attr("FindExtensionByNumber")(descriptor, field_number)
-                .attr("file");
+        // Keep the intermediate FieldDescriptor in a named variable so that it
+        // stays alive while we access its `.file` attribute and subsequently
+        // serialize the FileDescriptorProto.  Without this, the UPB Python
+        // runtime may free the FieldDescriptor wrapper (and its backing def
+        // pointers) before CopyToFileDescriptorProto finishes, leading to a
+        // heap-use-after-free.
+        auto extension =
+            pool_.attr("FindExtensionByNumber")(descriptor, field_number);
+        auto file = extension.attr("file");
         return CopyToFileDescriptorProto(file, output);
       } catch (py::error_already_set& e) {
         std::cerr << "FindFileContainingExtension " << containing_type << " "

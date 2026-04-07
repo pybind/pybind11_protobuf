@@ -154,6 +154,19 @@ py_test(
     ],
 )
 
+# Regression test for use-after-free in FindFileContainingExtension when
+# dynamic protos with extensions are roundtripped through pybind11_protobuf.
+py_test(
+    name = "dynamic_extension_roundtrip_test",
+    srcs = ["dynamic_extension_roundtrip_test.py"],
+    deps = [
+        ":dynamic_message_module",
+        "@com_google_protobuf//:protobuf_python",
+        "@com_google_absl_py//absl/testing:absltest",
+        requirement("absl_py"),
+    ],
+)
+
 pybind_extension(
     name = "extension_module",
     srcs = ["extension_module.cc"],
