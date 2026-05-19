@@ -62,7 +62,7 @@ bool MessageMayContainExtensionsRecursive(const ::google::protobuf::Descriptor* 
 bool MessageMayContainExtensionsMemoized(const ::google::protobuf::Descriptor* descriptor) {
   static auto* memoized = new MayContainExtensionsMap();
   static absl::Mutex lock;
-  absl::MutexLock l(&lock);
+  absl::MutexLock l(lock);
   return MessageMayContainExtensionsRecursive(descriptor, memoized);
 }
 
@@ -181,7 +181,7 @@ void AllowUnknownFieldsFor(absl::string_view top_message_descriptor_full_name,
                                           unknown_field_parent_message_fqn));
 }
 
-absl::optional<std::string> CheckRecursively(
+std::optional<std::string> CheckRecursively(
     const ::google::protobuf::python::PyProto_API* py_proto_api,
     const ::google::protobuf::Message* message) {
   const auto* root_descriptor = message->GetDescriptor();

@@ -80,7 +80,7 @@ bool IsImportError(py::error_already_set& e) {
 
 // Resolves a sequence of python attrs starting from obj.
 // If any does not exist, returns nullopt.
-absl::optional<py::object> ResolveAttrs(
+std::optional<pybind11::object> ResolveAttrs(
     py::handle obj, std::initializer_list<const char*> names) {
   py::object tmp;
   for (const char* name : names) {
@@ -101,7 +101,8 @@ absl::optional<py::object> ResolveAttrs(
 // Unfortunately the metaclass mechanism used by protos (fast_cpp_protos) does
 // not leave __dict__ in a state where the default getattr functions find the
 // base class methods, so we resolve those using MRO.
-absl::optional<py::object> ResolveAttrMRO(py::handle obj, const char* name) {
+std::optional<pybind11::object> ResolveAttrMRO(py::handle obj,
+                                               const char* name) {
   PyObject* attr;
   const auto* t = Py_TYPE(obj.ptr());
   if (!t->tp_mro) {
@@ -135,7 +136,7 @@ absl::optional<py::object> ResolveAttrMRO(py::handle obj, const char* name) {
   return absl::nullopt;
 }
 
-absl::optional<std::string> CastToOptionalString(py::handle src) {
+std::optional<std::string> CastToOptionalString(py::handle src) {
   // Avoid pybind11::cast because it throws an exeption.
   pybind11::detail::make_caster<std::string> c;
   if (c.load(src, false)) {
@@ -492,7 +493,7 @@ const Message* PyProtoGetCppMessagePointer(py::handle src) {
 #endif
 }
 
-absl::optional<std::string> PyProtoDescriptorFullName(py::handle py_proto) {
+std::optional<std::string> PyProtoDescriptorFullName(py::handle py_proto) {
   assert(PyGILState_Check());
   auto py_full_name = ResolveAttrs(py_proto, {"DESCRIPTOR", "full_name"});
   if (py_full_name) {
