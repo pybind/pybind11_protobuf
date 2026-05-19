@@ -160,7 +160,7 @@ TestMessage GetValue() { return TestMessage(); }
 // Note that this should never actually run.
 TestMessage&& GetRValue() { return std::move(kMessage); }
 absl::StatusOr<TestMessage> GetStatusOr() { return TestMessage(); }
-absl::optional<TestMessage> GetOptional() { return TestMessage(); }
+std::optional<TestMessage> GetOptional() { return TestMessage(); }
 std::vector<TestMessage> GetVector() { return {}; }
 
 void PassInt(int) {}
@@ -168,7 +168,7 @@ void PassConstReference(const TestMessage&) {}
 void PassConstPtr(const TestMessage*) {}
 void PassValue(TestMessage) {}
 void PassRValue(TestMessage&&) {}
-void PassOptional(absl::optional<TestMessage>) {}
+void PassOptional(std::optional<TestMessage>) {}
 void PassVector(std::vector<TestMessage>) {}
 
 struct Struct {
@@ -212,7 +212,7 @@ void test_static_asserts() {
       WithWrappedProtos(&Struct::ConstMemberFn));
   absl::FunctionRef<absl::StatusOr<TestMessage>()>(
       WithWrappedProtos(GetStatusOr));
-  absl::FunctionRef<absl::optional<TestMessage>()>(
+  absl::FunctionRef<std::optional<TestMessage>()>(
       WithWrappedProtos(GetOptional));
   absl::FunctionRef<std::vector<TestMessage>()>(WithWrappedProtos(GetVector));
 
@@ -223,7 +223,7 @@ void test_static_asserts() {
   absl::FunctionRef<void(const TestMessage*)>(WithWrappedProtos(PassConstPtr));
   absl::FunctionRef<void(TestMessage)>(WithWrappedProtos(PassValue));
   absl::FunctionRef<void(TestMessage &&)>(WithWrappedProtos(PassRValue));
-  absl::FunctionRef<void(absl::optional<TestMessage>)>(
+  absl::FunctionRef<void(std::optional<TestMessage>)>(
       WithWrappedProtos(PassOptional));
   absl::FunctionRef<void(std::vector<TestMessage>)>(
       WithWrappedProtos(PassVector));
