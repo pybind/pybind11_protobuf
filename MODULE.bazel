@@ -12,7 +12,7 @@ bazel_dep(name = "abseil-py", version = "2.1.0", repo_name = "com_google_absl_py
 bazel_dep(name = "platforms", version = "0.0.10")
 bazel_dep(name = "rules_cc", version = "0.0.15")
 bazel_dep(name = "rules_python", version = "0.40.0")
-bazel_dep(name = "pybind11_bazel", version = "2.13.6")
+bazel_dep(name = "pybind11_bazel", version = "3.0.1")
 bazel_dep(name = "pybind11_abseil", version = "202402.0")
 bazel_dep(name = "protobuf", version = "29.2", repo_name = "com_google_protobuf")
 bazel_dep(name = "grpc", version = "1.56.3.bcr.1", repo_name = "com_github_grpc_grpc")
