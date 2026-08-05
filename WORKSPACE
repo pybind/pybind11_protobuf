@@ -70,7 +70,6 @@ python_register_multi_toolchains(
       "3.11",
       "3.10",
       "3.9",
-      "3.8"
     ],
 )
 
@@ -84,14 +83,12 @@ multi_pip_parse(
         "3.11": "@python_3_11_host//:python",
         "3.10": "@python_3_10_host//:python",
         "3.9": "@python_3_9_host//:python",
-        "3.8": "@python_3_8_host//:python",
     },
     requirements_lock = {
         "3.12": "//pybind11_protobuf/requirements:requirements_lock_3_12.txt",
         "3.11": "//pybind11_protobuf/requirements:requirements_lock_3_11.txt",
         "3.10": "//pybind11_protobuf/requirements:requirements_lock_3_10.txt",
         "3.9": "//pybind11_protobuf/requirements:requirements_lock_3_9.txt",
-        "3.8": "//pybind11_protobuf/requirements:requirements_lock_3_8.txt",
     },
 )
 
@@ -102,8 +99,8 @@ install_deps()
 # https://github.com/pybind/pybind11_bazel
 git_repository(
     name = "pybind11_bazel",
-    commit = "2b6082a4d9d163a52299718113fa41e4b7978db5",
-    #tag = "v2.13.6", # 2024/10/21
+    commit = "d5f6a112138c672daec4ca279f33baae95ca10ec",
+    #tag = "v3.0.1", # 2026/03/19
     remote = "https://github.com/pybind/pybind11_bazel.git",
 )
 
@@ -112,8 +109,8 @@ git_repository(
 new_git_repository(
     name = "pybind11",
     build_file = "@pybind11_bazel//:pybind11-BUILD.bazel",
-    commit = "a2e59f0e7065404b44dfe92a28aca47ba1378dc4",
-    #tag = "v2.13.6",
+    commit = "f5fbe867d2d26e4a0a9177a51f6e568868ad3dc8",
+    #tag = "v3.0.1",
     remote = "https://github.com/pybind/pybind11.git",
 )
 
