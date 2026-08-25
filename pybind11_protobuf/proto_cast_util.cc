@@ -361,7 +361,7 @@ class PythonDescriptorPoolWrapper {
 
     // Find a file by file name.
     bool FindFileByName(
-        const std::string& filename
+        StringViewArg filename
         ,
         FileDescriptorProto* output) override {
       try {
@@ -379,7 +379,7 @@ class PythonDescriptorPoolWrapper {
 
     // Find the file that declares the given fully-qualified symbol name.
     bool FindFileContainingSymbol(
-        const std::string& symbol_name
+        StringViewArg symbol_name
         ,
         FileDescriptorProto* output) override {
       try {
@@ -399,7 +399,7 @@ class PythonDescriptorPoolWrapper {
     // Find the file which defines an extension extending the given message type
     // with the given field number.
     bool FindFileContainingExtension(
-        const std::string& containing_type
+        StringViewArg containing_type
         ,
         int field_number, FileDescriptorProto* output) override {
       try {
