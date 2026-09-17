@@ -95,18 +95,24 @@ bool HasUnknownFields::FindUnknownFieldsRecursive(
     const ::google::protobuf::Message* sub_message, uint32_t depth) {
   const ::google::protobuf::Reflection& reflection = *sub_message->GetReflection();
 
-  // If there are unknown fields, stop searching.
+  // Check if any unknown fields on this message correspond to extensions that
+  // are known by Python's descriptor pool (i.e., Python imported the extension,
+  // but C++ did not link the corresponding cc_proto_library).
+  // Iterate through all unknown fields, as earlier entries might be unknown
+  // regular fields or extensions not registered in Python.
   const ::google::protobuf::UnknownFieldSet& unknown_field_set =
       reflection.GetUnknownFields(*sub_message);
   if (!unknown_field_set.empty()) {
     unknown_field_parent_descriptor = sub_message->GetDescriptor();
-    unknown_field_number = unknown_field_set.field(0).number();
-
-    // Stop only if the extension is known by Python.
-    if (py_proto_api->GetDefaultDescriptorPool()->FindExtensionByNumber(
-            unknown_field_parent_descriptor, unknown_field_number)) {
-      field_fqn_parts.resize(depth);
-      return true;
+    for (int i = 0; i < unknown_field_set.field_count(); ++i) {
+      int field_num = unknown_field_set.field(i).number();
+      // Stop and report as soon as an extension known by Python is found.
+      if (py_proto_api->GetDefaultDescriptorPool()->FindExtensionByNumber(
+              unknown_field_parent_descriptor, field_num)) {
+        unknown_field_number = field_num;
+        field_fqn_parts.resize(depth);
+        return true;
+      }
     }
   }
 
