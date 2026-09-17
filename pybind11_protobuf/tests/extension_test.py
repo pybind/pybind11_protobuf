@@ -213,5 +213,44 @@ class ExtensionTest(parameterized.TestCase):
     b = m.reserialize_base_message(a)
     self.assertEqual(a.SerializeToString(), b.SerializeToString())
 
+  def test_reserialize_multiple_unknown_fields(self):
+    # Concatenating two serialized messages places their fields into the wire
+    # stream in sequential order:
+    # 1. 'inner' contains field 2001 (AllowUnknownInnerExtension.hook), which is
+    #    unknown to both C++ and Python for BaseMessage.
+    # 2. 'msg_with_ext' contains field 1003 (MessageInOtherFile extension),
+    #    which is unknown to C++ (unlinked cc_proto_library), but is known to
+    #    Python's descriptor pool.
+    # When BaseMessage parses raw_data in C++, its UnknownFieldSet preserves
+    # this order: field(0) = 2001, field(1) = 1003.
+    inner = get_allow_unknown_inner(63)
+    msg_with_ext = get_py_message(in_other_file_value=63)
+    raw_data = inner.SerializeToString() + msg_with_ext.SerializeToString()
+
+    # When unknown_field_exception_is_expected() is True (e.g., in fast_cpp
+    # mode with unknown fields disallowed), pybind11_protobuf scans
+    # UnknownFieldSet and raises ValueError upon detecting field 1003.
+    # Otherwise (e.g., pure Python / upb or allowed mode), it falls back to
+    # serialization, allowing Python to read the extension losslessly.
+    if unknown_field_exception_is_expected():
+      with self.assertRaises(ValueError) as ctx:
+        m.parse_base_message_from_bytes(raw_data)
+      self.assertStartsWith(
+          str(ctx.exception),
+          'Proto Message of type pybind11.test.BaseMessage has an'
+          ' Unknown Field: 1003 (')
+      self.assertEndsWith(
+          str(ctx.exception),
+          'extension.proto). Please add the required `cc_proto_library` `deps`.'
+          ' Only if there is no alternative to suppressing this error, use'
+          ' `pybind11_protobuf::AllowUnknownFieldsFor('
+          '"pybind11.test.BaseMessage", "");`'
+          ' (Warning: suppressions may mask critical bugs.)')
+    else:
+      b = m.parse_base_message_from_bytes(raw_data)
+      b_value = b.Extensions[extension_in_other_file_pb2.MessageInOtherFile
+                             .message_in_other_file_extension].value
+      self.assertEqual(63, b_value)
+
 if __name__ == '__main__':
   absltest.main()

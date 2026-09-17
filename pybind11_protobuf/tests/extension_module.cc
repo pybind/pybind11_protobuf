@@ -69,6 +69,15 @@ PYBIND11_MODULE(extension_module, m) {
       [](const BaseMessage& inout) -> const BaseMessage& { return inout; },
       py::arg("message"), py::return_value_policy::copy);
 
+  m.def(
+      "parse_base_message_from_bytes",
+      [](const py::bytes& bytes) -> BaseMessage {
+        BaseMessage msg;
+        msg.ParseFromString(bytes);
+        return msg;
+      },
+      py::arg("bytes"));
+
   DefReserialize<BaseMessage>(m, "reserialize_base_message");
   DefReserialize<pybind11::test::NestLevel2>(m, "reserialize_nest_level2");
   DefReserialize<pybind11::test::NestRepeated>(m, "reserialize_nest_repeated");
