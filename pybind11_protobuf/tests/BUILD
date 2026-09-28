@@ -120,7 +120,7 @@ pybind_extension(
 py_test(
     name = "proto_enum_test",
     srcs = ["proto_enum_test.py"],
-    data = [":proto_enum_module.so"],
+    data = [":proto_enum_module"],
     deps = [
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
@@ -143,7 +143,7 @@ pybind_extension(
 py_test(
     name = "dynamic_message_test",
     srcs = ["dynamic_message_test.py"],
-    data = [":dynamic_message_module.so"],
+    data = [":dynamic_message_module"],
     deps = [
         ":compare",
         ":test_py_pb2",
@@ -159,8 +159,8 @@ py_test(
 py_test(
     name = "dynamic_extension_roundtrip_test",
     srcs = ["dynamic_extension_roundtrip_test.py"],
+    data = [":dynamic_message_module"],
     deps = [
-        ":dynamic_message_module",
         "@com_google_protobuf//:protobuf_python",
         "@com_google_absl_py//absl/testing:absltest",
         requirement("absl_py"),
@@ -195,8 +195,8 @@ py_test(
     name = "extension_test",
     srcs = ["extension_test.py"],
     data = [
-        ":extension_module.so",
-        ":proto_enum_module.so",
+        ":extension_module",
+        ":proto_enum_module",
     ],
     deps = EXTENSION_TEST_DEPS_COMMON + ["@com_google_protobuf//:protobuf_python"],
 )
@@ -215,9 +215,9 @@ py_test(
     name = "message_test",
     srcs = ["message_test.py"],
     data = [
-        ":extension_module.so",
-        ":message_module.so",
-        ":proto_enum_module.so",
+        ":extension_module",
+        ":message_module",
+        ":proto_enum_module",
     ],
     deps = [
         ":compare",
@@ -245,7 +245,7 @@ pybind_extension(
 py_test(
     name = "pass_by_test",
     srcs = ["pass_by_test.py"],
-    data = [":pass_by_module.so"],
+    data = [":pass_by_module"],
     deps = [
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
@@ -283,7 +283,7 @@ pybind_extension(
 py_test(
     name = "wrapped_proto_module_test",
     srcs = ["wrapped_proto_module_test.py"],
-    data = [":wrapped_proto_module.so"],
+    data = [":wrapped_proto_module"],
     deps = [
         ":compare",
         ":test_py_pb2",
@@ -309,7 +309,7 @@ pybind_extension(
 py_test(
     name = "thread_module_test",
     srcs = ["thread_module_test.py"],
-    data = [":thread_module.so"],
+    data = [":thread_module"],
     deps = [
         ":test_py_pb2",
         "@com_google_absl_py//absl/testing:absltest",
@@ -331,7 +331,7 @@ pybind_extension(
 py_test(
     name = "regression_wrappers_test",
     srcs = ["regression_wrappers_test.py"],
-    data = [":regression_wrappers_module.so"],
+    data = [":regression_wrappers_module"],
     deps = [
         "@com_google_protobuf//:protobuf_python",
         "@com_google_absl_py//absl/testing:absltest",
@@ -352,7 +352,7 @@ pybind_extension(
 py_test(
     name = "we_love_dashes_cc_only_test",
     srcs = ["we_love_dashes_cc_only_test.py"],
-    data = [":we_love_dashes_cc_only_module.so"],
+    data = [":we_love_dashes_cc_only_module"],
     deps = [
         "@com_google_absl_py//absl/testing:absltest",
         "@com_google_protobuf//:protobuf_python",

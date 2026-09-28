@@ -9,26 +9,36 @@ load("@python//3.9:defs.bzl", compile_pip_requirements_3_9 = "compile_pip_requir
 load("@python//3.8:defs.bzl", compile_pip_requirements_3_8 = "compile_pip_requirements")
 compile_pip_requirements_3_12(
     name = "requirements_3_12",
+    size = "large",
     src = "requirements.in",
     requirements_txt = "requirements_lock_3_12.txt",
+    timeout = "long",
 )
 compile_pip_requirements_3_11(
     name = "requirements_3_11",
+    size = "large",
     src = "requirements.in",
     requirements_txt = "requirements_lock_3_11.txt",
+    timeout = "long",
 )
 compile_pip_requirements_3_10(
     name = "requirements_3_10",
+    size = "large",
     src = "requirements.in",
     requirements_txt = "requirements_lock_3_10.txt",
+    timeout = "long",
 )
 compile_pip_requirements_3_9(
     name = "requirements_3_9",
+    size = "large",
     src = "requirements.in",
     requirements_txt = "requirements_lock_3_9.txt",
+    timeout = "long",
 )
 compile_pip_requirements_3_8(
     name = "requirements_3_8",
+    size = "large",
     src = "requirements.in",
     requirements_txt = "requirements_lock_3_8.txt",
+    timeout = "long",
 )

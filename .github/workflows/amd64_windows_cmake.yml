@@ -18,7 +18,7 @@ jobs:
         ]
       fail-fast: false
     name: Windows•CMake(${{ matrix.cmake.generator }})•Python${{ matrix.python.version }}
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python

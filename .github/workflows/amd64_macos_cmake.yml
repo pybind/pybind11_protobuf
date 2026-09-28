@@ -21,7 +21,7 @@ jobs:
         ]
       fail-fast: false
     name: MacOS•CMake(${{ matrix.cmake.generator }})•Python${{ matrix.python.version }}
-    runs-on: macos-13 # last macos intel based runner
+    runs-on: macos-26-intel
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python

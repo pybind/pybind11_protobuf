@@ -48,8 +48,11 @@ jobs:
         run: |
           python --version
           python -m platform
-      - name: Install Bazel
-        run: choco install bazel
+      - uses: bazel-contrib/setup-bazel@0.8.4
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
       - name: Check Bazel
         run: bazel version
       - name: Build
