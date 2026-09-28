@@ -98,7 +98,7 @@ class DynamicExtensionRoundtripTest(absltest.TestCase):
     ext_file = _make_ext_file()
 
     # Create a pool with both the base and extension files.
-    pool = descriptor_pool.DescriptorPool()
+    pool = descriptor_pool.Default()
     pool.Add(base_file)
     pool.Add(ext_file)
 
