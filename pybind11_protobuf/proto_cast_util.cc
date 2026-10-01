@@ -87,7 +87,7 @@ absl::optional<py::object> ResolveAttrs(
     PyObject* attr = PyObject_GetAttrString(obj.ptr(), name);
     if (attr == nullptr) {
       PyErr_Clear();
-      return std::nullopt;
+      return absl::nullopt;
     }
     tmp = py::reinterpret_steal<py::object>(attr);
     obj = py::handle(attr);
@@ -110,7 +110,7 @@ absl::optional<py::object> ResolveAttrMRO(py::handle obj, const char* name) {
       return py::reinterpret_steal<py::object>(attr);
     }
     PyErr_Clear();
-    return std::nullopt;
+    return absl::nullopt;
   }
 
   auto unicode = py::reinterpret_steal<py::object>(PyUnicode_FromString(name));
@@ -132,7 +132,7 @@ absl::optional<py::object> ResolveAttrMRO(py::handle obj, const char* name) {
       PyErr_Clear();
     }
   }
-  return std::nullopt;
+  return absl::nullopt;
 }
 
 absl::optional<std::string> CastToOptionalString(py::handle src) {
@@ -141,7 +141,7 @@ absl::optional<std::string> CastToOptionalString(py::handle src) {
   if (c.load(src, false)) {
     return pybind11::detail::cast_op<std::string>(std::move(c));
   }
-  return std::nullopt;
+  return absl::nullopt;
 }
 
 class GlobalState {
@@ -321,10 +321,10 @@ class PythonDescriptorPoolWrapper {
     // may outlive the python pool, and (2) for the fast_cpp_proto case, there's
     // no support for weak references.
 
-    auto database = std::make_unique<DescriptorPoolDatabase>(
+    auto database = absl::make_unique<DescriptorPoolDatabase>(
         py::reinterpret_borrow<py::object>(python_pool));
-    auto pool = std::make_unique<DescriptorPool>(database.get());
-    auto factory = std::make_unique<DynamicMessageFactory>(pool.get());
+    auto pool = absl::make_unique<DescriptorPool>(database.get());
+    auto factory = absl::make_unique<DynamicMessageFactory>(pool.get());
     // When wrapping the Python descriptor_poool.Default(), apply an important
     // optimization:
     // - the pool is based on the C++ generated_pool(), so that compiled
@@ -510,7 +510,7 @@ absl::optional<std::string> PyProtoDescriptorFullName(py::handle py_proto) {
   if (py_full_name) {
     return CastToOptionalString(*py_full_name);
   }
-  return std::nullopt;
+  return absl::nullopt;
 }
 
 bool PyProtoHasMatchingFullName(py::handle py_proto,
