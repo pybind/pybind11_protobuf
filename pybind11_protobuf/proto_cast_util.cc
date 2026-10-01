@@ -361,8 +361,12 @@ class PythonDescriptorPoolWrapper {
 
     // Find a file by file name.
     bool FindFileByName(
-        const std::string& filename
-        ,
+#if (defined(PROTOBUF_VERSION) && PROTOBUF_VERSION >= 6034000) || \
+    (defined(GOOGLE_PROTOBUF_VERSION) && GOOGLE_PROTOBUF_VERSION >= 6034000)
+        absl::string_view filename,
+#else
+        const std::string& filename,
+#endif
         FileDescriptorProto* output) override {
       try {
         auto file = pool_.attr("FindFileByName")(filename);
@@ -379,8 +383,12 @@ class PythonDescriptorPoolWrapper {
 
     // Find the file that declares the given fully-qualified symbol name.
     bool FindFileContainingSymbol(
-        const std::string& symbol_name
-        ,
+#if (defined(PROTOBUF_VERSION) && PROTOBUF_VERSION >= 6034000) || \
+    (defined(GOOGLE_PROTOBUF_VERSION) && GOOGLE_PROTOBUF_VERSION >= 6034000)
+        absl::string_view symbol_name,
+#else
+        const std::string& symbol_name,
+#endif
         FileDescriptorProto* output) override {
       try {
         auto file = pool_.attr("FindFileContainingSymbol")(symbol_name);
@@ -399,8 +407,12 @@ class PythonDescriptorPoolWrapper {
     // Find the file which defines an extension extending the given message type
     // with the given field number.
     bool FindFileContainingExtension(
-        const std::string& containing_type
-        ,
+#if (defined(PROTOBUF_VERSION) && PROTOBUF_VERSION >= 6034000) || \
+    (defined(GOOGLE_PROTOBUF_VERSION) && GOOGLE_PROTOBUF_VERSION >= 6034000)
+        absl::string_view containing_type,
+#else
+        const std::string& containing_type,
+#endif
         int field_number, FileDescriptorProto* output) override {
       try {
         auto descriptor = pool_.attr("FindMessageTypeByName")(containing_type);
