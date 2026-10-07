@@ -24,6 +24,12 @@
 // * Compiler/linker & compiler/linker options.
 // #define PYBIND11_PROTOBUF_ASSUME_FULL_ABI_COMPATIBILITY
 
+#if defined(__GNUC__)
+#define PYBIND11_PROTOBUF_DEFAULT_VISIBILITY __attribute__((visibility("default")))
+#else
+#define PYBIND11_PROTOBUF_DEFAULT_VISIBILITY
+#endif
+
 namespace pybind11_protobuf {
 
 // Strips ".proto" or ".protodevel" from the end of a filename.
@@ -43,6 +49,7 @@ std::string InferPythonModuleNameFromDescriptorFileName(
 
 // Simple helper. Caller has to ensure that the py_bytes argument outlives the
 // returned string_view.
+PYBIND11_PROTOBUF_DEFAULT_VISIBILITY
 absl::string_view PyBytesAsStringView(pybind11::bytes py_bytes);
 
 // Initialize internal proto cast dependencies, which includes importing
@@ -53,38 +60,47 @@ void InitializePybindProtoCastUtil();
 void ImportProtoDescriptorModule(const ::google::protobuf::Descriptor *);
 
 // Returns a ::google::protobuf::Message* from a cpp_fast_proto, if backed by C++.
+PYBIND11_PROTOBUF_DEFAULT_VISIBILITY
 const ::google::protobuf::Message *PyProtoGetCppMessagePointer(pybind11::handle src);
 
 // Returns the protocol buffer's py_proto.DESCRIPTOR.full_name attribute.
+PYBIND11_PROTOBUF_DEFAULT_VISIBILITY
 absl::optional<std::string> PyProtoDescriptorFullName(
     pybind11::handle py_proto);
 
 // Returns true if py_proto full name matches descriptor full name.
+PYBIND11_PROTOBUF_DEFAULT_VISIBILITY
 bool PyProtoHasMatchingFullName(pybind11::handle py_proto,
                                 const ::google::protobuf::Descriptor *descriptor);
 
 // Caller should enforce any type identity that is required.
+PYBIND11_PROTOBUF_DEFAULT_VISIBILITY
 pybind11::bytes PyProtoSerializePartialToString(pybind11::handle py_proto,
                                                 bool raise_if_error);
 
 // Allocates a C++ protocol buffer for a given name.
+PYBIND11_PROTOBUF_DEFAULT_VISIBILITY
 std::unique_ptr<::google::protobuf::Message> AllocateCProtoFromPythonSymbolDatabase(
     pybind11::handle src, const std::string &full_name);
 
 // Serialize the py_proto and deserialize it into the provided message.
 // Caller should enforce any type identity that is required.
+PYBIND11_PROTOBUF_DEFAULT_VISIBILITY
 void CProtoCopyToPyProto(::google::protobuf::Message *message, pybind11::handle py_proto);
 
 // Returns a handle to a python protobuf suitably
+PYBIND11_PROTOBUF_DEFAULT_VISIBILITY
 pybind11::handle GenericFastCppProtoCast(::google::protobuf::Message *src,
                                          pybind11::return_value_policy policy,
                                          pybind11::handle parent,
                                          bool is_const);
 
+PYBIND11_PROTOBUF_DEFAULT_VISIBILITY
 pybind11::handle GenericPyProtoCast(::google::protobuf::Message *src,
                                     pybind11::return_value_policy policy,
                                     pybind11::handle parent, bool is_const);
 
+PYBIND11_PROTOBUF_DEFAULT_VISIBILITY
 pybind11::handle GenericProtoCast(::google::protobuf::Message *src,
                                   pybind11::return_value_policy policy,
                                   pybind11::handle parent, bool is_const);
