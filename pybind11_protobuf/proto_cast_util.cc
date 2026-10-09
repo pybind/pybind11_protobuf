@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "absl/debugging/leak_check.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
 #include "absl/log/log.h"
@@ -155,7 +156,8 @@ class GlobalState {
         GlobalState*>
         storage;
     return storage
-        .call_once_and_store_result([]() { return new GlobalState(); })
+        .call_once_and_store_result(
+            []() { return absl::IgnoreLeak(new GlobalState()); })
         .get_stored();
   }
 
