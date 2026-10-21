@@ -172,7 +172,7 @@ PYBIND11_MODULE(pass_by_module, m) {
 
   m.def(
       "std_variant",
-      [](absl::variant<absl::monostate, IntMessage> message, int value) {
+      [](std::variant<absl::monostate, IntMessage> message, int value) {
         if (absl::holds_alternative<IntMessage>(message)) {
           return CheckIntMessage(&absl::get<IntMessage>(message), value);
         }
