@@ -1,6 +1,7 @@
 # ref: https://github.com/actions/runner-images
 name: arm64 MacOS CMake
 
+# Controls when the action will run.
 on:
   push:
     branches:
@@ -18,7 +19,7 @@ concurrency:
   group: ${{github.workflow}}-${{github.ref == 'refs/heads/main' && github.run_id || github.ref}}
   cancel-in-progress: true
 
-# Building using the github runner environement directly.
+# Building using the github runner environment directly.
 jobs:
   native:
     strategy:
@@ -35,9 +36,9 @@ jobs:
     name: ${{matrix.runner}}•CMake(${{matrix.generator}})•C++${{matrix.cpp}}•Py${{matrix.python}}
     runs-on: ${{matrix.runner}}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{matrix.python}}
       - name: Update Path
@@ -84,4 +85,4 @@ jobs:
     runs-on: ubuntu-latest
     needs: native
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7

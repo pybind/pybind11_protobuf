@@ -1,6 +1,7 @@
 # ref: https://github.com/actions/runner-images
 name: amd64 Linux Bazel
 
+# Controls when the action will run.
 on:
   push:
     branches:
@@ -18,71 +19,94 @@ concurrency:
   group: ${{github.workflow}}-${{github.ref == 'refs/heads/main' && github.run_id || github.ref}}
   cancel-in-progress: true
 
-# Building using the github runner environement directly.
+# Building using the github runner environment directly.
 jobs:
   native:
+    name: ${{matrix.runner}}•${{matrix.cc}}•Bzl${{matrix.bazel}}(${{matrix.mode}})•C++${{matrix.cpp}}•Py${{matrix.python}}
+    runs-on: ${{matrix.runner}}
     strategy:
-      matrix:
-        bazel: [
-          {compilation_mode: opt},
-          {compilation_mode: dbg},
-        ]
-        cpp: [
-          {version: 14, flags: "-std=c++14"},
-          {version: 17, flags: "-std=c++17"},
-          {version: 20, flags: "-std=c++20"},
-        ]
-        python: [
-          #{version: '3.11'},
-          {version: '3.12'},
-        ]
-        exclude:
-          # only test `-c dbg` build with C++17
-          - cpp: {version: 14}
-            bazel: {compilation_mode: dbg}
-          - cpp: {version: 20}
-            bazel: {compilation_mode: dbg}
       fail-fast: false
-    name: Linux•Bazel(${{ matrix.bazel.compilation_mode }})•C++${{ matrix.cpp.version }}•Python${{ matrix.python.version }}
-    runs-on: ubuntu-latest
+      matrix:
+        # A sparse matrix, as described in
+        # https://opensource.google/documentation/policies/cplusplus-support:
+        # start from one origin configuration and vary one dimension at a time
+        # across the supported Ubuntu LTS releases and their compilers,
+        # compilation modes, C++ standards, and Python versions.
+        #
+        # Bazel 9 and Python 3.14-3.15 await bumping Protobuf past 29.2
+        # (Bazel 9 requires Protobuf >= 33.4; PyPI protobuf==5.29.2 supports up
+        # to Python 3.13).
+        #
+        # Other workflows vary the build system (amd64_linux_cmake.yml, plus
+        # arm64_macos_cmake.yml and amd64_windows_cmake.yml for platform- and
+        # multi-config-specific CMake logic) and operating system /
+        # architecture (arm64_macos_bazel.yml and amd64_windows_bazel.yml).
+        include:
+          # Origin: newest Ubuntu LTS, newest Clang, Bazel 8, fastbuild, C++17,
+          # default Python.
+          - {runner: ubuntu-26.04, cc: clang-22, bazel: 8.x, mode: fastbuild, cpp: 17, python: '3.12'}
+          # Compiler and Ubuntu LTS variations (GCC 15, GCC 13, GCC 11, Clang 14).
+          - {runner: ubuntu-26.04, cc: gcc, bazel: 8.x, mode: fastbuild, cpp: 17, python: '3.12'}
+          - {runner: ubuntu-24.04, cc: gcc, bazel: 8.x, mode: fastbuild, cpp: 17, python: '3.12'}
+          - {runner: ubuntu-22.04, cc: gcc, bazel: 8.x, mode: fastbuild, cpp: 17, python: '3.12'}
+          - {runner: ubuntu-22.04, cc: clang-14, bazel: 8.x, mode: fastbuild, cpp: 17, python: '3.12'}
+          # Compilation mode variation.
+          - {runner: ubuntu-26.04, cc: clang-22, bazel: 8.x, mode: dbg, cpp: 17, python: '3.12'}
+          # C++ standard variation.
+          - {runner: ubuntu-26.04, cc: clang-22, bazel: 8.x, mode: fastbuild, cpp: 20, python: '3.12'}
+          # Python version variations.
+          - {runner: ubuntu-26.04, cc: clang-22, bazel: 8.x, mode: fastbuild, cpp: 17, python: '3.10'}
+          - {runner: ubuntu-26.04, cc: clang-22, bazel: 8.x, mode: fastbuild, cpp: 17, python: '3.11'}
+          - {runner: ubuntu-26.04, cc: clang-22, bazel: 8.x, mode: fastbuild, cpp: 17, python: '3.13'}
+    env:
+      # Bazel's C++ toolchain autoconfiguration uses $CC.
+      CC: ${{matrix.cc}}
+      USE_BAZEL_VERSION: ${{matrix.bazel}}
     steps:
-      - uses: actions/checkout@v4
-      - name: Check Java
-        run: java -version
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: bazel-contrib/setup-bazel@0.19.1
         with:
-          python-version: ${{ matrix.python.version }}
+          bazelisk-cache: true
+          # One disk cache per configuration: a cache is written once per key,
+          # so a shared cache mainly helps the configuration that saved it.
+          disk-cache: ${{github.workflow}}-${{matrix.runner}}-${{matrix.cc}}-bzl${{matrix.bazel}}-${{matrix.mode}}-cxx${{matrix.cpp}}-py${{matrix.python}}
+          repository-cache: true
+          # Only main saves caches; pull requests restore main's caches
+          # (by key prefix), so they pay only for what they change, and the
+          # repository's 10 GB cache storage is not filled with per-PR copies.
+          cache-save: ${{github.ref == 'refs/heads/main'}}
+          bazelrc: common --repo_contents_cache=
+      - name: Check Bazel
+        run: bazel version
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{matrix.python}}
       - name: Check Python
         run: |
           python --version
           python -m platform
-      - uses: bazel-contrib/setup-bazel@0.8.4
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
-      - name: Check Bazel
-        run: bazel version
       - name: Build
         run: >
           bazel build
-          -c ${{ matrix.bazel.compilation_mode }}
-          --cxxopt=${{ matrix.cpp.flags }} --host_cxxopt=${{ matrix.cpp.flags }}
+          --config=ci
+          -c ${{matrix.mode}}
+          --@rules_python//python/config_settings:python_version=${{matrix.python}}
+          --cxxopt=-std=c++${{matrix.cpp}} --host_cxxopt=-std=c++${{matrix.cpp}}
           --subcommands=pretty_print
-          --enable_bzlmod
           //...
       - name: Test
         run: >
           bazel test
-          -c ${{ matrix.bazel.compilation_mode }}
-          --cxxopt=${{ matrix.cpp.flags }} --host_cxxopt=${{ matrix.cpp.flags }}
+          --config=ci
+          -c ${{matrix.mode}}
+          --@rules_python//python/config_settings:python_version=${{matrix.python}}
+          --cxxopt=-std=c++${{matrix.cpp}} --host_cxxopt=-std=c++${{matrix.cpp}}
           --subcommands=pretty_print
-          --enable_bzlmod
           //...
 
   amd64_linux_bazel:
     runs-on: ubuntu-latest
     needs: native
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7

@@ -1,6 +1,7 @@
 # ref: https://github.com/actions/runner-images
 name: amd64 Windows CMake
 
+# Controls when the action will run.
 on:
   push:
     branches:
@@ -18,26 +19,34 @@ concurrency:
   group: ${{github.workflow}}-${{github.ref == 'refs/heads/main' && github.run_id || github.ref}}
   cancel-in-progress: true
 
-# Building using the github runner environement directly.
+# Building using the github runner environment directly.
 jobs:
   native:
     strategy:
       matrix:
-        python: [
-          {version: '3.12'},
-        ]
-        cmake: [
-          {generator: "Visual Studio 17 2022", config: Release, build_target: ALL_BUILD, test_target: RUN_TESTS, install_target: INSTALL},
-        ]
+        # Kept in addition to amd64_windows_bazel.yml and amd64_linux_cmake.yml
+        # because our CMake build has Windows- and multi-config-specific logic
+        # that neither of those workflows exercises:
+        # * cmake/dependencies/CMakeLists.txt sets BUILD_SHARED_LIBS=ON,
+        #   building shared Abseil and Protobuf DLLs, and
+        #   pybind11_protobuf_build_tree_module has a WIN32-only POST_BUILD
+        #   command copying $<TARGET_RUNTIME_DLLS:...> next to each .pyd so
+        #   Python 3.8+ can load them.
+        # * Visual Studio is a multi-config generator, testing that
+        #   LIBRARY_OUTPUT_DIRECTORY "$<1:${CMAKE_CURRENT_BINARY_DIR}>"
+        #   suppresses the per-config Release/ subdirectory so CTest can import
+        #   extension modules from PYTHONPATH=${CMAKE_BINARY_DIR}.
+        include:
+          - {runner: windows-latest, generator: Visual Studio 18 2026, config: Release, build_target: ALL_BUILD, test_target: RUN_TESTS, install_target: INSTALL, cpp: 17, python: '3.12'}
       fail-fast: false
-    name: Windows•CMake(${{ matrix.cmake.generator }})•Python${{ matrix.python.version }}
-    runs-on: windows-2022
+    name: ${{matrix.runner}}•CMake(${{matrix.generator}},${{matrix.config}})•C++${{matrix.cpp}}•Py${{matrix.python}}
+    runs-on: ${{matrix.runner}}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: ${{ matrix.python.version }}
+          python-version: ${{matrix.python}}
       - name: Check Python
         run: |
           python --version
@@ -51,32 +60,33 @@ jobs:
       - name: Configure
         run: >
           cmake -S. -Bbuild
-          -G "${{ matrix.cmake.generator }}"
-          -DCMAKE_CONFIGURATION_TYPES=${{ matrix.cmake.config }}
+          -G "${{matrix.generator}}"
+          -DCMAKE_CONFIGURATION_TYPES=${{matrix.config}}
+          -DCMAKE_CXX_STANDARD=${{matrix.cpp}}
           -DCMAKE_INSTALL_PREFIX=install
       - name: Build
         run: >
           cmake --build build
-          --config ${{ matrix.cmake.config }}
-          --target ${{ matrix.cmake.build_target }}
+          --config ${{matrix.config}}
+          --target ${{matrix.build_target}}
           -v -j2
       - name: Test
         shell: bash
         run: >
           CTEST_OUTPUT_ON_FAILURE=1
           cmake --build build
-          --config ${{ matrix.cmake.config }}
-          --target ${{ matrix.cmake.test_target }}
+          --config ${{matrix.config}}
+          --target ${{matrix.test_target}}
           -v
       - name: Install
         run: >
           cmake --build build
-          --config ${{ matrix.cmake.config }}
-          --target ${{ matrix.cmake.install_target }}
+          --config ${{matrix.config}}
+          --target ${{matrix.install_target}}
           -v
 
   amd64_windows_cmake:
     runs-on: ubuntu-latest
     needs: native
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7

@@ -23,9 +23,27 @@ jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-    - uses: pre-commit/action@v3.0.0
+    - uses: actions/checkout@v7
+      with:
+        # On pull_request events, actions/checkout checks out GitHub's
+        # synthetic merge commit (refs/pull/<n>/merge), whose message is
+        # "Merge <sha> into <sha>". Depth 2 also fetches its parents so that
+        # pull_request.head.sha can be inspected below while pre-commit still
+        # runs on the merged tree.
+        fetch-depth: 2
+    - name: Check commit message
+      env:
+        COMMIT_SHA: ${{github.event.pull_request.head.sha || 'HEAD'}}
+      run: |
+        # Fail if the commit message looks like an internal-only or placeholder
+        # description that should not have been exported via Copybara.
+        if git log -1 --format=%B "${COMMIT_SHA}" | grep -iqE 'internal change|automated code change|no public description'; then
+          echo "::error::Commit message contains a forbidden phrase ('internal change', 'automated code change', or 'No public description')."
+          echo "This commit either should not have been exported or needs a real public description."
+          exit 1
+        fi
+    - uses: actions/setup-python@v7
+    - uses: pre-commit/action@v3.0.1
       with:
         # Slow hooks are marked with manual - slow is okay here, run them too
         extra_args: --hook-stage manual --all-files
