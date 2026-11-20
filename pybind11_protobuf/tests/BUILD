@@ -12,6 +12,7 @@ licenses(["notice"])
 py_library(
     name = "compare",
     srcs = ["compare.py"],
+    strict_deps = False,
     visibility = ["//visibility:public"],
     deps = ["@com_google_protobuf//:protobuf_python"],
 )
