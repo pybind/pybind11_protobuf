@@ -1,7 +1,22 @@
 # ref: https://github.com/actions/runner-images
 name: amd64 Linux Bazel
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  # Each run on main gets its own group, so that main runs are never
+  # cancelled and every commit gets a CI result. Setting
+  # cancel-in-progress to false would not suffice: a new run still cancels
+  # a pending run in the same group.
+  group: ${{github.workflow}}-${{github.ref == 'refs/heads/main' && github.run_id || github.ref}}
+  cancel-in-progress: true
 
 # Building using the github runner environement directly.
 jobs:
