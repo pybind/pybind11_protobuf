@@ -70,8 +70,8 @@ if(PYBIND11_PROTOBUF_BUILD_TESTING AND NOT TARGET pybind11_abseil::absl_casters)
   FetchContent_Declare(
     pybind11_abseil
     GIT_REPOSITORY "https://github.com/pybind/pybind11_abseil.git"
-    GIT_TAG "c39b1341ea117f815a787d22eb5781e156eb45f7"
-    GIT_SHALLOW FALSE)
+    GIT_TAG "v20240722.0"
+    GIT_SHALLOW TRUE)
   FetchContent_MakeAvailable(pybind11_abseil)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
   message(CHECK_PASS "fetched")
