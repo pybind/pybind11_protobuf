@@ -24,16 +24,13 @@ jobs:
     strategy:
       matrix:
         python: [
-          {version: '3.9'},
           {version: '3.10'},
           {version: '3.11'},
           {version: '3.12'},
-          #{version: '3.13'},
         ]
         cmake: [
           {generator: "Unix Makefiles", config: "Release"},
           {generator: "Ninja", config: "Release"},
-          #{generator: "Ninja Multi-Config", config: "Release"},
         ]
       fail-fast: false
     name: Linux•CMake(${{ matrix.cmake.generator }})•Python${{ matrix.python.version }}

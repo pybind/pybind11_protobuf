@@ -24,9 +24,7 @@ jobs:
     strategy:
       matrix:
         python: [
-          #{version: '3.11'},
           {version: '3.12'},
-          #{version: '3.13'},
         ]
         cmake: [
           {generator: "Visual Studio 17 2022", config: Release, build_target: ALL_BUILD, test_target: RUN_TESTS, install_target: INSTALL},
