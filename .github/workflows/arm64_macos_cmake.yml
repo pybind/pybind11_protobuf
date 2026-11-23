@@ -23,30 +23,31 @@ jobs:
   native:
     strategy:
       matrix:
-        python: [
-          {version: '3.10'},
-          {version: '3.11'},
-          {version: '3.12'},
-        ]
-        cmake: [
-          #{generator: "Xcode", config: Release, build_target: ALL_BUILD, test_target: RUN_TESTS, install_target: install},
-          {generator: "Unix Makefiles", config: Release, build_target: all, test_target: test, install_target: install},
-        ]
+        # Varies the operating system (macOS) and architecture (arm64) from the
+        # origin in amd64_linux_cmake.yml, keeping CMake 3.28, Release, and
+        # C++17 fixed. Python and CMake generator variations are tested on
+        # Linux; keeping macOS CMake to a single job also stays well below
+        # GitHub Actions' 5-concurrent-macOS-runner cap.
+        include:
+          # - {runner: macos-latest, generator: Xcode, config: Release, build_target: ALL_BUILD, test_target: RUN_TESTS, install_target: install, cpp: 17, python: '3.12'}
+          - {runner: macos-latest, generator: "Unix Makefiles", config: Release, build_target: all, test_target: test, install_target: install, cpp: 17, python: '3.12'}
       fail-fast: false
-    name: MacOS•CMake(${{ matrix.cmake.generator }})•Python${{ matrix.python.version }}
-    runs-on: macos-latest
+    name: ${{matrix.runner}}•CMake(${{matrix.generator}})•C++${{matrix.cpp}}•Py${{matrix.python}}
+    runs-on: ${{matrix.runner}}
     steps:
       - uses: actions/checkout@v4
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python.version }}
+          python-version: ${{matrix.python}}
       - name: Update Path
         run: |
-          echo "$HOME/Library/Python/${{ matrix.python.version }}/bin" >> $GITHUB_PATH
+          echo "$HOME/Library/Python/${{matrix.python}}/bin" >> $GITHUB_PATH
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Check Python
-        run: python --version
+        run: |
+          python --version
+          python -m platform
       - name: Install Python requirements
         run: python -m pip install --upgrade -r $(python -c 'import sys; print("./pybind11_protobuf/requirements/requirements_lock_%d_%d.txt" % (sys.version_info[:2]))')
       - name: Check CMake
@@ -54,27 +55,29 @@ jobs:
       - name: Configure
         run: >
           cmake -S. -Bbuild
-          -G "${{ matrix.cmake.generator }}"
-          -DCMAKE_BUILD_TYPE=${{ matrix.cmake.config }}
+          -G "${{matrix.generator}}"
+          -DCMAKE_BUILD_TYPE=${{matrix.config}}
+          -DCMAKE_CONFIGURATION_TYPES=${{matrix.config}}
+          -DCMAKE_CXX_STANDARD=${{matrix.cpp}}
           -DCMAKE_INSTALL_PREFIX=install
       - name: Build
         run: >
           cmake --build build
-          --config ${{ matrix.cmake.config }}
-          --target ${{ matrix.cmake.build_target }}
+          --config ${{matrix.config}}
+          --target ${{matrix.build_target}}
           -v -j2
       - name: Test
         run: >
           CTEST_OUTPUT_ON_FAILURE=1
           cmake --build build
-          --config ${{ matrix.cmake.config }}
-          --target ${{ matrix.cmake.test_target }}
+          --config ${{matrix.config}}
+          --target ${{matrix.test_target}}
           -v
       - name: Install
         run: >
           cmake --build build
-          --config ${{ matrix.cmake.config }}
-          --target ${{ matrix.cmake.install_target }}
+          --config ${{matrix.config}}
+          --target ${{matrix.install_target}}
           -v
 
   arm64_macos_cmake:

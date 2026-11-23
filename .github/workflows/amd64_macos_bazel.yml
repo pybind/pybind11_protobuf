@@ -23,28 +23,18 @@ jobs:
   native:
     strategy:
       matrix:
-        bazel: [
-          {compilation_mode: opt},
-          {compilation_mode: dbg},
-        ]
-        cpp: [
-          #{version: 14, flags: "-std=c++14"},
-          {version: 17, flags: "-std=c++17"},
-          #{version: 20, flags: "-std=c++20"},
-        ]
-        python: [
-          #{version: '3.11'},
-          {version: '3.12'},
-        ]
-        exclude:
-          # only test `-c dbg` build with C++17
-          - cpp: {version: 14}
-            bazel: {compilation_mode: dbg}
-          - cpp: {version: 20}
-            bazel: {compilation_mode: dbg}
+        # Varies the operating system (macOS) and architecture (amd64) from the
+        # origin in amd64_linux_bazel.yml, keeping Bazel 8, fastbuild, C++17,
+        # and Python 3.12 fixed. Compiler, C++ standard, and Python version
+        # variations are tested on Linux; keeping macOS Bazel to a single job
+        # also stays well below GitHub Actions' 5-concurrent-macOS-runner cap.
+        include:
+          - {runner: macos-26-intel, bazel: 8.x, mode: fastbuild, cpp: 17, python: '3.12'}
       fail-fast: false
-    name: MacOS•Bazel(${{ matrix.bazel.compilation_mode }})•C++${{ matrix.cpp.version }}•Python${{ matrix.python.version }}
-    runs-on: macos-26-intel
+    name: ${{matrix.runner}}•Bazel(${{matrix.mode}})•C++${{matrix.cpp}}•Py${{matrix.python}}
+    runs-on: ${{matrix.runner}}
+    env:
+      USE_BAZEL_VERSION: ${{matrix.bazel}}
     steps:
       - uses: actions/checkout@v4
       - name: Set Java to OpenJDK 17 (Temurin)
@@ -55,30 +45,41 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python.version }}
+          python-version: ${{matrix.python}}
       - name: Check Python
         run: |
           python --version
           python -m platform
+      - uses: bazel-contrib/setup-bazel@0.19.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{github.workflow}}-${{matrix.mode}}-cxx${{matrix.cpp}}-py${{matrix.python}}
+          repository-cache: true
+          # Only main saves caches; pull requests restore main's caches
+          # (by key prefix), so they pay only for what they change, and the
+          # repository's 10 GB cache storage is not filled with per-PR copies.
+          cache-save: ${{github.ref == 'refs/heads/main'}}
+          # Bazel 9 also keeps extracted repositories (e.g. Python toolchains)
+          # in the repository cache, which grew the saved cache from about
+          # 0.4 GB to 1.6 GB; restoring that takes longer than re-extracting.
+          bazelrc: common --repo_contents_cache=
       - name: Check Bazel
         run: bazel version
-      - name: Change Python in MODULE.bazel
-        run: |
-          sed -i '' -e 's/\(DEFAULT_PYTHON =\) "3.[0-9]*"/\1 "${{ matrix.python.version }}"/g' MODULE.bazel
-          cat MODULE.bazel
       - name: Build
         run: >
           bazel build
-          -c ${{ matrix.bazel.compilation_mode }}
-          --cxxopt=${{ matrix.cpp.flags }} --host_cxxopt=${{ matrix.cpp.flags }}
+          -c ${{matrix.mode}}
+          --@rules_python//python/config_settings:python_version=${{matrix.python}}
+          --cxxopt=-std=c++${{matrix.cpp}} --host_cxxopt=-std=c++${{matrix.cpp}}
           --subcommands=pretty_print
           --enable_bzlmod
           //...
       - name: Test
         run: >
           bazel test
-          -c ${{ matrix.bazel.compilation_mode }}
-          --cxxopt=${{ matrix.cpp.flags }} --host_cxxopt=${{ matrix.cpp.flags }}
+          -c ${{matrix.mode}}
+          --@rules_python//python/config_settings:python_version=${{matrix.python}}
+          --cxxopt=-std=c++${{matrix.cpp}} --host_cxxopt=-std=c++${{matrix.cpp}}
           --subcommands=pretty_print
           --enable_bzlmod
           //...
