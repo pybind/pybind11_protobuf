@@ -104,6 +104,11 @@ class MessageTest(parameterized.TestCase, compare.ProtoAssertions):
     del message.repeated_int_value[1:3]
     self.assertSequenceEqual(message.repeated_int_value, [8, 5])
 
+    message.repeated_int_value.remove(8)
+    self.assertSequenceEqual(message.repeated_int_value, [5])
+    with self.assertRaises(ValueError):
+      message.repeated_int_value.remove(8)
+
     del message.repeated_int_value[:]
     self.assertEmpty(message.repeated_int_value)
 
@@ -190,6 +195,13 @@ class MessageTest(parameterized.TestCase, compare.ProtoAssertions):
 
     del message.repeated_int_message[2:4]
     check_values(message.repeated_int_message, [8, 7, 0, 3])
+
+    to_remove = message.repeated_int_message[1]
+    self.assertEqual(to_remove.value, 7)
+    message.repeated_int_message.remove(to_remove)
+    check_values(message.repeated_int_message, [8, 0, 3])
+    with self.assertRaises(ValueError):
+      message.repeated_int_message.remove(to_remove)
 
     del message.repeated_int_message[:]
     self.assertEmpty(message.repeated_int_message)
