@@ -1,6 +1,7 @@
 # ============================================================================
 # pybind11_proto_utils pybind11 extension module
 pybind11_add_module(pybind11_proto_utils MODULE proto_utils.cc proto_utils.h)
+pybind11_protobuf_build_tree_module(pybind11_proto_utils)
 add_library(pybind11_protobuf::pybind11_proto_utils ALIAS pybind11_proto_utils)
 
 # note: macOS is APPLE and also UNIX !
@@ -15,7 +16,7 @@ target_link_libraries(pybind11_proto_utils PUBLIC absl::strings
                                                   protobuf::libprotobuf)
 
 # ============================================================================
-# pybind11_native_proto_caster shared library
+# pybind11_native_proto_caster static library
 add_library(
   pybind11_native_proto_caster STATIC
   # bazel: pybind_library: native_proto_caster
@@ -43,7 +44,7 @@ target_include_directories(pybind11_native_proto_caster
                            PUBLIC $<BUILD_INTERFACE:${TOP_LEVEL_DIR}>)
 
 # ============================================================================
-# pybind11_wrapped_proto_caster shared library
+# pybind11_wrapped_proto_caster static library
 add_library(
   pybind11_wrapped_proto_caster STATIC
   # bazel: pybind_library: wrapped_proto_caster
@@ -66,24 +67,6 @@ target_link_libraries(
 target_include_directories(pybind11_wrapped_proto_caster
                            PUBLIC $<BUILD_INTERFACE:${TOP_LEVEL_DIR}>)
 
-if(BUILD_TESTING)
+if(PYBIND11_PROTOBUF_BUILD_TESTING)
   add_subdirectory(tests)
-endif()
-
-if(CMAKE_INSTALL_PYDIR)
-  # Copying to two target directories for simplicity. It is currently unknown
-  # how to determine here which copy is actually being used.
-  install(
-    TARGETS status_py_extension_stub ok_status_singleton
-    EXPORT pybind11_abseilTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_PYDIR}/pybind11_abseil
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_PYDIR}/pybind11_abseil
-    RUNTIME DESTINATION ${CMAKE_INSTALL_PYDIR}/pybind11_abseil)
-
-  install(
-    TARGETS status_py_extension_stub ok_status_singleton
-    EXPORT pybind11_abseil_cppTargets
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()

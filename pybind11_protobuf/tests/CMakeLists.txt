@@ -14,8 +14,11 @@ function(generate_cc_proto protoname)
   #
   add_library(${protoname}_cc_proto OBJECT)
   target_include_directories(${protoname}_cc_proto
-    PRIVATE $<TARGET_PROPERTY:protobuf::libprotobuf,INCLUDE_DIRECTORIES>
-            $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>)
+    PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}>)
+  target_link_libraries(${protoname}_cc_proto PUBLIC protobuf::libprotobuf)
+  if(ARGN)
+    add_dependencies(${protoname}_cc_proto ${ARGN})
+  endif()
   protobuf_generate(
     TARGET ${protoname}_cc_proto
     PROTOS ${CMAKE_SOURCE_DIR}/pybind11_protobuf/tests/${protoname}.proto
@@ -37,10 +40,10 @@ endfunction()
 # cmake-format: on
 
 generate_cc_proto("test")
-generate_cc_proto("extension")
-generate_cc_proto("extension_nest_repeated")
-generate_cc_proto("extension_in_other_file_in_deps")
-generate_cc_proto("extension_in_other_file")
+generate_cc_proto("extension" test_cc_proto)
+generate_cc_proto("extension_nest_repeated" extension_cc_proto)
+generate_cc_proto("extension_in_other_file_in_deps" extension_cc_proto)
+generate_cc_proto("extension_in_other_file" extension_cc_proto)
 generate_cc_proto("we-love-dashes")
 
 generate_py_proto("test")
@@ -50,7 +53,11 @@ generate_py_proto("extension_in_other_file_in_deps")
 generate_py_proto("extension_in_other_file")
 
 function(generate_extension modulename deps)
-  pybind11_add_module(${modulename}_module ${modulename}_module.cc)
+  pybind11_add_module(${modulename}_module MODULE ${modulename}_module.cc)
+  pybind11_protobuf_build_tree_module(${modulename}_module)
+  if(APPLE)
+    set_target_properties(${modulename}_module PROPERTIES SUFFIX ".so")
+  endif()
   add_dependencies(${modulename}_module ${deps})
   target_include_directories(${modulename}_module #
                              PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR})

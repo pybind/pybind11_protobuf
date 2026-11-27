@@ -36,6 +36,9 @@ if(NOT TARGET protobuf::libprotobuf)
     message(CHECK_START "Fetching Protobuf")
     list(APPEND CMAKE_MESSAGE_INDENT "  ")
     set(protobuf_BUILD_TESTS OFF)
+    # Match the dynamic MSVC C runtime (/MD) used by Python, pybind11, and
+    # Abseil on Windows.
+    set(protobuf_MSVC_STATIC_RUNTIME OFF)
     FetchContent_Declare(
       Protobuf
       GIT_REPOSITORY "https://github.com/protocolbuffers/protobuf.git"
