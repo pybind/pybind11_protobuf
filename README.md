@@ -63,6 +63,16 @@ PYBIND11_MODULE(my_module, m) {
 }
 ```
 
+## Supported platforms
+
+pybind11_protobuf follows Google's
+[Foundational C++ Support Policy](https://opensource.google/documentation/policies/cplusplus-support):
+see its
+[support matrix](https://github.com/google/oss-policies-info/blob/main/foundational-cxx-support-matrix.md)
+for the supported operating systems, compilers, C++ standards, and Bazel and
+CMake versions. The supported Python versions are listed in
+`SUPPORTED_PYTHON_VERSIONS` in [MODULE.bazel](MODULE.bazel).
+
 ## C++ Native vs Python Native Types
 
 When passing protos between C++ and Python, the `native_proto_caster.h`
